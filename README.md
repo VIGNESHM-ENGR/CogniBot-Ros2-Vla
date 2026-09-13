@@ -2,7 +2,7 @@
 
 > **Language → vision → action on a laptop GPU.** A fully containerized ROS 2 Jazzy manipulation stack. A local vision-language model (Qwen3-VL-4B on llama.cpp) grounds requests in the camera image and calls robot tools. Those tools are MoveIt 2 motion planning and LeRobot SmolVLA inference, running on a MuJoCo-simulated LeRobot SO-101 arm (or a Franka Panda), with sphere-based collision safety and a web operator console.
 
-![status](https://img.shields.io/badge/status-phase%200%20foundation-orange) ![ros](https://img.shields.io/badge/ROS%202-Jazzy-22314E) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+![status](https://img.shields.io/badge/status-phase%201%20simulation%20core-green) ![ros](https://img.shields.io/badge/ROS%202-Jazzy-22314E) ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
 **Target hardware:** RTX 3060 Laptop (6 GB VRAM) · 40 GB RAM · Ubuntu 24.04 · Docker + NVIDIA Container Toolkit
 
@@ -53,9 +53,9 @@ Host preparation (NVIDIA toolkit, EGL, DDS buffers): [docs/SETUP.md](docs/SETUP.
 
 | Phase | Milestone | Status |
 |---|---|---|
-| P0 | Foundation: docs, workspace, interfaces, Docker/Compose, CI | 🟡 in progress |
-| P1 | Headless MuJoCo sim with controllers, RGB-D cameras, Panda variant | ⏳ |
-| P2 | MoveIt 2 + pick_ik, mink teleop, collision spheres, safety filter, reachability | ⏳ |
+| P0 | Foundation: docs, workspace, interfaces, Docker/Compose, CI | 🟢 done (v0.1.0) |
+| P1 | Headless MuJoCo sim with controllers, RGB-D cameras, Panda variant | 🟢 done (v0.2.0) |
+| P2 | MoveIt 2 + pick_ik, mink teleop, collision spheres, safety filter, reachability | 🟡 next |
 | P3 | Web operator console | ⏳ |
 | P4 | Qwen3-VL tool-calling agent with 3D grounding | ⏳ |
 | P5 | SmolVLA via LeRobot async inference, measured VRAM budget | ⏳ |

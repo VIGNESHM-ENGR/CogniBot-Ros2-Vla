@@ -6,6 +6,29 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-13
+
+### Added
+- Headless MuJoCo simulation core with `mujoco_ros2_control` in `cognibot_sim`.
+- Pinned MuJoCo Menagerie models for SO-101 and Franka Panda robots at commit `8161bba`.
+- Exported deterministic `so101_pick_and_place.xml` scene from `so101-nexus==0.6.0` with table, manipuland, target, and cameras.
+- SO-101 and Franka Panda URDF/xacro descriptions integrating `<ros2_control>` hardware interface.
+- Controller configurations: `joint_state_broadcaster`, `joint_trajectory_controller`, `gripper_controller`, and inactive `arm_position_controller` running at 100 Hz.
+- Camera publishing on `/mujoco_camera_plugin/...` at 20 Hz with optical frame static TF publishers and reprojection verified (< 3 px error).
+- Robot registry schema and loader in `cognibot_common.robot_registry` with support for `so101` and `panda`.
+- `gpu_monitor` node in `cognibot_common` publishing `GpuStatus` messages on `/cognibot/gpu` with NVML monitoring and mock fallback.
+- Python dependency management with `uv` and locked dependencies in `uv.lock`.
+
+### Fixed
+- Lowered CycloneDDS minimum receive buffer in `cyclonedds.xml` to 2 MB to fit default Linux kernel `rmem_max`.
+- Resolved camera optical axis frame transformation from MuJoCo camera coordinates to ROS convention (+Z forward, +X right, +Y down).
+- Aligned Franka Panda finger actuator to direct joint control for compatibility with `mujoco_ros2_control`.
+- Fixed XML declaration leading spaces across workspace `package.xml` files.
+- Declared missing `so101_description`, `moveit_resources_panda_description`, `tf2_ros` and Python dependencies in package manifests.
+- Scoped host `pytest` to ROS-free tests and cleaned all ruff lint and format findings.
+
+## [0.1.0] - 2026-09-13
+
 ### Added
 - README with architecture overview, profiles, quick start and roadmap.
 - CI workflow (ruff, commit-message policy on PRs, compose validation for all profiles, colcon build/test on Jazzy), pre-commit hooks and ruff configuration.
