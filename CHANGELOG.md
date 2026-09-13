@@ -8,9 +8,15 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ### Added
 - `robot_color` launch argument (`red` default, `stock`) that recolors the robot via `cognibot_common.mjcf_tint` and `mjcf.tint_materials` in the robot registry.
+- `make test` (all workspace tests, including GPU launch tests, in the core image) and `make deps` (fetch pinned third-party sources on the host).
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
+- The core image fetches third-party ROS sources from `third_party.repos` instead of the build context; `.dockerignore` added.
+- `make sim` and `make sim-dev` start only the `sim` service until motion, bridge and dashboard exist; `ROBOT_COLOR` is passed through compose.
+
+### Fixed
+- CI `ros` job now installs MuJoCo and third-party sources and runs the GPU-free tests.
 
 ## [0.2.0] - 2026-09-13
 

@@ -13,6 +13,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: astral-sh/ruff-action@v3
+        with:
+          version: "0.13.0"
       - name: Commit messages (Conventional Commits, no attribution trailers)
         if: github.event_name == 'pull_request'
         run: |
@@ -28,16 +30,33 @@ jobs:
       - name: Validate compose for every profile
         run: make config
 
+  # GPU-free tests. Launch tests that render MuJoCo cameras need EGL on an NVIDIA GPU and run
+  # locally with `make test`.
   ros:
     runs-on: ubuntu-24.04
-    container: ros:jazzy-ros-base-noble
+    container: ros:jazzy-ros-base-noble@sha256:386d06ec6d4188f731bae5678e07b4cb64a4e4d4152090c0bd1f881dcf7706f5
+    env:
+      PYTHONPATH: /opt/venv/lib/python3.12/site-packages
     steps:
       - uses: actions/checkout@v4
-      - name: Build and test workspace
+      - name: Install test dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends python3-vcstool python3-venv git \
+            ros-jazzy-xacro ros-jazzy-ament-cmake-pytest ros-jazzy-launch-testing-ament-cmake python3-scipy
+          python3 -m venv --system-site-packages /opt/venv
+          /opt/venv/bin/pip install "mujoco==3.12.0"
+      - name: Fetch pinned third-party sources
+        run: |
+          mkdir -p cognibot_ws/src/third_party
+          vcs import cognibot_ws/src/third_party < cognibot_ws/third_party.repos
+      - name: Build and test
         shell: bash
         run: |
           source /opt/ros/jazzy/setup.bash
           cd cognibot_ws
-          colcon build --event-handlers console_cohesion+
-          colcon test --event-handlers console_cohesion+
+          colcon build --packages-up-to cognibot_common cognibot_sim --event-handlers console_cohesion+
+          source install/setup.bash
+          colcon test --packages-select cognibot_common cognibot_sim \
+            --ctest-args -R test_model_consistency --event-handlers console_cohesion+
           colcon test-result --verbose

@@ -4,7 +4,7 @@ COMPOSE_DEV := $(COMPOSE) -f cognibot_ws/docker/compose.dev.yaml
 PROFILES    := vlm vla twin full
 
 .DEFAULT_GOAL := help
-.PHONY: help env build build-all config sim sim-dev vlm vla full twin down logs ps shell-sim
+.PHONY: help env deps build build-all config sim sim-dev test vlm vla full twin down logs ps shell-sim
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -12,6 +12,9 @@ help: ## Show available targets
 env: ## Create cognibot_ws/docker/.env from the example (host UID/GID filled in)
 	@test -f cognibot_ws/docker/.env || sed -e "s/^HOST_UID=.*/HOST_UID=$$(id -u)/" -e "s/^HOST_GID=.*/HOST_GID=$$(id -g)/" \
 		cognibot_ws/docker/.env.example > cognibot_ws/docker/.env && echo "cognibot_ws/docker/.env ready"
+
+deps: ## Fetch pinned third-party ROS sources into cognibot_ws/src/third_party (host, for sim-dev)
+	uvx --from vcstool==0.3.0 --with "setuptools<81" vcs import cognibot_ws/src/third_party < cognibot_ws/third_party.repos
 
 build: ## Build the core, vlm and vla images
 	$(COMPOSE) --profile full build sim vlm-agent vla-client
@@ -23,11 +26,22 @@ config: ## Validate the compose file for every profile
 	@$(COMPOSE) config -q && echo "core: ok"
 	@for p in $(PROFILES); do $(COMPOSE) --profile $$p config -q && echo "$$p: ok"; done
 
-sim: ## Start the core stack (sim, motion, bridge, dashboard)
-	$(COMPOSE) up -d
+# motion, bridge and dashboard join `sim` and `sim-dev` once P2/P3 add their launch files and sources.
+sim: ## Start the headless simulation (ROBOT=so101|panda, ROBOT_COLOR=red|stock)
+	$(COMPOSE) up -d sim
 
-sim-dev: ## Core stack with GUI and live source mounts
-	$(COMPOSE_DEV) up -d
+sim-dev: ## Simulation with the MuJoCo viewer over X11 and live source mounts (run `make deps` first)
+	xhost +si:localuser:$$(whoami) >/dev/null
+	$(COMPOSE_DEV) up sim
+
+test: ## Build and run every workspace test (incl. GPU launch tests) in the core image
+	$(COMPOSE) run --rm --no-deps -v $(CURDIR)/cognibot_ws/src:/src:ro --entrypoint bash sim -c '\
+	  source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash && \
+	  mkdir -p /tmp/w && cd /tmp/w && ln -s /src src && \
+	  colcon build --packages-up-to cognibot_common cognibot_sim cognibot_bringup \
+	    --packages-skip cognibot_interfaces --event-handlers console_cohesion- && \
+	  source install/setup.bash && \
+	  colcon test --packages-select cognibot_common cognibot_sim && colcon test-result --verbose'
 
 vlm: ## Core + llama-swap + VLM agent
 	$(COMPOSE) --profile vlm up -d

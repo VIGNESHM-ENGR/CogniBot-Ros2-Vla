@@ -1,0 +1,14 @@
+# Build context is the repository root; keep it small and reproducible.
+.git
+.venv
+.cache
+**/__pycache__
+**/.pytest_cache
+.ruff_cache
+node_modules
+dashboard/dist
+cognibot_ws/build
+cognibot_ws/install
+cognibot_ws/log
+# Fetched inside the image from cognibot_ws/third_party.repos
+cognibot_ws/src/third_party

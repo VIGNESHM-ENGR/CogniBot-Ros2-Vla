@@ -2,7 +2,7 @@
 #   xhost +si:localuser:$(whoami) && make sim-dev
 services:
   sim:
-    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} headless:=false
+    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} robot_color:=${ROBOT_COLOR:-red} headless:=false
     environment:
       DISPLAY: ${DISPLAY:-:0}
     volumes:

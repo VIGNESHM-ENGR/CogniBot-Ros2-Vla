@@ -41,7 +41,7 @@ services:
     <<: [*ros, *gpu]
     image: cognibot/core:${COGNIBOT_VERSION:-dev}
     build: *core-build
-    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} headless:=true
+    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} robot_color:=${ROBOT_COLOR:-red} headless:=true
     mem_limit: 4g
     healthcheck:
       test: ["CMD-SHELL", "/entrypoint.sh ros2 control list_controllers | grep -q 'joint_state_broadcaster.*active'"]

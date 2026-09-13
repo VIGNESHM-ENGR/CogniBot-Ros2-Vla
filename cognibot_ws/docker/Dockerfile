@@ -47,7 +47,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-jazzy-xacro \
       ros-jazzy-robot-state-publisher \
       python3-venv python3-vcstool python3-colcon-common-extensions \
-      libegl1 libgles2 libglvnd0 libgl1 curl \
+      libegl1 libgles2 libglvnd0 libgl1 curl git \
  && rm -rf /var/lib/apt/lists/*
 
 # Headless MuJoCo rendering through the NVIDIA EGL driver (graphics capability required).
@@ -77,10 +77,15 @@ RUN (id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu || true) \
  && useradd -m -o -u "${HOST_UID}" -g "${HOST_GID}" -s /bin/bash cognibot \
  && mkdir -p /ws && chown cognibot:cognibot /ws
 
-# Workspace packages (overlay). Third-party sources are added by the phase that needs them.
+# Workspace packages (overlay). Third-party sources come from the pinned .repos file, never from
+# the build context (.dockerignore excludes src/third_party), so a clean clone builds the same image.
+COPY --chown=cognibot:cognibot cognibot_ws/third_party.repos /ws/third_party.repos
+RUN mkdir -p /ws/src/third_party && vcs import /ws/src/third_party < /ws/third_party.repos
 COPY --chown=cognibot:cognibot cognibot_ws/src /ws/src
 RUN source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
  && cd /ws && colcon build --symlink-install \
+      --packages-up-to cognibot_bringup cognibot_sim cognibot_motion cognibot_teleop cognibot_twin \
+        so101_moveit_config \
       --packages-skip cognibot_interfaces cognibot_common \
  && chown -R cognibot:cognibot /ws
 

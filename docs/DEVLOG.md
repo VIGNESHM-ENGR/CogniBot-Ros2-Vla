@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | infra | Reproducible core image, GPU-free CI and `make test` | build |
 | 2026-09-13 | owner request | Red robot color switch and green cube | feat |
 | 2026-09-13 | P1-T10 | Release-readiness review of Phase 1 | fix |
 | 2026-09-13 | P1-T01…T10 | Phase 1 Simulation Core (SO-101, Panda, cameras, TF, GPU monitor) | feat |
@@ -71,6 +72,39 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · infra · Reproducible core image, GPU-free CI and `make test`
+
+**Context:** open questions from the Phase 1 review: the first GitHub CI run failed (`No module named 'mujoco'`), the core image depended on a gitignored `third_party/` in the build context, and `make sim` started services that do not exist yet.
+**Outcome:** ✅ done. Core image rebuilt from a context without `third_party/`; `make test` → 24 tests, 0 failures; CI job dry-run in a clean `ros:jazzy-ros-base` container → 18 tests, 0 failures.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | CI `ros` job: `ModuleNotFoundError: No module named 'mujoco'` | The job used bare `ros-base` with no MuJoCo, xacro or third-party sources | Install xacro/test deps, pip `mujoco==3.12.0` in a system-site venv, `vcs import` the pinned repos, run the GPU-free tests (`cognibot_common`, `test_model_consistency`) | Clean-container dry run: 18 tests, 0 failures |
+| 2 | A clean clone would build a core image without `so101_description` | `COPY cognibot_ws/src` picked up whatever `third_party/` existed on the host; the directory is gitignored | `.dockerignore` excludes it; the image runs `vcs import` from `third_party.repos` and builds `--packages-up-to` the CogniBot packages and `so101_moveit_config` (skips `reach`, `feetech_ros2_driver` and the pixi-based so101 packages until their phases) | Image rebuilt; `/ws/install` holds only the intended packages |
+| 3 | `pip install mujoco` in `ros-base` failed with `Cannot uninstall numpy 1.26.4, RECORD file not found` | pip tried to upgrade the Debian-managed numpy | Same pattern as the core image: `python3 -m venv --system-site-packages` + `PYTHONPATH` | CI dry run |
+| 4 | Dry-run `vcs import` failed in a git worktree copy | The worktree `.git` file pointed to a host path | Removed `.git` in the throwaway copy (CI checkouts are unaffected) | — |
+
+### Decisions
+#### D1: Where GPU launch tests run
+```mermaid
+flowchart TD
+  Q[Launch tests render MuJoCo cameras through EGL] --> A[GitHub-hosted runner]
+  Q --> B[Self-hosted GPU runner]
+  Q --> C[Local make test in the core image]
+  A --> A1[✗ no NVIDIA GPU; EGL camera plugin cannot initialise]
+  B --> B1[✗ exposes the owner's laptop to workflow code]
+  C --> C1[✓ chosen: CI keeps GPU-free tests, make test runs all 24]
+```
+- **Revisit if:** a GPU runner becomes available, or the camera plugin gains a software-rendering path.
+
+### Other changes
+- `make sim` starts only `sim`; `make sim-dev` runs `xhost` and opens the MuJoCo viewer; `make deps` fetches third-party sources on the host (needed because `sim-dev` mounts `src/`).
+- Compose passes `robot_color:=${ROBOT_COLOR:-red}`; `.env.example` documents it.
+- ruff version pinned to 0.13.0 in CI to match pre-commit.
+
+---
 
 ## 2026-09-13 · owner request · Red robot color switch and green cube
 
