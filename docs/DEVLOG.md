@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P3-T01, P3-T02 | Browser bridge and rosbridge action support | feat |
 | 2026-09-13 | P2-T01 | MoveIt 2 with pick_ik for SO-101 | feat |
 | 2026-09-13 | owner request | Scripted pick-and-place demo and simulation GPU load | feat |
 | 2026-09-13 | P5 prep | Pinned policy checkpoint download (SmolVLA, ACT, Diffusion) | feat |
@@ -75,6 +76,36 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P3-T01, P3-T02 · Browser bridge and rosbridge action support
+
+**Context:** first step of the operator dashboard. P3-T01 formally depends on the v0.3.0 release; the owner asked to start the dashboard after P2-T01, so P2-T02…T11 remain open and panels that need them (teleop, safety, reachability) wait.
+**Outcome:** ✅ done. `bridge.launch.py` serves rosbridge on `127.0.0.1:9090` and `web_video_server` on `127.0.0.1:8080`; actions work through rosbridge, so no fallback shim is needed.
+
+### Evidence
+- `ss -ltnp`: `127.0.0.1:9090` (rosbridge_websocket), `127.0.0.1:8080` (web_video_server). Nothing on `0.0.0.0`.
+- `curl /stream_viewer?topic=/mujoco_camera_plugin/front_rgbd/color` → 200; `/snapshot` → 22 kB JPEG.
+- WebSocket `subscribe /joint_states` returned the six SO-101 joints; `/rosapi/topics` listed 45 topics.
+- Action spike on `/joint_trajectory_controller/follow_joint_trajectory` over the raw rosbridge protocol:
+
+| Run | Feedback messages | Final status | Notes |
+|---|---|---|---|
+| 4 s goal | 79 | 4 SUCCEEDED | |
+| 4 s goal, cancel after 1 s | 20 | 5 CANCELED | result 0.06 s after `cancel_action_goal` |
+| 2 s goal | 39 | 4 SUCCEEDED | |
+
+### Decisions
+#### D1: Camera topics for the browser
+```mermaid
+flowchart TD
+  Q[Dashboard needs /camera/front/color/image_raw per contract] --> A[topic_tools relay nodes]
+  Q --> B[Stream plugin topics directly via web_video_server]
+  A --> A1[✗ copies 640x480 RGB and depth at 20 Hz through DDS for a rename]
+  B --> B1[✓ chosen: zero extra copies; topic names come from dashboard config]
+```
+- **Revisit if:** a real camera driver replaces the simulator and the topic contract becomes binding for the dashboard.
+
+---
 
 ## 2026-09-13 · P2-T01 · MoveIt 2 with pick_ik for SO-101
 

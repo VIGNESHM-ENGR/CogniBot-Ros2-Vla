@@ -77,7 +77,9 @@ Conventions:
 | `/joint_trajectory_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | JTC | move_group |
 | `/gripper_controller/gripper_cmd` | `control_msgs/action/ParallelGripperCommand` | gripper controller | move_group, pick_place_server |
 
-> **rosbridge and actions:** recent rosbridge_suite releases proxy ROS 2 actions (`send_action_goal` / `cancel_action_goal` ops, supported by roslibjs `Action`). P3-T02 verifies this against the Jazzy binary. If it fails, the dashboard falls back to `/cognibot/agent/events` and `/cognibot/vla/status` for progress, plus a small service shim. The result is recorded here.
+> **rosbridge and actions (verified P3-T02, `ros-jazzy-rosbridge-server` 2.7.1):** the `send_action_goal` / `action_feedback` / `action_result` / `cancel_action_goal` ops work against `/joint_trajectory_controller/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`): feedback streams during execution (~20 Hz), a completed goal returns `status: 4` (SUCCEEDED), and a cancel sent mid-motion returns `status: 5` (CANCELED) 0.06 s later. The dashboard uses actions directly; no service shim is needed. The spike used the raw protocol from Python; P3-T04 confirms the same ops through the pinned roslibjs `Action` class.
+>
+> **Camera streams for the browser:** `web_video_server` on `127.0.0.1:8080` serves the simulator topics directly, e.g. `/stream?topic=/mujoco_camera_plugin/front_rgbd/color` (MJPEG) and `/snapshot?topic=…` (JPEG).
 
 ## 4. Custom interface definitions (`cognibot_interfaces`)
 

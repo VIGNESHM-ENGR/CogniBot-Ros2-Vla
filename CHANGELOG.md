@@ -13,6 +13,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `make demo`: opens the MuJoCo viewer and runs a scripted SO-101 pick-and-place (`cognibot_motion/scripts/demo_pick_place.py`).
 - MoveIt 2 for SO-101 with position-only pick_ik: `cognibot_motion` `move_group.launch.py` (`rviz:=true`), `move_to_point` command and launch test.
 - `make moveit`: MuJoCo viewer plus RViz MotionPlanning for interactive IK goals.
+- `bridge` service: rosbridge WebSocket (:9090) and MJPEG camera streams (:8080) on loopback; `make sim` starts it with the simulation.
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.

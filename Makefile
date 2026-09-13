@@ -26,9 +26,9 @@ config: ## Validate the compose file for every profile
 	@$(COMPOSE) config -q && echo "core: ok"
 	@for p in $(PROFILES); do $(COMPOSE) --profile $$p config -q && echo "$$p: ok"; done
 
-# motion, bridge and dashboard join `sim` and `sim-dev` once P2/P3 add their launch files and sources.
-sim: ## Start the headless simulation (ROBOT=so101|panda, ROBOT_COLOR=red|stock)
-	$(COMPOSE) up -d sim
+# motion and dashboard join `sim` once their launch files and sources exist.
+sim: ## Headless simulation + browser bridge (rosbridge :9090, MJPEG :8080)
+	$(COMPOSE) up -d sim bridge
 
 sim-dev: ## Simulation with the MuJoCo viewer over X11 and live source mounts (run `make deps` first)
 	xhost +si:localuser:$$(whoami) >/dev/null
