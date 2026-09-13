@@ -5,12 +5,20 @@ services:
     command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} robot_color:=${ROBOT_COLOR:-red} headless:=false
     environment:
       DISPLAY: ${DISPLAY:-:0}
+      # Hybrid-graphics laptops: the X screen runs on the iGPU, whose Mesa driver is unavailable in
+      # the container, so GLX would fall back to software rendering. Render GL windows on NVIDIA.
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      __GLX_VENDOR_LIBRARY_NAME: nvidia
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ../src:/ws/src
   motion:
     environment:
       DISPLAY: ${DISPLAY:-:0}
+      # Hybrid-graphics laptops: the X screen runs on the iGPU, whose Mesa driver is unavailable in
+      # the container, so GLX would fall back to software rendering. Render GL windows on NVIDIA.
+      __NV_PRIME_RENDER_OFFLOAD: "1"
+      __GLX_VENDOR_LIBRARY_NAME: nvidia
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix:rw
       - ../src:/ws/src

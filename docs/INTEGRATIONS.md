@@ -22,7 +22,7 @@ CogniBot is an integration project. This file lists **every external component**
 |---|---|---|
 | `ros-jazzy-mujoco-ros2-control` (+ `-plugins`) | 0.1.2 | MuJoCo ↔ ros2_control system interface, camera plugin, headless simulate |
 | `ros-jazzy-ros2-controllers` / `ros2-control` | distro | joint_state_broadcaster, joint_trajectory_controller, position_controllers, parallel_gripper_action_controller |
-| `ros-jazzy-pick-ik` | 1.1.3 | IK plugin for 5-DOF SO-101 (position-only goals, soft orientation cost) |
+| `ros-jazzy-pick-ik` | 1.1.2 (binary in the pinned MoveIt image, 2026-09-03) | IK plugin for 5-DOF SO-101 (position-only: `rotation_scale: 0.0`) |
 | `ros-jazzy-moveit` (in base image) | distro | Planning, planning scene, MoveItPy |
 | `ros-jazzy-moveit-resources-panda-moveit-config` | distro | Franka Panda MoveIt config |
 | `ros-jazzy-rosbridge-server` | distro | WebSocket bridge for the dashboard |
@@ -62,14 +62,15 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 
 | Package | Where | Pin | Purpose |
 |---|---|---|---|
-| `mujoco` | `core` venv | `==` version matching `mujoco_vendor` (**TBD**, P1-T01) | Python bindings for mink and the safety filter |
-| [`mink`](https://github.com/kevinzakka/mink) | `core` venv | **TBD** (P2-T03) | Differential IK QP with collision avoidance |
-| `qpsolvers[daqp]` | `core` venv | **TBD** | QP backend for mink |
+| `mujoco` | `core` venv | `3.12.0` (matches `ros-jazzy-mujoco-vendor`) | Python bindings for mink and the safety filter |
+| [`mink`](https://github.com/kevinzakka/mink) | `core` venv | `1.3.0` | Differential IK QP with collision avoidance |
+| `qpsolvers[daqp]` | `core` venv | `4.13.0` | QP backend for mink |
 | [`foam`](https://github.com/CoMMALab/foam) | offline tool (`tools` stage) | `116928f71aaa7c40356d79c84d3c9ff1f4497d90` | URDF mesh → sphere approximation |
 | `lerobot[smolvla]` | `vla` venv | **same version as the policy-server image** (**TBD**, P5-T01) | `robot_client`, plugin discovery |
 | [`lerobot-robot-ros`](https://github.com/ycheng517/lerobot-ros) | `vla` venv | `dabe6c6c7637c2f139e1c9964864a64921893ba1` | `ROS2Robot` / `ROS2Config` LeRobot plugin over rclpy |
 | `openai` | `vlm` venv | **TBD** (P4-T02) | OpenAI-compatible client with tool calling (talks to llama-swap) |
-| `nvidia-ml-py` | `core` venv | **TBD** | NVML for `gpu_monitor` |
+| `nvidia-ml-py` | `core` venv | `13.610.43` | NVML for `gpu_monitor` |
+| `numpy` | `core` venv | `1.26.4` (= Ubuntu Noble `python3-numpy`) | Keeps apt ROS extensions (moveit_py) on the numpy ABI they were built with |
 | [`so101-nexus`](https://pypi.org/project/so101-nexus/) | `tools` stage (scene export) and `vla-eval` (LeRobot-native eval) | `0.6.0` | SO-101 MuJoCo task scenes + LeRobot EnvHub envs for checkpoint sanity evaluation |
 | [`rai`](https://github.com/RobotecAI/rai) (candidate) | `vlm` venv | `6802d4073e8caa2ab72c5509fa1eeeb659663f64` (if adopted by P4-T01) | Agent runtime with ROS 2 connectors/tools (Apache-2.0, Jazzy, py3.12) |
 

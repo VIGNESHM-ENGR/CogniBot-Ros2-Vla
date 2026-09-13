@@ -45,7 +45,7 @@ jobs:
           apt-get install -y --no-install-recommends python3-vcstool python3-venv git \
             ros-jazzy-xacro ros-jazzy-ament-cmake-pytest ros-jazzy-launch-testing-ament-cmake python3-scipy
           python3 -m venv --system-site-packages /opt/venv
-          /opt/venv/bin/pip install "mujoco==3.12.0"
+          /opt/venv/bin/pip install "mujoco==3.12.0" "numpy==1.26.4"
       - name: Fetch pinned third-party sources
         run: |
           mkdir -p cognibot_ws/src/third_party

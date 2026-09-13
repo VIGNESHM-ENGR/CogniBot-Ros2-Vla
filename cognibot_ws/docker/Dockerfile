@@ -31,6 +31,9 @@ ARG MUJOCO_PY_VERSION=3.12.0
 ARG MINK_VERSION=1.3.0
 ARG QPSOLVERS_VERSION=4.13.0
 ARG NVML_VERSION=13.610.43
+# Must equal Ubuntu Noble python3-numpy: apt ROS extensions (moveit_py) are built against it, and a
+# newer venv numpy shadowing it segfaults them (RobotState.set_joint_group_positions).
+ARG NUMPY_VERSION=1.26.4
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -64,7 +67,8 @@ RUN python3 -m venv --system-site-packages /opt/venv \
       "mujoco==${MUJOCO_PY_VERSION}" \
       "mink==${MINK_VERSION}" \
       "qpsolvers[daqp]==${QPSOLVERS_VERSION}" \
-      "nvidia-ml-py==${NVML_VERSION}"
+      "nvidia-ml-py==${NVML_VERSION}" \
+      "numpy==${NUMPY_VERSION}"
 ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages:${PYTHONPATH}"
 
 COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
