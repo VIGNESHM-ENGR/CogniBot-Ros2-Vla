@@ -1,0 +1,57 @@
+name: panda
+base_frame: panda_link0
+ee_frame: panda_hand
+ee_site: hand
+arm_joints:
+  - panda_joint1
+  - panda_joint2
+  - panda_joint3
+  - panda_joint4
+  - panda_joint5
+  - panda_joint6
+  - panda_joint7
+gripper:
+  joint: panda_finger_joint1
+  open: 0.04
+  closed: 0.0
+home_pose:
+  - 0.0
+  - -0.785398
+  - 0.0
+  - -2.356194
+  - 0.0
+  - 1.570796
+  - 0.785398
+mjcf:
+  scene: scenes/panda_pick_and_place.xml
+  ik_model: robots/panda/mjcf/panda.xml
+urdf: robots/panda/urdf/panda_mujoco.urdf.xacro
+controllers: robots/panda/config/controllers.yaml
+moveit:
+  config_package: moveit_resources_panda_moveit_config
+  kinematics_override: config/panda/kinematics_pick_ik.yaml
+cameras:
+  front:
+    topic: /camera/front
+    frame: front_camera_optical_frame
+    depth: true
+  wrist:
+    topic: /camera/wrist
+    frame: wrist_camera_optical_frame
+    depth: false
+safety:
+  collision_spheres: config/panda/collision_spheres.yaml
+  min_distance: 0.01
+  max_joint_velocity: 2.0
+reach:
+  study_dir: config/panda/reach/
+  workspace_sphere:
+    center:
+      - 0.0
+      - 0.0
+      - 0.4
+    r_min: 0.2
+    r_max: 0.85
+vla:
+  lerobot_robot_type: cognibot_panda
+  checkpoint: lerobot/smolvla_base
