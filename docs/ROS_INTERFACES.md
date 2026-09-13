@@ -25,6 +25,7 @@ Conventions:
 | `/camera/front/color/camera_info` | `sensor_msgs/CameraInfo` | camera plugin (or `/mujoco_camera_plugin/front_rgbd/camera_info`) | vlm-agent |
 | `/camera/front/depth/image_raw` | `sensor_msgs/Image` (32FC1, m) | camera plugin (or `/mujoco_camera_plugin/front_rgbd/depth`) | vlm-agent |
 | `/camera/wrist/color/image_raw` | `sensor_msgs/Image` | camera plugin (or `/mujoco_camera_plugin/wrist_cam/color`) | vla-client, bridge |
+| `/object_poses/free_joint_states` | `mujoco_ros2_control_msgs/FreeJointStateArray` (world frame, 50 Hz; name fixed by the plugin instance) | mujoco_ros2_control `FreeJointStatePublisherPlugin` | pick_place_server, dashboard, eval scripts |
 
 > In simulation, the `mujoco_ros2_control` camera plugin directly publishes `/mujoco_camera_plugin/{camera_name}/{color,depth,camera_info}`. Static TFs align `world -> front_rgbd_frame` (and alias `front_camera_optical_frame`). The `/camera/...` names are the contract for consumers; no remapping exists yet, so each consuming node (bridge, vlm-agent, vla-client) must remap from the plugin topics when it is added.
 
@@ -63,6 +64,7 @@ Conventions:
 | `/cognibot/set_mode` | `cognibot_interfaces/srv/SetControlMode` | `mode_manager` | dashboard, pick_place_server, skill_executor, twin |
 | `/cognibot/check_reachability` | `cognibot_interfaces/srv/CheckReachability` | `reach_query` | vlm-agent, dashboard |
 | `/cognibot/vlm/get_object_coordinates` | `cognibot_interfaces/srv/GetObjectCoordinates` | `vlm_agent_node` | dashboard (debug), eval scripts |
+| `/cognibot/sim/reset_objects` | `std_srvs/srv/Trigger` | `pick_place_server` | dashboard (simulation only: moves free bodies back to their MJCF spawn pose) |
 | `/controller_manager/switch_controller` | `controller_manager_msgs/srv/SwitchController` | controller_manager | `mode_manager` only |
 
 ## 3. Actions
@@ -80,6 +82,8 @@ Conventions:
 > **rosbridge and actions (verified P3-T02, `ros-jazzy-rosbridge-server` 2.7.1):** the `send_action_goal` / `action_feedback` / `action_result` / `cancel_action_goal` ops work against `/joint_trajectory_controller/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`): feedback streams during execution (~20 Hz), a completed goal returns `status: 4` (SUCCEEDED), and a cancel sent mid-motion returns `status: 5` (CANCELED) 0.06 s later. The dashboard uses actions directly; no service shim is needed. The spike used the raw protocol from Python; P3-T04 confirms the same ops through the pinned roslibjs `Action` class.
 >
 > **Camera streams for the browser:** `web_video_server` on `127.0.0.1:8080` serves the simulator topics directly, e.g. `/stream?topic=/mujoco_camera_plugin/front_rgbd/color` (MJPEG) and `/snapshot?topic=…` (JPEG).
+
+> **Pick and place targets (interim, until P2-T09):** `pick_place_server` executes `FetchObject`/`PlaceObject` with scripted top-down IK. `target.header.frame_id` empty, `world` or the robot base frame means `target.point` is a position; any other value names a MuJoCo body (`green_cube` resolves to its live pose from `/object_poses/free_joint_states`, static bodies such as `blue_target` to their model position) and `point` is an offset. Feedback stages follow the action definitions.
 
 ## 4. Custom interface definitions (`cognibot_interfaces`)
 

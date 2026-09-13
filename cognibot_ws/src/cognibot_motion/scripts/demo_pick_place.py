@@ -16,56 +16,17 @@ import numpy as np
 import rclpy
 from builtin_interfaces.msg import Duration
 from cognibot_common.robot_registry import load_robot
+from cognibot_motion.pick_place_ik import (
+    GRASP_OFFSET,
+    GRIPPER_CLOSED,
+    GRIPPER_OPEN,
+    HOVER,
+    solve_top_down_ik,
+)
 from control_msgs.action import FollowJointTrajectory, ParallelGripperCommand
 from rclpy.action import ActionClient
 from rclpy.node import Node
 from trajectory_msgs.msg import JointTrajectoryPoint
-
-GRIPPER_OPEN = 1.2
-GRIPPER_CLOSED = -0.1  # below the cube width so the jaws squeeze (the controller allows stalling)
-HOVER = 0.06  # m above the grasp and drop heights
-# Soft top-down preference: exact top-down poses are out of reach near the workspace edge.
-ORIENTATION_WEIGHT = 0.1
-# The gripperframe site sits 2 cm outboard of the jaw centre (MODIFICATIONS.md aligned it to the
-# URDF gripper_frame_link), so grasp targets are shifted 2 cm towards the base.
-GRASP_OFFSET = 0.02
-
-
-def solve_top_down_ik(
-    model: mujoco.MjModel,
-    joints: list[str],
-    site: str,
-    target: np.ndarray,
-    seed: np.ndarray,
-    iters: int = 300,
-) -> tuple[np.ndarray, float]:
-    """Damped least squares on [position error, approach-axis error]; returns (q, pos error m)."""
-    data = mujoco.MjData(model)
-    qadr = [model.jnt_qposadr[model.joint(j).id] for j in joints]
-    dadr = [model.jnt_dofadr[model.joint(j).id] for j in joints]
-    lo = np.array([model.jnt_range[model.joint(j).id][0] for j in joints])
-    hi = np.array([model.jnt_range[model.joint(j).id][1] for j in joints])
-    sid = model.site(site).id
-    q = seed.copy()
-    jacp, jacr = np.zeros((3, model.nv)), np.zeros((3, model.nv))
-    down = np.array([0.0, 0.0, -1.0])
-    for _ in range(iters):
-        data.qpos[qadr] = q
-        mujoco.mj_kinematics(model, data)
-        mujoco.mj_comPos(model, data)
-        z_axis = data.site_xmat[sid].reshape(3, 3)[:, 2]
-        err = np.concatenate(
-            [target - data.site_xpos[sid], ORIENTATION_WEIGHT * np.cross(z_axis, down)]
-        )
-        if np.linalg.norm(err[:3]) < 1e-4 and np.linalg.norm(err[3:]) < 1e-3:
-            break
-        mujoco.mj_jacSite(model, data, jacp, jacr, sid)
-        jac = np.vstack([jacp[:, dadr], ORIENTATION_WEIGHT * jacr[:, dadr]])
-        dq = jac.T @ np.linalg.solve(jac @ jac.T + 1e-4 * np.eye(6), err)
-        q = np.clip(q + dq, lo, hi)
-    data.qpos[qadr] = q
-    mujoco.mj_kinematics(model, data)
-    return q, float(np.linalg.norm(target - data.site_xpos[sid]))
 
 
 class PickPlaceDemo(Node):

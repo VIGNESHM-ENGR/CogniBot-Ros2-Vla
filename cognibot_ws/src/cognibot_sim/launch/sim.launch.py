@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Launch headless MuJoCo simulation with ros2_control."""
 
+from pathlib import Path
+
+from ament_index_python.packages import get_package_share_directory
 from cognibot_common.mjcf_tint import ROBOT_COLORS, tint_scene
 from cognibot_common.robot_registry import load_robot
 from launch import LaunchDescription
@@ -56,6 +59,9 @@ def launch_setup(context, *args, **kwargs):
         output="both",
         parameters=[
             controllers_yaml_path,
+            str(
+                Path(get_package_share_directory("cognibot_sim")) / "config" / "mujoco_plugins.yaml"
+            ),
             {"robot_description": robot_description_content, "use_sim_time": use_sim_time},
         ],
     )

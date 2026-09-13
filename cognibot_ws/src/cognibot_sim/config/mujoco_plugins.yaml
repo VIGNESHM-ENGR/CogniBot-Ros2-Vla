@@ -1,0 +1,10 @@
+# mujoco_ros2_control plugins loaded by ros2_control_node (docs: mujoco_ros2_control_plugins).
+# mujoco_ros2_control 0.1.1 ignores the plugins' topic/publish_rate parameters: the free-joint
+# publisher always publishes on /<instance>/free_joint_states at 50 Hz, so the instance name sets
+# the topic (/object_poses/free_joint_states). Optional list parameters must be omitted, not set
+# to []: an empty YAML list has no type and aborts ros2_control_node.
+/**:
+  ros__parameters:
+    mujoco_plugins:
+      object_poses:
+        type: "mujoco_ros2_control_plugins/FreeJointStatePublisherPlugin"
