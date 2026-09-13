@@ -5,6 +5,8 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from launch_ros.substitutions import FindPackageShare
 
 
@@ -55,5 +57,18 @@ def generate_launch_description():
             use_sim_time_arg,
             robot_color_arg,
             sim_launch,
+            Node(
+                package="cognibot_common",
+                executable="gpu_monitor",
+                name="gpu_monitor",
+                output="screen",
+                parameters=[
+                    {
+                        "use_sim_time": ParameterValue(
+                            LaunchConfiguration("use_sim_time"), value_type=bool
+                        )
+                    }
+                ],
+            ),
         ]
     )

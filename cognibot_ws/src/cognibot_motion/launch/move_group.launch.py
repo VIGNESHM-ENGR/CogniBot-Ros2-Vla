@@ -19,7 +19,11 @@ def launch_setup(context, *args, **kwargs):
         package="moveit_ros_move_group",
         executable="move_group",
         output="screen",
-        parameters=[moveit_config.to_dict(), {"use_sim_time": use_sim_time}],
+        parameters=[
+            moveit_config.to_dict(),
+            # The operator console reads named poses from the SRDF topic.
+            {"use_sim_time": use_sim_time, "publish_robot_description_semantic": True},
+        ],
     )
 
     rviz_config = Path(moveit_config.package_path) / "config" / "moveit.rviz"
