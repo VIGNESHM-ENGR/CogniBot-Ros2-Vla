@@ -48,6 +48,9 @@ export type ConsoleCommand =
   | { kind: "view"; view: ViewId }
   | { kind: "jog"; jog: JogKey };
 
+/** The jog key a keyup releases, if any. */
+export const jogForKey = (code: string): JogKey | null => JOG_BY_CODE[code] ?? null;
+
 /** Map a keydown to a console command. Text fields only receive Esc. */
 export function commandForKey(code: string, inTextField: boolean): ConsoleCommand | null {
   if (code === "Escape") return { kind: "stop" };

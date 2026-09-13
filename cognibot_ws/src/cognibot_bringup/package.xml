@@ -15,6 +15,7 @@
   <exec_depend>web_video_server</exec_depend>
   <exec_depend>cognibot_common</exec_depend>
   <exec_depend>cognibot_motion</exec_depend>
+  <exec_depend>cognibot_teleop</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

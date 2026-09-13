@@ -22,6 +22,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `mode_manager`: `/cognibot/set_mode` switches ros2_control controllers per `modes.yaml` and publishes `/cognibot/mode`; the dashboard mode key and STOP drive it.
 - `cognibot_common.qos` presets (sensor data, reliable command, transient local).
 - `safety_filter`: sole publisher of `/arm_position_controller/commands`; enforces joint ranges, `max_joint_velocity` and a 300 ms dead-man, forwards only in TELEOP/VLA/TWIN, publishes `/cognibot/safety/status` (collision check follows with P2-T03).
+- `mink_teleop`: Cartesian jogging from `TeleopCommand` through mink IK to the safety filter, with workspace and dead-man limits (collision avoidance follows P2-T03).
+- Dashboard jog keys (W/S, A/D, ↑/↓, G) publish at 30 Hz while held and move the simulated arm in TELEOP.
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.

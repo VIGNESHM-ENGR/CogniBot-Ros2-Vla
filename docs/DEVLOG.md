@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P2-T06 (part 1), P3-T06 | mink teleop and the dashboard jog keys | feat |
 | 2026-09-13 | P2-T05 (part 1) | safety_filter: joint range and velocity limits, mode gating | feat |
 | 2026-09-13 | P2-T04 | mode_manager: control-mode arbitration via controller switching | feat |
 | 2026-09-13 | owner test | Dashboard test session: joint-limit start states, MoveIt crash, free-look sync | fix |
@@ -81,6 +82,27 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P2-T06 (part 1), P3-T06 · mink teleop and the dashboard jog keys
+
+**Context:** Cartesian jogging from the keyboard ([ADR-0003](adr/0003-mink-plus-moveit.md)). Collision avoidance (`CollisionAvoidanceLimit`) waits for the sphere IK model (P2-T03), like the safety filter's distance check.
+**Outcome:** ✅ part 1 done. Launch test: 1.5 s of −X at full deflection moved the EE target 0.149 m, `/cognibot/joint_command` at 101 Hz, the arm followed, the dead-man froze the target. From the browser: holding S swung `shoulder_lift` −12° → −100°, G toggled the gripper, Esc stopped. `make test` 47/47.
+
+### Work log
+- `cognibot_teleop.teleop_math` (pure): workspace-shell and table clamp, target integration; 4 tests.
+- `mink_teleop`: mink 1.3 `FrameTask` on `gripperframe` (orientation cost 0.1) + `PostureTask`, `ConfigurationLimit` + `VelocityLimit`, daqp, on the Menagerie `so101.xml` until `so101_ik_spheres.xml` exists. Requests TELEOP itself; re-seeds from measured joints on every engage; wrist roll rotates the target about the tool z axis.
+- Dashboard: `lib/teleopKeys.ts` reducer (held keys, edge-triggered gripper) + `useKeyboardTeleop` publishing at 30 Hz while held, releasing on blur/hide/stop; jog keys are hold-to-jog with pointer capture. `motion.launch.py` now starts mode_manager, safety_filter, mink_teleop, move_group and pick_place_server.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Launch test: +X jog advanced the target only 7 mm | The zero pose's EE (0.405 m from the shell centre) is outside the placeholder `r_max` 0.38 in `robot.yaml`, so the target was clamped onto the shell | Test jogs −X; the shell is fitted by the REACH study (P2-T07) | dx 0.149 m |
+
+### Open questions
+- No collision avoidance yet: a jog can drive the gripper into the table only as far as `table_z_min` (1 cm) and joint limits allow; self-collision is unchecked until P2-T03.
+- The workspace shell should be replaced by the fitted one before the VLM agent relies on `CheckReachability`.
+
+---
 
 ## 2026-09-13 · P2-T05 (part 1) · safety_filter: joint range and velocity limits, mode gating
 

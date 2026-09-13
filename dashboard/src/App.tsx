@@ -4,9 +4,9 @@ import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
   commandForKey,
+  jogForKey,
   MODES,
   nextSource,
-  type JogKey,
   type Mode,
   type SourceId,
   type ViewId,
@@ -46,6 +46,7 @@ import { CameraView } from "./views/CameraView";
 import { MotionView } from "./views/MotionView";
 import { NotRunning } from "./views/NotRunning";
 import { SystemView } from "./views/SystemView";
+import { useKeyboardTeleop } from "./teleop/useKeyboardTeleop";
 
 interface MoveGroupFeedback {
   state: string;
@@ -64,7 +65,6 @@ function Pendant() {
   const [view, setView] = useState<ViewId>("camera");
   const [source, setSource] = useState<SourceId>("free");
   const [stopped, setStopped] = useState(false);
-  const [pressed, setPressed] = useState<ReadonlySet<JogKey>>(new Set());
 
   const joints = useTopic<JointState>(TOPICS.jointStates, "sensor_msgs/msg/JointState", 100);
   const jointRate = useTopicRate(TOPICS.jointStates, "sensor_msgs/msg/JointState");
@@ -139,7 +139,7 @@ function Pendant() {
     return () => clearTimeout(t);
   }, [modeNotice]);
   const pickPlaceOnline = actions.has(ACTIONS.fetch) && actions.has(ACTIONS.place);
-  const teleopOnline = topics.has(TOPICS.teleop);
+  const teleopOnline = topics.has(TOPICS.teleopTarget);
 
   const describeMoveIt = (r: MoveGroupResult) =>
     MOVEIT_ERRORS[r.error_code.val] ?? `code ${r.error_code.val}`;
@@ -187,6 +187,9 @@ function Pendant() {
     jointsRef.current = joints;
   }, [joints]);
 
+  const jogEnabled = mode === "TELEOP" && !stopped;
+  const jog = useKeyboardTeleop(jogEnabled, MOVEIT.base);
+
   const stop = useCallback(() => {
     cancelAll();
     setStopped(true);
@@ -198,19 +201,6 @@ function Pendant() {
       trajectory.send("Hold after stop", holdGoal(armNames, positions));
     }
   }, [cancelAll, urdf, trajectoryOnline, trajectory, setMode]);
-
-  const flashJog = useCallback((jog: JogKey) => {
-    setPressed((p) => new Set(p).add(jog));
-    setTimeout(
-      () =>
-        setPressed((p) => {
-          const next = new Set(p);
-          next.delete(jog);
-          return next;
-        }),
-      160,
-    );
-  }, []);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -239,13 +229,21 @@ function Pendant() {
           setView(command.view);
           break;
         case "jog":
-          if (mode === "TELEOP" && !stopped) flashJog(command.jog);
+          if (!event.repeat) jog.down(command.jog);
           break;
       }
     };
+    const onKeyUp = (event: KeyboardEvent) => {
+      const released = jogForKey(event.code);
+      if (released) jog.up(released);
+    };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [stop, cancelAll, mode, stopped, flashJog, setMode]);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  }, [stop, cancelAll, setMode, jog]);
 
   const run = latest<unknown>(
     trajectory.run as GoalRun<unknown> | null,
@@ -298,10 +296,11 @@ function Pendant() {
           />
           <JogBlock
             mode={mode}
-            pressed={pressed}
+            pressed={jog.held}
             backendOnline={teleopOnline}
             stopped={stopped}
-            onJog={flashJog}
+            onDown={jog.down}
+            onUp={jog.up}
           />
         </aside>
 

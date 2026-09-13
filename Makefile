@@ -53,10 +53,10 @@ test: ## Build and run every workspace test (incl. GPU launch tests) in the core
 	$(COMPOSE) run --rm --no-deps -v $(CURDIR)/cognibot_ws/src:/src:ro --entrypoint bash sim -c '\
 	  source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash && \
 	  mkdir -p /tmp/w && cd /tmp/w && ln -s /src src && \
-	  colcon build --packages-up-to cognibot_common cognibot_sim cognibot_bringup cognibot_motion \
+	  colcon build --packages-up-to cognibot_common cognibot_sim cognibot_bringup cognibot_motion cognibot_teleop \
 	    --packages-skip cognibot_interfaces --event-handlers console_cohesion- && \
 	  source install/setup.bash && \
-	  colcon test --packages-select cognibot_common cognibot_sim cognibot_motion && colcon test-result --verbose'
+	  colcon test --packages-select cognibot_common cognibot_sim cognibot_motion cognibot_teleop && colcon test-result --verbose'
 
 vlm: ## Core + llama-swap + VLM agent
 	$(COMPOSE) --profile vlm up -d

@@ -6,7 +6,8 @@ interface Props {
   pressed: ReadonlySet<JogKey>;
   backendOnline: boolean;
   stopped: boolean;
-  onJog: (jog: JogKey) => void;
+  onDown: (jog: JogKey) => void;
+  onUp: (jog: JogKey) => void;
 }
 
 const AXES: { axis: string; keys: { jog: JogKey; legend: string; cap: string }[] }[] = [
@@ -34,7 +35,7 @@ const AXES: { axis: string; keys: { jog: JogKey; legend: string; cap: string }[]
 ];
 
 /** Cartesian jog keys. They wake only in TELEOP and only move the arm when mink teleop runs. */
-export function JogBlock({ mode, pressed, backendOnline, stopped, onJog }: Props) {
+export function JogBlock({ mode, pressed, backendOnline, stopped, onDown, onUp }: Props) {
   const live = mode === "TELEOP" && !stopped;
   const reason = stopped
     ? "Stopped: release the stop to jog."
@@ -42,7 +43,7 @@ export function JogBlock({ mode, pressed, backendOnline, stopped, onJog }: Props
       ? "Turn the key to TELEOP (2) to jog."
       : backendOnline
         ? "Hold a key to jog; release stops within 300 ms."
-        : "Teleop backend offline: keys show input but send nothing.";
+        : "mink_teleop offline: nothing listens to jog commands.";
 
   return (
     <section aria-labelledby="jog-title">
@@ -60,7 +61,13 @@ export function JogBlock({ mode, pressed, backendOnline, stopped, onJog }: Props
                 className="key"
                 aria-disabled={!live}
                 data-pressed={live && pressed.has(k.jog)}
-                onClick={() => live && onJog(k.jog)}
+                onPointerDown={(e) => {
+                  if (!live) return;
+                  e.currentTarget.setPointerCapture(e.pointerId);
+                  onDown(k.jog);
+                }}
+                onPointerUp={() => onUp(k.jog)}
+                onPointerCancel={() => onUp(k.jog)}
               >
                 <span className="led" />
                 <span className="key__legend">
@@ -82,7 +89,7 @@ export function JogBlock({ mode, pressed, backendOnline, stopped, onJog }: Props
           className="key jog__wide"
           aria-disabled={!live}
           data-pressed={live && pressed.has("grip")}
-          onClick={() => live && onJog("grip")}
+          onClick={() => live && onDown("grip")}
         >
           <span className="led" />
           <span

@@ -1,0 +1,10 @@
+mink_teleop:
+  ros__parameters:
+    robot: so101
+    rate_hz: 100.0
+    max_linear_speed: 0.10      # m/s at full deflection
+    max_angular_speed: 1.0      # rad/s wrist roll at full deflection
+    deadman_s: 0.3              # zero velocity after this much silence
+    orientation_cost: 0.1       # soft: 5 DOF cannot hold arbitrary orientations
+    posture_cost: 0.001
+    table_z_min: 0.01

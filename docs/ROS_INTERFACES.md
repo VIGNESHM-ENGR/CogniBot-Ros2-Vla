@@ -50,6 +50,8 @@ Conventions:
 | `/cognibot/teleop/cmd` | `cognibot_interfaces/TeleopCommand` | dashboard (rosbridge) | `mink_teleop` |
 | `/cognibot/teleop/ee_target` | `geometry_msgs/PoseStamped` | `mink_teleop` | dashboard, RViz |
 
+> `mink_teleop` requests TELEOP on the first command, seeds its IK configuration from `/joint_states` on engage, integrates the target at `max_linear_speed` (0.1 m/s) inside the registry workspace shell and above `table_z_min`, and streams at 100 Hz. The dashboard publishes `TeleopCommand` at 30 Hz while a jog key is held; the presence of `/cognibot/teleop/ee_target` is how it detects the node.
+
 ### 1.4 AI (owners: `cognibot_vlm`, `cognibot_vla`)
 
 | Topic | Type | Publisher | Subscribers |

@@ -41,6 +41,18 @@ def generate_launch_description():
                 parameters=[{"robot": LaunchConfiguration("robot")}],
             ),
             Node(
+                package="cognibot_teleop",
+                executable="mink_teleop",
+                name="mink_teleop",
+                output="screen",
+                parameters=[
+                    PathJoinSubstitution(
+                        [FindPackageShare("cognibot_teleop"), "config", "teleop.yaml"]
+                    ),
+                    {"robot": LaunchConfiguration("robot")},
+                ],
+            ),
+            Node(
                 package="cognibot_motion",
                 executable="pick_place_server",
                 name="pick_place_server",
