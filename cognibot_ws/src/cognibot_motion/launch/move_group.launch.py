@@ -19,6 +19,9 @@ def launch_setup(context, *args, **kwargs):
         package="moveit_ros_move_group",
         executable="move_group",
         output="screen",
+        # MoveIt 2.12 can segfault on a goal arriving mid-execution; come back, not stay dead.
+        respawn=True,
+        respawn_delay=1.0,
         parameters=[
             moveit_config.to_dict(),
             # The operator console reads named poses from the SRDF topic.

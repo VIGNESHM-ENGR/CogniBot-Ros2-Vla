@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { holdGoal, jointGoal, pointGoal } from "./goals";
+import { holdGoal, jointGoal, nudgeInsideLimits, pointGoal } from "./goals";
 
 describe("MoveGroup goals", () => {
   it("builds joint constraints from a group state", () => {
@@ -38,6 +38,22 @@ describe("holdGoal", () => {
         joint_names: ["a"],
         points: [{ positions: [1.5], time_from_start: { sec: 0, nanosec: 250000000 } }],
       },
+    });
+  });
+});
+
+describe("nudgeInsideLimits", () => {
+  const limits = [
+    { name: "a", lower: -1, upper: 1 },
+    { name: "b", lower: -2, upper: 2 },
+  ];
+  it("returns null when every joint is inside its limits", () => {
+    expect(nudgeInsideLimits(limits, ["a", "b"], [0.5, -1.5])).toBeNull();
+  });
+  it("clamps joints on or past a limit and keeps the others", () => {
+    expect(nudgeInsideLimits(limits, ["b", "a"], [-2.0001, 0.3])).toEqual({
+      names: ["a", "b"],
+      positions: [0.3, -1.99],
     });
   });
 });

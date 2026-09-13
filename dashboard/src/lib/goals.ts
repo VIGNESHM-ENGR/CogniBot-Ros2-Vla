@@ -1,4 +1,5 @@
 import { fromSeconds } from "./duration";
+import type { JointLimit } from "./robotModel";
 
 const PLANNING = {
   num_planning_attempts: 3,
@@ -74,15 +75,47 @@ export function holdGoal(joints: string[], positions: number[], seconds = 0.25) 
   };
 }
 
-/** MoveIt error codes worth naming to the operator (moveit_msgs/MoveItErrorCodes). */
+/**
+ * Joints sitting on (or a hair past) a limit, clamped `margin` rad inside it. MoveIt refuses to
+ * plan from a start state outside the URDF bounds, and a position controller can settle ~1e-4 rad
+ * past a limit it was sent to.
+ */
+export function nudgeInsideLimits(
+  limits: JointLimit[],
+  names: string[],
+  positions: number[],
+  margin = 0.01,
+): { names: string[]; positions: number[] } | null {
+  const out = { names: [] as string[], positions: [] as number[] };
+  let needed = false;
+  for (const limit of limits) {
+    const i = names.indexOf(limit.name);
+    if (i < 0) continue;
+    const value = positions[i] ?? 0;
+    const clamped = Math.min(limit.upper - margin, Math.max(limit.lower + margin, value));
+    if (clamped !== value) needed = true;
+    out.names.push(limit.name);
+    out.positions.push(clamped);
+  }
+  return needed ? out : null;
+}
+
+/** moveit_msgs/MoveItErrorCodes (Jazzy numbering), phrased for the operator. */
 export const MOVEIT_ERRORS: Record<number, string> = {
   1: "success",
   [-1]: "planning failed",
   [-2]: "invalid motion plan",
+  [-3]: "plan invalidated by environment change",
   [-4]: "control failed",
   [-6]: "timed out",
   [-7]: "preempted",
   [-10]: "start state in collision",
   [-12]: "goal in collision",
+  [-14]: "goal constraints violated",
+  [-16]: "invalid goal constraints",
+  [-21]: "frame transform failed",
+  [-23]: "robot state stale",
+  [-26]: "start state invalid (joint outside limits)",
+  [-27]: "goal state invalid",
   [-31]: "no IK solution",
 };

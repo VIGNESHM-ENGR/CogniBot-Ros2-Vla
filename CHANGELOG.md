@@ -32,6 +32,9 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - CI `ros` job now installs MuJoCo and third-party sources and runs the GPU-free tests.
 - Core venv pins numpy 1.26.4 so apt ROS extensions (moveit_py) no longer segfault against numpy 2.
 - GUI containers render through NVIDIA PRIME offload instead of software GL on hybrid-graphics laptops.
+- MoveIt goals no longer fail after a motion parks a joint on its limit: the dashboard eases it back inside first, and the pick-and-place IK stays 0.01 rad inside limits.
+- Dashboard motion keys are disabled while a program runs and `move_group` respawns, so a second goal can no longer crash MoveIt.
+- Free-look view draws the arm and objects from the same sim instant; the carried cube no longer stutters.
 
 ## [0.2.0] - 2026-09-13
 

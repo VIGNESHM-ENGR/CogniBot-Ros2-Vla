@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | owner test | Dashboard test session: joint-limit start states, MoveIt crash, free-look sync | fix |
 | 2026-09-13 | owner request | Free-look 3D view and IK pick-and-place from the dashboard | feat |
 | 2026-09-13 | P3-T03…T05 | Operator pendant: design direction, scaffold and live panels | feat |
 | 2026-09-13 | P3-T01, P3-T02 | Browser bridge and rosbridge action support | feat |
@@ -78,6 +79,23 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · owner test · Dashboard test session: joint-limit start states, MoveIt crash, free-look sync
+
+**Context:** the owner tested the committed dashboard against `make sim` and reported three problems in sequence. Verified each fix live before the owner confirmed "smooth now".
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | After pick-and-place, every MoveIt goal failed with `-26` | IK solutions sat exactly on `wrist_flex`'s limit; the controller settled 6e-5 rad past it and MoveIt's `CheckStartStateBounds` refuses an out-of-bounds start state (`fix_start_state` in 2.12 only normalizes continuous joints) | IK clips 0.01 rad inside limits; the dashboard eases any joint on a limit back inside via a 0.5 s JTC hold before each MoveIt goal; `pick_place_server` retries IK from the home seed; dashboard error names regenerated from Jazzy `MoveItErrorCodes` (`-26` = START_STATE_INVALID) | zero/extended/rest all "done · success" from the stuck pose |
+| 2 | "No action server available" for named poses | `move_group` segfaulted (exit -11) after "Cannot push a new trajectory while another is being executed": a second goal was sent while one ran | Motion keys are dead while a program is active (reason shown); `useActionGoal.send` cancels an active goal first; `move_group` launched with `respawn=True` | Three consecutive poses succeed; process restarts if killed |
+| 3 | Cube jittered in free look while carried, arm smooth | Arm and object poses were drawn from whichever message arrived last on two independent rosbridge queues (10–30 ms apart, more under load); also rosbridge fans `/joint_states` out at 100 Hz to every subscriber regardless of per-subscription throttle, so the whole console re-rendered at 100 Hz | Free look buffers both streams at full rate and, on a 100 ms tick, interpolates arm and objects at one common sim instant (`lib/stampSync.ts`); `useTopic` enforces its throttle client-side | Sim recording during carry: z roughness < 0.6 mm, ≤ 7 direction reversals in 196 samples (smooth), so the sim was never the cause; owner: "smooth now" |
+| 4 | Jaws visibly sank into the cube | `GRIPPER_CLOSED = -0.1` drove the jaws 2.8 mm into a 2.5 cm cube | Sweep: 0.1 rad still lifts with 1.7 mm penetration, 0.2 slips → `GRIPPER_CLOSED = 0.1` | Offline MuJoCo sweep table in the session log |
+
+### Open questions
+- `ros2 action list` still showed `/move_action` minutes after move_group died (stale CycloneDDS discovery); the dashboard's action-server check therefore lags a crash. A liveness ping on `/move_group` parameters would close the gap.
+
+---
 
 ## 2026-09-13 · owner request · Free-look 3D view and IK pick-and-place from the dashboard
 

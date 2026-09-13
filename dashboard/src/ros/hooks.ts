@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Action, Service, Topic } from "roslib";
 import { useRos } from "./RosProvider";
 
-/** Latest message on a topic (null until one arrives), re-subscribing after reconnects. */
+/**
+ * Latest message on a topic (null until one arrives), re-subscribing after reconnects.
+ * `throttleMs` is enforced here as well as in rosbridge: roslib fans every message for a topic
+ * out to all of its subscribers, so a 100 Hz subscription elsewhere would otherwise re-render
+ * this one at 100 Hz too.
+ */
 export function useTopic<T>(name: string, messageType: string, throttleMs = 0): T | null {
   const { ros, link } = useRos();
   const [message, setMessage] = useState<T | null>(null);
@@ -10,11 +15,40 @@ export function useTopic<T>(name: string, messageType: string, throttleMs = 0): 
   useEffect(() => {
     if (link !== "connected") return;
     const topic = new Topic<T>({ ros, name, messageType, throttle_rate: throttleMs });
-    topic.subscribe(setMessage);
-    return () => topic.unsubscribe();
+    let last = -Infinity;
+    const deliver = (m: T) => {
+      const now = performance.now();
+      if (now - last < throttleMs) return;
+      last = now;
+      setMessage(m);
+    };
+    topic.subscribe(deliver);
+    return () => topic.unsubscribe(deliver);
   }, [ros, link, name, messageType, throttleMs]);
 
   return link === "connected" ? message : null;
+}
+
+/** Deliver every message on a topic to a callback without re-rendering (high-rate streams). */
+export function useTopicCallback<T>(
+  name: string,
+  messageType: string,
+  onMessage: (message: T) => void,
+  throttleMs = 0,
+): void {
+  const { ros, link } = useRos();
+  const handler = useRef(onMessage);
+  useEffect(() => {
+    handler.current = onMessage;
+  }, [onMessage]);
+
+  useEffect(() => {
+    if (link !== "connected") return;
+    const topic = new Topic<T>({ ros, name, messageType, throttle_rate: throttleMs });
+    const deliver = (message: T) => handler.current(message);
+    topic.subscribe(deliver);
+    return () => topic.unsubscribe(deliver);
+  }, [ros, link, name, messageType, throttleMs]);
 }
 
 /** Messages per second on a topic over a sliding window, measured in the browser. */
@@ -106,6 +140,16 @@ export function useActionGoal<TGoal, TFeedback, TResult>(name: string, actionTyp
   const [run, setRun] = useState<GoalRun<TFeedback> | null>(null);
   const active = useRef<{ action: Action<TGoal, TFeedback, TResult>; id: string } | null>(null);
 
+  const cancel = useCallback(() => {
+    const current = active.current;
+    if (!current) return;
+    active.current = null;
+    current.action.cancelGoal(current.id);
+    setRun((r) =>
+      r && r.phase === "active" ? { ...r, phase: "canceled", detail: "canceled" } : r,
+    );
+  }, []);
+
   const send = useCallback(
     (
       label: string,
@@ -113,6 +157,7 @@ export function useActionGoal<TGoal, TFeedback, TResult>(name: string, actionTyp
       describeResult?: (result: TResult) => string,
       onSucceeded?: (result: TResult) => void,
     ) => {
+      if (active.current) cancel();
       const action = new Action<TGoal, TFeedback, TResult>({ ros, name, actionType });
       const settle = (phase: GoalPhase, detail: string) => {
         if (active.current?.action === action) active.current = null;
@@ -133,18 +178,8 @@ export function useActionGoal<TGoal, TFeedback, TResult>(name: string, actionTyp
       if (id) active.current = { action, id };
       else settle("failed", "rosbridge refused the goal");
     },
-    [ros, name, actionType],
+    [ros, name, actionType, cancel],
   );
-
-  const cancel = useCallback(() => {
-    const current = active.current;
-    if (!current) return;
-    active.current = null;
-    current.action.cancelGoal(current.id);
-    setRun((r) =>
-      r && r.phase === "active" ? { ...r, phase: "canceled", detail: "canceled" } : r,
-    );
-  }, []);
 
   return { run, send, cancel };
 }

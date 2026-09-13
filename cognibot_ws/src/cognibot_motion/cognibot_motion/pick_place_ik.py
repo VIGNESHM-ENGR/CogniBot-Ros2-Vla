@@ -13,13 +13,18 @@ import mujoco
 import numpy as np
 
 GRIPPER_OPEN = 1.2
-GRIPPER_CLOSED = -0.1  # below the cube width so the jaws squeeze (the controller allows stalling)
+# Jaw target when gripping the 2.5 cm cube: 0.1 rad lifts it with ~1.7 mm of jaw penetration;
+# closing further only drives the jaws into the cube (2.8 mm at -0.1), 0.2 slips.
+GRIPPER_CLOSED = 0.1
 HOVER = 0.06  # m above grasp and drop heights
 ORIENTATION_WEIGHT = 0.1
 # The gripperframe site sits 2 cm outboard of the jaw centre (MODIFICATIONS.md aligned it to the
 # URDF gripper_frame_link), so grasp targets are shifted 2 cm towards the base.
 GRASP_OFFSET = 0.02
 DROP_CLEARANCE = 0.012  # object centre above the surface when released
+# Solutions stay this far inside the joint limits: a controller settling exactly on a limit can
+# overshoot by ~1e-4 rad, which MoveIt then rejects as an invalid start state.
+LIMIT_MARGIN = 0.01
 
 
 @dataclass(frozen=True)
@@ -43,8 +48,8 @@ def solve_top_down_ik(
     data = mujoco.MjData(model)
     qadr = [model.jnt_qposadr[model.joint(j).id] for j in joints]
     dadr = [model.jnt_dofadr[model.joint(j).id] for j in joints]
-    lo = np.array([model.jnt_range[model.joint(j).id][0] for j in joints])
-    hi = np.array([model.jnt_range[model.joint(j).id][1] for j in joints])
+    lo = np.array([model.jnt_range[model.joint(j).id][0] for j in joints]) + LIMIT_MARGIN
+    hi = np.array([model.jnt_range[model.joint(j).id][1] for j in joints]) - LIMIT_MARGIN
     sid = model.site(site).id
     q = np.array(seed, dtype=float)
     jacp, jacr = np.zeros((3, model.nv)), np.zeros((3, model.nv))
@@ -66,6 +71,25 @@ def solve_top_down_ik(
     data.qpos[qadr] = q
     mujoco.mj_kinematics(model, data)
     return q, float(np.linalg.norm(target - data.site_xpos[sid]))
+
+
+def solve_from_seeds(
+    model: mujoco.MjModel,
+    joints: list[str],
+    site: str,
+    target: np.ndarray,
+    seeds: list[np.ndarray],
+) -> tuple[np.ndarray, float]:
+    """Solve from each seed (e.g. current pose, then home) and keep the closest solution."""
+    best: tuple[np.ndarray, float] | None = None
+    for seed in seeds:
+        q, err = solve_top_down_ik(model, joints, site, target, seed)
+        if best is None or err < best[1]:
+            best = (q, err)
+        if err < 1e-3:
+            break
+    assert best is not None
+    return best
 
 
 def toward_base(point: np.ndarray, distance: float) -> np.ndarray:

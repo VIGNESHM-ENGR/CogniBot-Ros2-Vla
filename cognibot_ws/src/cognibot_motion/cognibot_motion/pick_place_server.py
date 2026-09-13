@@ -38,7 +38,7 @@ from cognibot_motion.pick_place_ik import (
     Waypoint,
     fetch_waypoints,
     place_waypoints,
-    solve_top_down_ik,
+    solve_from_seeds,
 )
 
 WORLD_FRAMES = {"", "world"}
@@ -197,8 +197,12 @@ class PickPlaceServer(Node):
             if waypoint.kind == "gripper":
                 self._send_gripper(handle, waypoint.gripper)
                 continue
-            q, err = solve_top_down_ik(
-                self.model, self.arm_joints, self.cfg.ee_site, np.array(waypoint.xyz), q
+            q, err = solve_from_seeds(
+                self.model,
+                self.arm_joints,
+                self.cfg.ee_site,
+                np.array(waypoint.xyz),
+                [q, np.array(self.cfg.home_pose)],
             )
             if err > 0.03:
                 raise RuntimeError(f"target {np.round(waypoint.xyz, 3).tolist()} out of reach")

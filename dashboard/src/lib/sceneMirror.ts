@@ -95,25 +95,21 @@ export class SceneMirror {
     this.requestRender();
   }
 
-  setJoints(names: string[], positions: number[]): void {
+  /** Apply arm joints and object poses from the same instant, then render once. */
+  setState(names: string[], positions: number[], objects: ObjectPose[]): void {
     if (!this.model) return;
     const qpos = this.data.qpos as Float64Array;
     names.forEach((name, i) => {
       const adr = this.jointAdr.get(name);
       if (adr !== undefined) qpos[adr] = positions[i] ?? 0;
     });
-    this.update();
-  }
-
-  setObjects(objects: ObjectPose[]): void {
-    if (!this.model) return;
-    const qpos = this.data.qpos as Float64Array;
     for (const obj of objects) {
       const adr = this.freeAdr.get(obj.name);
-      if (adr === undefined) continue;
-      qpos.set([...obj.position, ...obj.quaternion], adr);
+      if (adr !== undefined) qpos.set([...obj.position, ...obj.quaternion], adr);
     }
-    this.update();
+    this.mj.mj_kinematics(this.model, this.data);
+    this.syncGeoms();
+    this.requestRender();
   }
 
   resetView(): void {
@@ -135,12 +131,6 @@ export class SceneMirror {
     this.renderer.domElement.remove();
     this.data?.delete();
     this.model?.delete();
-  }
-
-  private update(): void {
-    this.mj.mj_kinematics(this.model, this.data);
-    this.syncGeoms();
-    this.requestRender();
   }
 
   private requestRender(): void {

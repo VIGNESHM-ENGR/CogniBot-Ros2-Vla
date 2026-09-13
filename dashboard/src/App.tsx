@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ACTIONS, DEMO, MOVEIT, ROSBRIDGE_URL, SERVICES, TOPICS } from "./config";
 import { toSeconds } from "./lib/duration";
-import { holdGoal, jointGoal, MOVEIT_ERRORS, pointGoal } from "./lib/goals";
+import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
   commandForKey,
   nextSource,
@@ -112,11 +112,6 @@ function Pendant() {
   const pickPlaceOnline = actions.has(ACTIONS.fetch) && actions.has(ACTIONS.place);
   const teleopOnline = topics.has(TOPICS.teleop);
 
-  const motionEnabled = mode === "MOTION" && !stopped;
-  const motionBlocked = stopped
-    ? "Stopped: press Release (R) first."
-    : "Turn the mode key to MOTION (3) to plan and move.";
-
   const describeMoveIt = (r: MoveGroupResult) =>
     MOVEIT_ERRORS[r.error_code.val] ?? `code ${r.error_code.val}`;
 
@@ -129,6 +124,22 @@ function Pendant() {
   }, [trajectory, moveGroup, gripper, fetchObject, placeObject]);
 
   const describeResult = (r: ResultMessage) => r.message;
+  /** Send a MoveGroup goal, first easing any joint parked on a limit back inside it. */
+  const plan = (label: string, goal: object) => {
+    const state = jointsRef.current;
+    const armLimits = urdf?.joints.filter((j) => j.name !== "gripper") ?? [];
+    const nudge = state ? nudgeInsideLimits(armLimits, state.name, state.position) : null;
+    if (nudge && trajectoryOnline) {
+      trajectory.send(
+        "Ease off joint limit",
+        holdGoal(nudge.names, nudge.positions, 0.5),
+        undefined,
+        () => moveGroup.send(label, goal, describeMoveIt),
+      );
+    } else {
+      moveGroup.send(label, goal, describeMoveIt);
+    }
+  };
   const pickAndPlace = () =>
     fetchObject.send(
       `Pick ${DEMO.object}`,
@@ -227,6 +238,13 @@ function Pendant() {
           : run.detail,
   };
   const commander = run?.phase === "active" ? run.label : "no commander";
+  const programActive = run?.phase === "active";
+  const motionEnabled = mode === "MOTION" && !stopped && !programActive;
+  const motionBlocked = stopped
+    ? "Stopped: press Release (R) first."
+    : programActive
+      ? `${run.label} is running: wait or cancel (C) first.`
+      : "Turn the mode key to MOTION (3) to plan and move.";
 
   return (
     <div className="room">
@@ -290,11 +308,7 @@ function Pendant() {
                   enabled={motionEnabled}
                   blockedReason={motionBlocked}
                   onNamedPose={(s: GroupState) =>
-                    moveGroup.send(
-                      `Move to ${s.name}`,
-                      jointGoal(MOVEIT.arm, s.joints),
-                      describeMoveIt,
-                    )
+                    plan(`Move to ${s.name}`, jointGoal(MOVEIT.arm, s.joints))
                   }
                   onGripper={(s: GroupState) =>
                     gripper.send(`Gripper ${s.name}`, {
@@ -306,10 +320,9 @@ function Pendant() {
                     })
                   }
                   onPoint={(p) =>
-                    moveGroup.send(
+                    plan(
                       `Move to (${p.x.toFixed(2)}, ${p.y.toFixed(2)}, ${p.z.toFixed(2)})`,
                       pointGoal(MOVEIT.arm, MOVEIT.tip, MOVEIT.base, p),
-                      describeMoveIt,
                     )
                   }
                 />
