@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | owner request | Free-look 3D view and IK pick-and-place from the dashboard | feat |
 | 2026-09-13 | P3-T03…T05 | Operator pendant: design direction, scaffold and live panels | feat |
 | 2026-09-13 | P3-T01, P3-T02 | Browser bridge and rosbridge action support | feat |
 | 2026-09-13 | P2-T01 | MoveIt 2 with pick_ik for SO-101 | feat |
@@ -77,6 +78,45 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · owner request · Free-look 3D view and IK pick-and-place from the dashboard
+
+**Context:** the owner wanted the orbitable view the MuJoCo viewer gave (the dashboard only had fixed cameras) and a dashboard button for the scripted IK pick-and-place.
+**Outcome:** ✅ done. In the live UI: Pick and place → "Pick green_cube · lift · 80%" → "Place on blue_target · done"; cube landed 3.6 cm from the target centre; Reset cube returned it to (0.2741, −0.0195). `pytest` 4 new tests; dashboard 16 vitest tests, lint/build clean; dashboard image builds.
+
+### Work log
+- **Object poses:** `FreeJointStatePublisherPlugin` from `mujoco_ros2_control_plugins` (no custom node), configured in `cognibot_sim/config/mujoco_plugins.yaml`. This also covers the pose-source half of P2-T10 (TF frames still open).
+- **`pick_place_server`** (`cognibot_motion`): `FetchObject` / `PlaceObject` on the existing interfaces, scripted top-down IK from the demo moved into `pick_place_ik.py`; targets by point or MuJoCo body name; `/cognibot/sim/reset_objects` (std_srvs/Trigger) via `set_free_joint_state`. Launched by `motion.launch.py`.
+- **Free look:** `@mujoco/mujoco` 3.13.0 (official WASM bindings) loads the simulator's MJCF for kinematics only; three.js draws visual geoms (group ≤ 2) from `geom_xpos`/`geom_xmat`; joints from `/joint_states`, cube from object poses; renders on demand. `scripts/sync-scene.mjs` copies scene and meshes (17 MB) from `cognibot_sim` at dev/build time, so the dashboard image now builds from the repository root.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | `ros2_control_node` aborted: `parameter_value_from failed for parameter 'mujoco_plugins.object_poses.body_names'` | An empty YAML list has no type | Omit optional list parameters | Sim healthy after removal |
+| 2 | Fetch aborted: "no live pose for green_cube"; topic had 0 publishers at the configured name | mujoco_ros2_control 0.1.1 ignores the plugin's `topic`/`publish_rate`; it publishes `/<instance>/free_joint_states` at 50 Hz | Adopt `/object_poses/free_joint_states`; subscribe with sensor-data QoS | Log: "publishing 1 free-joint body to '/object_poses/free_joint_states' at 50.0 Hz"; fetch/place SUCCEEDED |
+| 3 | Edit scripts twice failed silently mid-way | Anchors matched a second occurrence (a generic type list) | Unique multi-line anchors; assert counts before writing | — |
+
+### Decisions
+#### D1: How to give the dashboard a free-look view
+```mermaid
+flowchart TD
+  Q[Orbitable view of the live scene] --> A[Stream the MuJoCo viewer]
+  Q --> B[urdf-loader / ros3djs from robot_description]
+  Q --> C[MuJoCo WASM + three.js on the simulator MJCF]
+  A --> A1[✗ the sim is headless; a GUI viewer costs GPU and cannot be embedded]
+  B --> B1[✗ robot only: no cube or target, package:// meshes need serving]
+  C --> C1[✓ chosen: same scene, objects included, official bindings, renders on demand]
+```
+- **Revisit if:** browser memory or load time becomes an issue (17 MB of meshes; decimate or cache).
+
+#### D2: Pick-and-place interface
+- Reused `FetchObject`/`PlaceObject` (P2-T09's contract) with a scripted-IK backend instead of adding a demo-specific interface; P2-T09 swaps the backend for MoveItPy without touching the dashboard.
+
+### Open questions
+- Free look assumes the red shell (`robot_color:=red`); a `stock` sim still renders red in the browser.
+- The demo bypasses `mode_manager` and the safety filter (trajectory and gripper actions only), like MoveIt goals today; revisit with P2-T04/T05.
+
+---
 
 ## 2026-09-13 · P3-T03…T05 · Operator pendant: design direction, scaffold and live panels
 

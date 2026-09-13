@@ -16,6 +16,9 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `bridge` service: rosbridge WebSocket (:9090) and MJPEG camera streams (:8080) on loopback; `make sim` starts it with the simulation.
 - Operator pendant dashboard (Vite + React + roslib): live front/wrist cameras, joint readouts against URDF limits, VRAM gauge, controller list, MoveIt named poses, gripper and move-to-point, latching STOP on Esc; `make dashboard`.
 - `make sim` also starts MoveIt (`motion` service) and the GPU monitor.
+- Dashboard free-look 3D view (MuJoCo WASM + three.js on the simulator's own scene, live joints and cube), switchable with the front and wrist cameras (`V`).
+- `pick_place_server` with `FetchObject`/`PlaceObject` (scripted IK) and `/cognibot/sim/reset_objects`; dashboard Motion view gets Pick and place and Reset cube.
+- Live object poses on `/object_poses/free_joint_states` from mujoco_ros2_control's free-joint publisher plugin.
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
@@ -23,6 +26,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `make sim-dev` starts only the `sim` service with the viewer; `ROBOT_COLOR` is passed through compose.
 - `policy-server` mounts the host Hugging Face cache (`HF_CACHE_DIR`, default `~/.cache/huggingface`) instead of a named volume.
 - SO-101 `wrist_cam` renders at 640×480 instead of 1920×1080 (headless GPU 40% → 26%, VRAM 587 → 385 MiB).
+- The dashboard image builds from the repository root so it can bundle the simulator scene.
 
 ### Fixed
 - CI `ros` job now installs MuJoCo and third-party sources and runs the GPU-free tests.

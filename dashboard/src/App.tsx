@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ACTIONS, MOVEIT, ROSBRIDGE_URL, SERVICES, TOPICS } from "./config";
+import { ACTIONS, DEMO, MOVEIT, ROSBRIDGE_URL, SERVICES, TOPICS } from "./config";
 import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, pointGoal } from "./lib/goals";
-import { commandForKey, type JogKey, type Mode, type ViewId } from "./lib/modes";
+import {
+  commandForKey,
+  nextSource,
+  type JogKey,
+  type Mode,
+  type SourceId,
+  type ViewId,
+} from "./lib/modes";
 import { parseSrdfGroupStates, parseUrdf, type GroupState } from "./lib/robotModel";
 import { EStop } from "./pendant/EStop";
 import { GpuGauge } from "./pendant/GpuGauge";
@@ -12,13 +19,23 @@ import { ModeKey } from "./pendant/ModeKey";
 import { ProgramLine, type ProgramState } from "./pendant/ProgramLine";
 import { SoftKeys } from "./pendant/SoftKeys";
 import { StatusStrip } from "./pendant/StatusStrip";
-import { useActionGoal, useGraph, useTopic, useTopicRate, type GoalRun } from "./ros/hooks";
+import {
+  useActionGoal,
+  useGraph,
+  useServiceCall,
+  useTopic,
+  useTopicRate,
+  type GoalRun,
+} from "./ros/hooks";
 import type {
   Clock,
   FollowJointTrajectoryFeedback,
   FollowJointTrajectoryGoal,
+  FreeJointStateArray,
   GpuStatus,
   JointState,
+  ResultMessage,
+  StageFeedback,
   StringMsg,
 } from "./ros/messages";
 import { RosProvider, useRos } from "./ros/RosProvider";
@@ -41,6 +58,7 @@ function Pendant() {
   const { link, url } = useRos();
   const [mode, setMode] = useState<Mode>("IDLE");
   const [view, setView] = useState<ViewId>("camera");
+  const [source, setSource] = useState<SourceId>("free");
   const [stopped, setStopped] = useState(false);
   const [pressed, setPressed] = useState<ReadonlySet<JogKey>>(new Set());
 
@@ -68,11 +86,30 @@ function Pendant() {
     ACTIONS.gripper,
     "control_msgs/action/ParallelGripperCommand",
   );
+  const fetchObject = useActionGoal<object, StageFeedback, ResultMessage>(
+    ACTIONS.fetch,
+    "cognibot_interfaces/action/FetchObject",
+  );
+  const placeObject = useActionGoal<object, StageFeedback, ResultMessage>(
+    ACTIONS.place,
+    "cognibot_interfaces/action/PlaceObject",
+  );
+  const resetObjects = useServiceCall<object, ResultMessage>(
+    SERVICES.resetObjects,
+    "std_srvs/srv/Trigger",
+  );
+  const objectPoses = useTopic<FreeJointStateArray>(
+    TOPICS.objectPoses,
+    "mujoco_ros2_control_msgs/msg/FreeJointStateArray",
+    250,
+  );
+  const demoObject = objectPoses?.free_joints.find((o) => o.name === DEMO.object);
 
   const moveitOnline = actions.has(ACTIONS.moveGroup);
   const trajectoryOnline = actions.has(ACTIONS.trajectory);
   const gripperOnline = actions.has(ACTIONS.gripper);
   const managerOnline = services.has(SERVICES.setMode);
+  const pickPlaceOnline = actions.has(ACTIONS.fetch) && actions.has(ACTIONS.place);
   const teleopOnline = topics.has(TOPICS.teleop);
 
   const motionEnabled = mode === "MOTION" && !stopped;
@@ -87,7 +124,23 @@ function Pendant() {
     trajectory.cancel();
     moveGroup.cancel();
     gripper.cancel();
-  }, [trajectory, moveGroup, gripper]);
+    fetchObject.cancel();
+    placeObject.cancel();
+  }, [trajectory, moveGroup, gripper, fetchObject, placeObject]);
+
+  const describeResult = (r: ResultMessage) => r.message;
+  const pickAndPlace = () =>
+    fetchObject.send(
+      `Pick ${DEMO.object}`,
+      { target: { header: { frame_id: DEMO.object }, point: { x: 0, y: 0, z: 0 } } },
+      describeResult,
+      () =>
+        placeObject.send(
+          `Place on ${DEMO.target}`,
+          { target: { header: { frame_id: DEMO.target }, point: { x: 0, y: 0, z: 0 } } },
+          describeResult,
+        ),
+    );
 
   const jointsRef = useRef(joints);
   useEffect(() => {
@@ -135,6 +188,9 @@ function Pendant() {
         case "cancel":
           cancelAll();
           break;
+        case "cycleSource":
+          setSource((s) => nextSource(s));
+          break;
         case "mode":
           setMode(command.mode);
           break;
@@ -154,16 +210,21 @@ function Pendant() {
     trajectory.run as GoalRun<unknown> | null,
     moveGroup.run as GoalRun<unknown> | null,
     gripper.run as GoalRun<unknown> | null,
+    fetchObject.run as GoalRun<unknown> | null,
+    placeObject.run as GoalRun<unknown> | null,
   );
+  const stageRun = [fetchObject.run, placeObject.run].find((r) => (r as unknown) === run);
   const moveGroupFeedback =
     run === (moveGroup.run as GoalRun<unknown> | null) ? moveGroup.run?.feedback : null;
   const program: ProgramState | null = run && {
     name: run.label,
     phase: run.phase,
     detail:
-      run.phase === "active" && moveGroupFeedback?.state
-        ? moveGroupFeedback.state.toLowerCase()
-        : run.detail,
+      run.phase === "active" && stageRun?.feedback
+        ? `${stageRun.feedback.stage.replace("_", " ")} · ${Math.round(stageRun.feedback.progress * 100)}%`
+        : run.phase === "active" && moveGroupFeedback?.state
+          ? moveGroupFeedback.state.toLowerCase()
+          : run.detail,
   };
   const commander = run?.phase === "active" ? run.label : "no commander";
 
@@ -206,11 +267,25 @@ function Pendant() {
               }
             />
             <div className="view">
-              {view === "camera" && <CameraView />}
+              {view === "camera" && <CameraView source={source} onSource={setSource} />}
               {view === "motion" && (
                 <MotionView
                   moveitOnline={moveitOnline}
                   gripperOnline={gripperOnline}
+                  pickPlaceOnline={pickPlaceOnline}
+                  resetOnline={services.has(SERVICES.resetObjects)}
+                  objectPosition={
+                    demoObject
+                      ? [
+                          demoObject.pose.pose.position.x,
+                          demoObject.pose.pose.position.y,
+                          demoObject.pose.pose.position.z,
+                        ]
+                      : null
+                  }
+                  source={source}
+                  onPickPlace={pickAndPlace}
+                  onReset={() => resetObjects({}).catch(() => undefined)}
                   groupStates={groupStates}
                   enabled={motionEnabled}
                   blockedReason={motionBlocked}

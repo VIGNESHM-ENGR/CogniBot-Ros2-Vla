@@ -14,6 +14,11 @@ export const MODE_HELP: Record<Mode, string> = {
 
 export type ViewId = "camera" | "motion" | "agent" | "vla" | "system";
 
+export const SOURCES = ["free", "front", "wrist"] as const;
+export type SourceId = (typeof SOURCES)[number];
+export const nextSource = (s: SourceId): SourceId =>
+  SOURCES[(SOURCES.indexOf(s) + 1) % SOURCES.length] as SourceId;
+
 export const VIEWS: { id: ViewId; key: string; label: string }[] = [
   { id: "camera", key: "F1", label: "Camera" },
   { id: "motion", key: "F2", label: "Motion" },
@@ -38,6 +43,7 @@ export type ConsoleCommand =
   | { kind: "stop" }
   | { kind: "release" }
   | { kind: "cancel" }
+  | { kind: "cycleSource" }
   | { kind: "mode"; mode: Mode }
   | { kind: "view"; view: ViewId }
   | { kind: "jog"; jog: JogKey };
@@ -48,6 +54,7 @@ export function commandForKey(code: string, inTextField: boolean): ConsoleComman
   if (inTextField) return null;
   if (code === "KeyR") return { kind: "release" };
   if (code === "KeyC") return { kind: "cancel" };
+  if (code === "KeyV") return { kind: "cycleSource" };
   const digit = /^Digit([1-5])$/.exec(code);
   if (digit) return { kind: "mode", mode: MODES[Number(digit[1]) - 1] as Mode };
   const fkey = VIEWS.find((v) => v.key === code);

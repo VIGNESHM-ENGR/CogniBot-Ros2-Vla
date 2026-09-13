@@ -50,3 +50,26 @@ export interface ControllerState {
   state: string;
   type: string;
 }
+
+export interface FreeJointStateArray {
+  header: Header;
+  free_joints: {
+    name: string;
+    pose: {
+      pose: {
+        position: { x: number; y: number; z: number };
+        orientation: { x: number; y: number; z: number; w: number };
+      };
+    };
+  }[];
+}
+
+export interface StageFeedback {
+  stage: string;
+  progress: number;
+}
+
+export interface ResultMessage {
+  success: boolean;
+  message: string;
+}

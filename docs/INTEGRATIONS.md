@@ -74,6 +74,17 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | [`so101-nexus`](https://pypi.org/project/so101-nexus/) | `tools` stage (scene export) and `vla-eval` (LeRobot-native eval) | `0.6.0` | SO-101 MuJoCo task scenes + LeRobot EnvHub envs for checkpoint sanity evaluation |
 | [`rai`](https://github.com/RobotecAI/rai) (candidate) | `vlm` venv | `6802d4073e8caa2ab72c5509fa1eeeb659663f64` (if adopted by P4-T01) | Agent runtime with ROS 2 connectors/tools (Apache-2.0, Jazzy, py3.12) |
 
+### 5.1 Dashboard (npm, exact versions in `dashboard/package.json` + lockfile)
+
+| Package | Pin | Purpose |
+|---|---|---|
+| `roslib` | `2.1.0` | rosbridge client (topics, services, actions) |
+| `@mujoco/mujoco` | `3.13.0` | Official MuJoCo WASM bindings: loads the simulator's MJCF for free-look kinematics (the sim runs 3.12; the MJCF loads unchanged) |
+| `three` | `0.186.0` | Renders the free-look mirror (OrbitControls) |
+| `react`, `react-dom` | `19.3.0` | UI |
+| `vite` / `typescript` | `8.3.0` / `6.0.3` | Build (TypeScript 7 is not yet supported by typescript-eslint 8.70) |
+| `lucide-react`, `@fontsource/barlow{,-condensed}` | `1.45.0`, `5.3.0` | Icons and fonts |
+
 ## 6. Models and checkpoints
 
 | Model | Source | Variant | Served by |

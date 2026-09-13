@@ -25,5 +25,11 @@ Only works that are **copied into or derived within this repository** (models, m
 | Qwen3-VL-4B-Instruct (GGUF) | Alibaba Qwen team | Apache-2.0 | Model weights downloaded at runtime |
 | SmolVLA base and community checkpoints | Hugging Face / checkpoint authors | Apache-2.0 (verify per checkpoint) | Model weights downloaded at runtime |
 | CycloneDDS | Eclipse Foundation | EPL-2.0 / EDL-1.0 | apt binary |
+| MuJoCo JavaScript bindings (`@mujoco/mujoco`) | Google DeepMind | Apache-2.0 | npm package bundled into the dashboard (free-look view) |
+| three.js | three.js authors | MIT | npm package bundled into the dashboard |
+| roslib (roslibjs) | RobotWebTools | BSD-2-Clause | npm package bundled into the dashboard |
+| React, Vite | Meta Platforms; VoidZero and Vite contributors | MIT | npm packages (dashboard build and runtime) |
+| Lucide icons (`lucide-react`) | Lucide contributors | ISC | npm package bundled into the dashboard |
+| Barlow, Barlow Condensed (`@fontsource/*`) | Jeremy Tribby | OFL-1.1 | Fonts bundled into the dashboard |
 
 If you add a component, add a row here and in `docs/INTEGRATIONS.md` in the same commit.

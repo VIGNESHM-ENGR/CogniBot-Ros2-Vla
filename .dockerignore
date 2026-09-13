@@ -5,8 +5,9 @@
 **/__pycache__
 **/.pytest_cache
 .ruff_cache
-node_modules
+**/node_modules
 dashboard/dist
+dashboard/public/sim
 cognibot_ws/build
 cognibot_ws/install
 cognibot_ws/log

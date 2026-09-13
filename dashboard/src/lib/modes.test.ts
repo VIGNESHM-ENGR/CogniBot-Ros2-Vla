@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { commandForKey, detentAngle } from "./modes";
+import { commandForKey, detentAngle, nextSource } from "./modes";
 
 describe("commandForKey", () => {
   it("stops from anywhere, including text fields", () => {
@@ -26,5 +26,13 @@ describe("detentAngle", () => {
     expect(detentAngle("IDLE")).toBe(-60);
     expect(detentAngle("MOTION")).toBe(0);
     expect(detentAngle("TWIN")).toBe(60);
+  });
+});
+
+describe("viewport sources", () => {
+  it("cycles free look, front and wrist with V", () => {
+    expect(commandForKey("KeyV", false)).toEqual({ kind: "cycleSource" });
+    expect(nextSource("free")).toBe("front");
+    expect(nextSource("wrist")).toBe("free");
   });
 });

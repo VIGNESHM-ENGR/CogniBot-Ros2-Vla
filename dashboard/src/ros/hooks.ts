@@ -107,7 +107,12 @@ export function useActionGoal<TGoal, TFeedback, TResult>(name: string, actionTyp
   const active = useRef<{ action: Action<TGoal, TFeedback, TResult>; id: string } | null>(null);
 
   const send = useCallback(
-    (label: string, goal: TGoal, describeResult?: (result: TResult) => string) => {
+    (
+      label: string,
+      goal: TGoal,
+      describeResult?: (result: TResult) => string,
+      onSucceeded?: (result: TResult) => void,
+    ) => {
       const action = new Action<TGoal, TFeedback, TResult>({ ros, name, actionType });
       const settle = (phase: GoalPhase, detail: string) => {
         if (active.current?.action === action) active.current = null;
@@ -118,7 +123,10 @@ export function useActionGoal<TGoal, TFeedback, TResult>(name: string, actionTyp
       setRun({ label, phase: "active", feedback: null, detail: "", startedAt: Date.now() });
       const id = action.sendGoal(
         goal,
-        (result) => settle("succeeded", describeResult?.(result) ?? ""),
+        (result) => {
+          settle("succeeded", describeResult?.(result) ?? "");
+          onSucceeded?.(result);
+        },
         (feedback) => setRun((r) => (r && r.label === label ? { ...r, feedback } : r)),
         (error) => settle(active.current ? "failed" : "canceled", error),
       );

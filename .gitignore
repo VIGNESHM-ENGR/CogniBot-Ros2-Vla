@@ -70,3 +70,6 @@ TASKS.md
 .impeccable/review/
 .impeccable/questions/
 .impeccable/mocks/
+
+# Generated from cognibot_sim by dashboard/scripts/sync-scene.mjs
+dashboard/public/sim/

@@ -477,16 +477,27 @@ input {
   font-size: 12px;
 }
 
-.camera__inset {
+.insets {
   position: absolute;
   right: 12px;
   bottom: 12px;
-  width: 26%;
-  min-width: 180px;
+  display: grid;
+  gap: 10px;
+  width: 24%;
+  min-width: 170px;
+}
+
+.camera__inset {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
   aspect-ratio: 4 / 3;
   overflow: hidden;
   border-radius: 8px;
   background: var(--well);
+  cursor: pointer;
   box-shadow:
     0 0 0 1px var(--screen-rule-strong),
     0 6px 16px rgba(0, 0, 0, 0.6);
@@ -992,4 +1003,53 @@ input {
 
 .table td.wrap {
   overflow-wrap: anywhere;
+}
+
+.camera__inset:focus-visible {
+  outline-offset: 2px;
+}
+
+.camera__inset .camera,
+.camera__inset .freelook__canvas {
+  pointer-events: none;
+}
+
+.freelook__canvas {
+  position: absolute;
+  inset: 0;
+}
+
+.freelook__canvas canvas {
+  display: block;
+  cursor: grab;
+}
+
+.freelook__canvas canvas:active {
+  cursor: grabbing;
+}
+
+.freelook__reset {
+  position: absolute;
+  top: 8px;
+  right: 12px;
+  min-height: 32px;
+}
+
+.freelook__note {
+  position: absolute;
+  top: 44px;
+  left: 12px;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.source-hint {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(10, 13, 14, 0.82);
+  color: var(--ink-3);
+  font-size: 11px;
 }

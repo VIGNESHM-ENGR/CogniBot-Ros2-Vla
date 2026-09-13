@@ -1,36 +1,43 @@
 import { useState } from "react";
-import { MOVEIT, TOPICS } from "../config";
+import { DEMO, MOVEIT, TOPICS } from "../config";
 import type { GroupState } from "../lib/robotModel";
+import type { SourceId } from "../lib/modes";
 import { CameraFeed } from "./CameraFeed";
-import { NotRunning } from "./NotRunning";
+import { FreeLook } from "./FreeLook";
 
 interface Props {
   moveitOnline: boolean;
   gripperOnline: boolean;
+  pickPlaceOnline: boolean;
+  resetOnline: boolean;
+  objectPosition: [number, number, number] | null;
   groupStates: GroupState[];
   enabled: boolean;
   blockedReason: string;
+  source: SourceId;
   onNamedPose: (state: GroupState) => void;
   onGripper: (state: GroupState) => void;
   onPoint: (point: { x: number; y: number; z: number }) => void;
+  onPickPlace: () => void;
+  onReset: () => void;
+}
+
+function Offline({ service, start }: { service: string; start: string }) {
+  return (
+    <p className="offline">
+      <strong>{service} not running</strong>
+      Start it with <code>{start}</code>.
+    </p>
+  );
 }
 
 export function MotionView(props: Props) {
-  const { moveitOnline, gripperOnline, groupStates, enabled, blockedReason } = props;
+  const { moveitOnline, gripperOnline, pickPlaceOnline, resetOnline, groupStates, enabled } = props;
   const [point, setPoint] = useState({ x: 0.3, y: 0.0, z: 0.12 });
-
-  if (!moveitOnline) {
-    return (
-      <NotRunning title="MoveIt 2 planning" missing="move_group" start="make moveit">
-        Named poses, gripper commands and move-to-point plan through move_group with pick_ik. The
-        simulation is up, but no /move_action server answers yet.
-      </NotRunning>
-    );
-  }
-
   const arm = groupStates.filter((s) => s.group === MOVEIT.arm);
   const gripper = groupStates.filter((s) => s.group === MOVEIT.gripper);
   const axes = ["x", "y", "z"] as const;
+  const cube = props.objectPosition;
 
   return (
     <div className="split">
@@ -38,74 +45,131 @@ export function MotionView(props: Props) {
         {!enabled && (
           <p className="offline">
             <strong>Motion keys dead</strong>
-            {blockedReason}
+            {props.blockedReason}
           </p>
         )}
+
+        <section>
+          <h2 className="legend">IK pick and place</h2>
+          {pickPlaceOnline ? (
+            <>
+              <div className="keygrid">
+                <button
+                  type="button"
+                  className="key"
+                  disabled={!enabled}
+                  onClick={props.onPickPlace}
+                >
+                  <span className="key__legend">Pick and place</span>
+                </button>
+                <button
+                  type="button"
+                  className="key"
+                  disabled={!resetOnline}
+                  onClick={props.onReset}
+                >
+                  <span className="key__legend">Reset cube</span>
+                </button>
+              </div>
+              <p className="note">
+                {DEMO.object}{" "}
+                {cube
+                  ? `at (${cube.map((v) => v.toFixed(3)).join(", ")}) m`
+                  : "position unknown (no object poses)"}
+                {" → "}
+                {DEMO.target}. Scripted top-down IK, no planner.
+              </p>
+            </>
+          ) : (
+            <Offline service="pick_place_server" start="make sim" />
+          )}
+        </section>
+
         <section>
           <h2 className="legend">Named poses</h2>
-          <div className="keygrid">
-            {arm.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                className="key"
-                disabled={!enabled}
-                onClick={() => props.onNamedPose(s)}
-              >
-                <span className="key__legend">{s.name}</span>
-              </button>
-            ))}
-          </div>
-          <p className="note">Planned by MoveIt; poses come from the robot's SRDF.</p>
+          {moveitOnline ? (
+            <>
+              <div className="keygrid">
+                {arm.map((s) => (
+                  <button
+                    key={s.name}
+                    type="button"
+                    className="key"
+                    disabled={!enabled}
+                    onClick={() => props.onNamedPose(s)}
+                  >
+                    <span className="key__legend">{s.name}</span>
+                  </button>
+                ))}
+              </div>
+              <p className="note">Planned by MoveIt; poses come from the robot's SRDF.</p>
+            </>
+          ) : (
+            <Offline service="move_group" start="make sim" />
+          )}
         </section>
-        <section>
-          <h2 className="legend">Gripper</h2>
-          <div className="keygrid">
-            {gripper.map((s) => (
-              <button
-                key={s.name}
-                type="button"
-                className="key"
-                disabled={!enabled || !gripperOnline}
-                onClick={() => props.onGripper(s)}
-              >
-                <span className="key__legend">{s.name}</span>
-              </button>
-            ))}
-          </div>
-        </section>
-        <section>
-          <h2 className="legend">Move to point</h2>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              props.onPoint(point);
-            }}
-          >
-            <div className="fields">
-              {axes.map((axis) => (
-                <label key={axis} className="field">
-                  <span className="legend">{axis} · m</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={point[axis]}
-                    onChange={(e) => setPoint((p) => ({ ...p, [axis]: Number(e.target.value) }))}
-                  />
-                </label>
+
+        {moveitOnline && (
+          <section>
+            <h2 className="legend">Gripper</h2>
+            <div className="keygrid">
+              {gripper.map((s) => (
+                <button
+                  key={s.name}
+                  type="button"
+                  className="key"
+                  disabled={!enabled || !gripperOnline}
+                  onClick={() => props.onGripper(s)}
+                >
+                  <span className="key__legend">{s.name}</span>
+                </button>
               ))}
             </div>
-            <button type="submit" className="key" disabled={!enabled} style={{ width: "100%" }}>
-              <span className="key__legend">Plan and move</span>
-              <span className="key__cap">Enter</span>
-            </button>
-          </form>
-          <p className="note">
-            Gripper centre in {MOVEIT.base}; orientation is left free (position-only IK).
-          </p>
-        </section>
+          </section>
+        )}
+
+        {moveitOnline && (
+          <section>
+            <h2 className="legend">Move to point</h2>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                props.onPoint(point);
+              }}
+            >
+              <div className="fields">
+                {axes.map((axis) => (
+                  <label key={axis} className="field">
+                    <span className="legend">{axis} · m</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={point[axis]}
+                      onChange={(e) => setPoint((p) => ({ ...p, [axis]: Number(e.target.value) }))}
+                    />
+                  </label>
+                ))}
+              </div>
+              <button type="submit" className="key" disabled={!enabled} style={{ width: "100%" }}>
+                <span className="key__legend">Plan and move</span>
+                <span className="key__cap">Enter</span>
+              </button>
+            </form>
+            <p className="note">
+              Gripper centre in {MOVEIT.base}; orientation is left free (position-only IK).
+            </p>
+          </section>
+        )}
       </div>
-      <CameraFeed topic={TOPICS.frontCamera} label="Front RGB-D" />
+      {props.source === "free" ? (
+        <FreeLook />
+      ) : (
+        <CameraFeed
+          key={props.source}
+          topic={props.source === "front" ? TOPICS.frontCamera : TOPICS.wristCamera}
+          label={props.source === "front" ? "Front RGB-D" : "Wrist"}
+        />
+      )}
     </div>
   );
 }

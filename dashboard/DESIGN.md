@@ -215,6 +215,10 @@ Label/value pairs in the screen's top strip, joint rows with a 3 px limit marker
 
 Deep `well` background, 1 px strong screen rule, safety-yellow border and caret on focus, tabular numerals.
 
+### Viewport sources
+
+The Camera view shows one source full size — Free look (default), Front RGB-D or Wrist — and the other two as clickable insets stacked at the lower right (24% wide, 4:3, 8 px radius, strong screen-rule ring). `V` cycles the main source; a small label at the lower left names it. Free look is a three.js mirror of the simulator's own MJCF on the screen-black ground with a hairline grid, robot shell in the recolored red; it renders only when state or the orbit changes, and its View key resets the camera.
+
 ### Not-running view
 
 One Display heading, a yellow LED status line naming the missing service, a short description of what the view will do, and the exact start command.

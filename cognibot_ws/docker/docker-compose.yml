@@ -78,8 +78,8 @@ services:
   dashboard:
     image: cognibot/dashboard:${COGNIBOT_VERSION:-dev}
     build:
-      context: ../../dashboard
-      dockerfile: ../cognibot_ws/docker/dashboard.Dockerfile
+      context: ../..
+      dockerfile: cognibot_ws/docker/dashboard.Dockerfile
     ports:
       - "127.0.0.1:8000:80"
     restart: unless-stopped
