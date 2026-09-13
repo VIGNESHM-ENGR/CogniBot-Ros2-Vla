@@ -1,0 +1,53 @@
+name: so101
+base_frame: base_link
+ee_frame: gripper_frame_link
+ee_site: gripperframe
+arm_joints:
+  - shoulder_pan
+  - shoulder_lift
+  - elbow_flex
+  - wrist_flex
+  - wrist_roll
+gripper:
+  joint: gripper
+  open: 1.2
+  closed: 0.0
+home_pose:
+  - 0.0
+  - -1.57
+  - 1.57
+  - 0.0
+  - 0.0
+mjcf:
+  scene: scenes/so101_pick_and_place.xml
+  ik_model: robots/so101/mjcf/so101_ik_spheres.xml
+urdf: robots/so101/urdf/so101_mujoco.urdf.xacro
+controllers: robots/so101/config/controllers.yaml
+moveit:
+  config_package: so101_moveit_config
+  kinematics_override: config/so101/kinematics_pick_ik.yaml
+cameras:
+  front:
+    topic: /camera/front
+    frame: front_camera_optical_frame
+    depth: true
+  wrist:
+    topic: /camera/wrist
+    frame: wrist_camera_optical_frame
+    depth: false
+safety:
+  collision_spheres: config/so101/collision_spheres.yaml
+  min_distance: 0.01
+  max_joint_velocity: 2.0
+reach:
+  study_dir: config/so101/reach/
+  workspace_sphere:
+    center:
+      - 0.0
+      - 0.0
+      - 0.12
+    r_min: 0.08
+    r_max: 0.38
+vla:
+  lerobot_robot_type: cognibot_so101
+  checkpoint: lerobot/smolvla_base
