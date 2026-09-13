@@ -10,7 +10,7 @@ The VLM must ground objects in images and call tools, and share a 6 GB GPU with 
 ## Decision
 
 - Model: **Qwen3-VL-4B-Instruct**, official GGUF (`Q4_K_M` weights + `Q8_0` mmproj). It has native 2D grounding and follows tool-call templates; the instruct variant avoids thinking-token latency.
-- Server: **llama.cpp `llama-server`** (`--jinja` for OpenAI-style tool calls), managed by **llama-swap** (`ghcr.io/mostlygeek/llama-swap:unified-cuda`).
+- Server: **llama.cpp `llama-server`** (`--jinja` for OpenAI-style tool calls), managed by **llama-swap** (`ghcr.io/mostlygeek/llama-swap:unified-cuda13`).
 - Three llama-swap entries for the same files: `qwen3-vl-4b-gpu` (`-ngl 99`), `qwen3-vl-4b-hybrid` (`-ngl 16`), `qwen3-vl-4b-cpu` (`-ngl 0 --no-mmproj-offload`). They share one swap group, so only one is loaded at a time. `ttl` evicts idle models, and `/api/models/unload` is called before VLA streaming.
 
 ## Consequences

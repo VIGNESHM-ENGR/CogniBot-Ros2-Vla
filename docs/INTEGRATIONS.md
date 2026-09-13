@@ -12,7 +12,7 @@ CogniBot is an integration project. This file lists **every external component**
 |---|---|---|---|---|
 | `moveit/moveit2:jazzy-release` | `core` image (`sim`, `motion`, `bridge`, `twin`) | tag now → digest **TBD** | P0 / P1-T01 | Official MoveIt image on `ros:jazzy-ros-base`, with MoveIt 2 binaries (incl. `moveit_py`) preinstalled |
 | `ros:jazzy-ros-base-noble` | `interfaces` build stage, `vlm`, `vla` images | tag now → digest **TBD** | P0 | Official OSRF image, Python 3.12 |
-| `ghcr.io/mostlygeek/llama-swap:unified-cuda` | `llm` | tag now → versioned tag **TBD** | P4-T01 | llama-swap + llama.cpp `llama-server` (CUDA) in one image; model hot-swap/TTL/unload API |
+| `ghcr.io/mostlygeek/llama-swap:unified-cuda13` | `llm` | tag now → versioned tag **TBD** | P4-T01 | llama-swap + llama.cpp `llama-server` (CUDA) in one image; model hot-swap/TTL/unload API |
 | `huggingface/lerobot-gpu:latest` | `policy-server` | digest **TBD** | P5-T01 | Official LeRobot GPU image; runs `lerobot.async_inference.policy_server` unmodified |
 | `node:22-alpine` → `nginx:1.27-alpine` | `dashboard` | tags | P3-T03 | Standard SPA build and serve |
 

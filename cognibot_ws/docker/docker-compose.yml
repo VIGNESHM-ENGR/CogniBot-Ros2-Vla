@@ -1,0 +1,194 @@
+# CogniBot-ROS2-VLA stack. Profiles: (none)=core sim stack · vlm · vla · twin · full
+#   make sim | make vlm | make vla | make full | make twin
+# Networking and ports: docs/NETWORKING.md · VRAM/RAM limits: docs/VRAM_BUDGET.md
+name: cognibot
+
+x-ros: &ros
+  network_mode: host
+  ipc: host
+  init: true
+  restart: unless-stopped
+  environment: &ros-env
+    ROS_DOMAIN_ID: ${ROS_DOMAIN_ID:-42}
+    RMW_IMPLEMENTATION: rmw_cyclonedds_cpp
+    ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
+    CYCLONEDDS_URI: file:///etc/cognibot/cyclonedds.xml
+    ROBOT: ${ROBOT:-so101}
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu, compute, utility, graphics]
+
+x-build-args: &build-args
+  HOST_UID: ${HOST_UID:-1000}
+  HOST_GID: ${HOST_GID:-1000}
+
+x-core-build: &core-build
+  context: ../..
+  dockerfile: cognibot_ws/docker/Dockerfile
+  target: core
+  args: *build-args
+
+services:
+  # ─────────────── core (always on) ───────────────
+  sim:
+    <<: [*ros, *gpu]
+    image: cognibot/core:${COGNIBOT_VERSION:-dev}
+    build: *core-build
+    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} headless:=true
+    mem_limit: 4g
+    healthcheck:
+      test: ["CMD-SHELL", "/entrypoint.sh ros2 control list_controllers | grep -q 'joint_state_broadcaster.*active'"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 30s
+
+  motion:
+    <<: *ros
+    image: cognibot/core:${COGNIBOT_VERSION:-dev}
+    build: *core-build
+    command: ros2 launch cognibot_bringup motion.launch.py robot:=${ROBOT:-so101}
+    mem_limit: 3g
+    depends_on:
+      sim:
+        condition: service_healthy
+
+  bridge:
+    <<: *ros
+    image: cognibot/core:${COGNIBOT_VERSION:-dev}
+    build: *core-build
+    command: ros2 launch cognibot_bringup bridge.launch.py
+    mem_limit: 1g
+    depends_on:
+      sim:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9090'"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+
+  dashboard:
+    image: cognibot/dashboard:${COGNIBOT_VERSION:-dev}
+    build:
+      context: ../../dashboard
+      dockerfile: ../cognibot_ws/docker/dashboard.Dockerfile
+    ports:
+      - "127.0.0.1:8000:80"
+    restart: unless-stopped
+    depends_on:
+      bridge:
+        condition: service_healthy
+
+  # ─────────────── vlm profile ───────────────
+  llm:
+    <<: *gpu
+    image: ghcr.io/mostlygeek/llama-swap:unified-cuda13
+    profiles: [vlm, full]
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      LLAMA_SWAP_CONFIG: /etc/llama-swap/config/config.yaml
+      LLAMA_SWAP_LISTEN: 127.0.0.1:8082
+      LLAMA_SWAP_WATCH_CONFIG: "false"
+      LLAMA_CACHE: /models/cache
+      HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ./llm/config.yaml:/etc/llama-swap/config/config.yaml:ro
+      - llm_models:/models
+    mem_limit: 12g
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  vlm-agent:
+    <<: *ros
+    image: cognibot/vlm:${COGNIBOT_VERSION:-dev}
+    build:
+      context: ../..
+      dockerfile: cognibot_ws/docker/Dockerfile
+      target: vlm
+      args: *build-args
+    profiles: [vlm, full]
+    command: ros2 launch cognibot_bringup vlm.launch.py robot:=${ROBOT:-so101}
+    environment:
+      <<: *ros-env
+      LLM_BASE_URL: http://127.0.0.1:8082/v1
+      LLM_MODEL: ${LLM_MODEL:-qwen3-vl-4b-gpu}
+    mem_limit: 2g
+    depends_on:
+      llm:
+        condition: service_healthy
+      motion:
+        condition: service_started
+
+  # ─────────────── vla profile ───────────────
+  policy-server:
+    <<: *gpu
+    image: ${LEROBOT_GPU_IMAGE:-huggingface/lerobot-gpu:latest}
+    profiles: [vla, full]
+    network_mode: host
+    restart: unless-stopped
+    command: python -m lerobot.async_inference.policy_server --host=127.0.0.1 --port=8090
+    environment:
+      HF_HOME: /hf_cache
+      HF_TOKEN: ${HF_TOKEN:-}
+      PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
+    volumes:
+      - hf_cache:/hf_cache
+    shm_size: 2g
+    mem_limit: 8g
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import socket; socket.create_connection(('127.0.0.1', 8090), 2)\""]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+  vla-client:
+    <<: *ros
+    image: cognibot/vla:${COGNIBOT_VERSION:-dev}
+    build:
+      context: ../..
+      dockerfile: cognibot_ws/docker/Dockerfile
+      target: vla
+      args: *build-args
+    profiles: [vla, full]
+    command: ros2 launch cognibot_bringup vla.launch.py robot:=${ROBOT:-so101}
+    environment:
+      <<: *ros-env
+      POLICY_SERVER_ADDRESS: 127.0.0.1:8090
+      VLA_CHECKPOINT: ${VLA_CHECKPOINT:-lerobot/smolvla_base}
+      LLM_BASE_URL: http://127.0.0.1:8082
+    mem_limit: 4g
+    depends_on:
+      policy-server:
+        condition: service_healthy
+      motion:
+        condition: service_started
+
+  # ─────────────── twin profile ───────────────
+  twin:
+    <<: *ros
+    image: cognibot/core:${COGNIBOT_VERSION:-dev}
+    build: *core-build
+    profiles: [twin]
+    command: ros2 launch cognibot_bringup twin.launch.py hardware_type:=${TWIN_HARDWARE:-mock}
+    mem_limit: 1g
+    # Enable when a real SO-101 bus adapter is connected (P6-T03):
+    # devices:
+    #   - ${TWIN_SERIAL_DEVICE:-/dev/ttyACM0}:/dev/ttyACM0
+    depends_on:
+      sim:
+        condition: service_healthy
+
+volumes:
+  llm_models:
+  hf_cache:

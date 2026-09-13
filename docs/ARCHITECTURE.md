@@ -38,7 +38,7 @@ flowchart LR
 | `motion` | `cognibot/core` | core | no | `move_group` (pick_ik), `mode_manager`, `safety_filter`, `mink_teleop`, `reach_query`, `pick_place_server` |
 | `bridge` | `cognibot/core` | core | no | `rosbridge_websocket`, `web_video_server` |
 | `dashboard` | `cognibot/dashboard` (node build → nginx) | core | no | static SPA on :8000 |
-| `llm` | `ghcr.io/mostlygeek/llama-swap:unified-cuda` (pinned) | `vlm`, `full` | yes | llama-swap → `llama-server` with Qwen3-VL-4B-Instruct Q4_K_M + mmproj |
+| `llm` | `ghcr.io/mostlygeek/llama-swap:unified-cuda13` (pinned) | `vlm`, `full` | yes | llama-swap → `llama-server` with Qwen3-VL-4B-Instruct Q4_K_M + mmproj |
 | `vlm-agent` | `cognibot/vlm` (FROM `ros:jazzy-ros-base`) | `vlm`, `full` | no | `vlm_agent_node` |
 | `policy-server` | `huggingface/lerobot-gpu` (pinned digest) | `vla`, `full` | yes | `python -m lerobot.async_inference.policy_server` (unmodified) |
 | `vla-client` | `cognibot/vla` (FROM `ros:jazzy-ros-base` + venv LeRobot) | `vla`, `full` | no | `skill_executor_node` → LeRobot `robot_client` with the `lerobot_robot_cognibot` plugin |

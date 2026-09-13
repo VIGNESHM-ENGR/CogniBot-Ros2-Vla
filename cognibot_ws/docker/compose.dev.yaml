@@ -1,0 +1,16 @@
+# Development override: GUI (MuJoCo Simulate viewer, RViz) over X11 and live source mounts.
+#   xhost +si:localuser:$(whoami) && make sim-dev
+services:
+  sim:
+    command: ros2 launch cognibot_bringup sim.launch.py robot:=${ROBOT:-so101} headless:=false
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../src:/ws/src
+  motion:
+    environment:
+      DISPLAY: ${DISPLAY:-:0}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix:rw
+      - ../src:/ws/src
