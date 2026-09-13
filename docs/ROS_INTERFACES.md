@@ -21,12 +21,12 @@ Conventions:
 | `/joint_states` | `sensor_msgs/JointState` | `joint_state_broadcaster` | robot_state_publisher, motion, teleop, vla-client, dashboard |
 | `/tf`, `/tf_static` | `tf2_msgs/TFMessage` | robot_state_publisher, static publishers | all |
 | `/robot_description` | `std_msgs/String` (transient local) | robot_state_publisher | move_group, dashboard |
-| `/camera/front/color/image_raw` | `sensor_msgs/Image` | mujoco_ros2_control camera plugin | vlm-agent, vla-client, bridge |
-| `/camera/front/color/camera_info` | `sensor_msgs/CameraInfo` | camera plugin | vlm-agent |
-| `/camera/front/depth/image_raw` | `sensor_msgs/Image` (32FC1, m) | camera plugin | vlm-agent |
-| `/camera/wrist/color/image_raw` | `sensor_msgs/Image` | camera plugin | vla-client, bridge |
+| `/camera/front/color/image_raw` | `sensor_msgs/Image` | mujoco_ros2_control camera plugin (or `/mujoco_camera_plugin/front_rgbd/color`) | vlm-agent, vla-client, bridge |
+| `/camera/front/color/camera_info` | `sensor_msgs/CameraInfo` | camera plugin (or `/mujoco_camera_plugin/front_rgbd/camera_info`) | vlm-agent |
+| `/camera/front/depth/image_raw` | `sensor_msgs/Image` (32FC1, m) | camera plugin (or `/mujoco_camera_plugin/front_rgbd/depth`) | vlm-agent |
+| `/camera/wrist/color/image_raw` | `sensor_msgs/Image` | camera plugin (or `/mujoco_camera_plugin/wrist_cam/color`) | vla-client, bridge |
 
-> The exact camera topic names come from the `mujoco_ros2_control` camera configuration. P1-T05 verifies them and updates this table if the plugin forces a different layout.
+> In simulation, the `mujoco_ros2_control` camera plugin directly publishes `/mujoco_camera_plugin/{camera_name}/{color,depth,camera_info}`. Static TFs align `world -> front_rgbd_frame` (and alias `front_camera_optical_frame`). The `/camera/...` names are the contract for consumers; no remapping exists yet, so each consuming node (bridge, vlm-agent, vla-client) must remap from the plugin topics when it is added.
 
 ### 1.2 Control (owner: `motion`)
 
