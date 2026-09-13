@@ -1,0 +1,561 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-13T16:23:29.766773+00:00",
+  "title": "Design System: CogniBot Operator Pendant",
+  "extensions": {
+    "colorMeta": {
+      "room": {
+        "role": "neutral",
+        "displayName": "Room",
+        "canonical": "#070808",
+        "tonalRamp": [
+          "#242929",
+          "#3c4444",
+          "#535f5f",
+          "#6b7a7a",
+          "#859494",
+          "#adb8b8",
+          "#ced4d4",
+          "#f1f3f3"
+        ]
+      },
+      "housing": {
+        "role": "neutral",
+        "displayName": "Housing",
+        "canonical": "#1d2022",
+        "tonalRamp": [
+          "#232729",
+          "#3b4145",
+          "#525b60",
+          "#6a757c",
+          "#838e95",
+          "#acb4b9",
+          "#cdd2d5",
+          "#f1f2f3"
+        ]
+      },
+      "housing-highlight": {
+        "role": "neutral",
+        "displayName": "Housing Highlight",
+        "canonical": "#2e3336",
+        "tonalRamp": [
+          "#232729",
+          "#3b4145",
+          "#525b60",
+          "#6a757c",
+          "#838f95",
+          "#acb4b9",
+          "#cdd2d5",
+          "#f1f3f3"
+        ]
+      },
+      "housing-shadow": {
+        "role": "neutral",
+        "displayName": "Housing Shadow",
+        "canonical": "#111314",
+        "tonalRamp": [
+          "#232729",
+          "#3b4145",
+          "#525c60",
+          "#69767c",
+          "#838f96",
+          "#acb5b9",
+          "#cdd2d5",
+          "#f1f3f3"
+        ]
+      },
+      "seam": {
+        "role": "neutral",
+        "displayName": "Seam",
+        "canonical": "#0a0b0c",
+        "tonalRamp": [
+          "#23262a",
+          "#3a4046",
+          "#515961",
+          "#68737d",
+          "#828c97",
+          "#acb2b9",
+          "#cdd1d5",
+          "#f1f2f3"
+        ]
+      },
+      "key": {
+        "role": "neutral",
+        "displayName": "Key",
+        "canonical": "#33383b",
+        "tonalRamp": [
+          "#232729",
+          "#3b4144",
+          "#535b60",
+          "#6a757b",
+          "#848e95",
+          "#adb4b8",
+          "#ced2d4",
+          "#f1f2f3"
+        ]
+      },
+      "key-highlight": {
+        "role": "neutral",
+        "displayName": "Key Highlight",
+        "canonical": "#454b4f",
+        "tonalRamp": [
+          "#242729",
+          "#3b4144",
+          "#535a5f",
+          "#6b747b",
+          "#848e94",
+          "#adb4b8",
+          "#ced2d4",
+          "#f1f2f3"
+        ]
+      },
+      "key-shadow": {
+        "role": "neutral",
+        "displayName": "Key Shadow",
+        "canonical": "#1a1d1f",
+        "tonalRamp": [
+          "#23272a",
+          "#3a4145",
+          "#515b61",
+          "#69757d",
+          "#828e96",
+          "#acb4b9",
+          "#cdd2d5",
+          "#f1f2f3"
+        ]
+      },
+      "key-dead": {
+        "role": "neutral",
+        "displayName": "Key Dead",
+        "canonical": "#26292b",
+        "tonalRamp": [
+          "#242729",
+          "#3c4144",
+          "#545a5f",
+          "#6c747a",
+          "#858e93",
+          "#aeb3b7",
+          "#ced2d4",
+          "#f1f2f3"
+        ]
+      },
+      "well": {
+        "role": "neutral",
+        "displayName": "Well",
+        "canonical": "#0a0d0e",
+        "tonalRamp": [
+          "#20292d",
+          "#35454a",
+          "#4a6168",
+          "#607c86",
+          "#79969f",
+          "#a6b9bf",
+          "#c9d5d9",
+          "#f0f3f4"
+        ]
+      },
+      "screen": {
+        "role": "neutral",
+        "displayName": "Screen",
+        "canonical": "#0e1214",
+        "tonalRamp": [
+          "#1f292d",
+          "#34444b",
+          "#4a5e69",
+          "#5e7a87",
+          "#7893a1",
+          "#a5b7c0",
+          "#c9d4d9",
+          "#f0f3f4"
+        ]
+      },
+      "screen-rule": {
+        "role": "neutral",
+        "displayName": "Screen Rule",
+        "canonical": "#1f272b",
+        "tonalRamp": [
+          "#20282c",
+          "#35434a",
+          "#4b5e68",
+          "#607985",
+          "#7a929f",
+          "#a6b7bf",
+          "#cad4d9",
+          "#f0f3f4"
+        ]
+      },
+      "screen-rule-strong": {
+        "role": "neutral",
+        "displayName": "Screen Rule Strong",
+        "canonical": "#2f3a3f",
+        "tonalRamp": [
+          "#21282c",
+          "#364349",
+          "#4c5e66",
+          "#627983",
+          "#7c939d",
+          "#a7b7be",
+          "#cad4d8",
+          "#f0f3f4"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#ebe8e1",
+        "tonalRamp": [
+          "#2e291f",
+          "#4c4533",
+          "#6b6047",
+          "#8a7c5c",
+          "#a39575",
+          "#c2b9a3",
+          "#dad5c8",
+          "#f5f3f0"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#b4bab7",
+        "tonalRamp": [
+          "#252826",
+          "#3d4240",
+          "#565d59",
+          "#6e7873",
+          "#87918c",
+          "#afb6b2",
+          "#cfd3d1",
+          "#f2f3f2"
+        ]
+      },
+      "ink-tertiary": {
+        "role": "neutral",
+        "displayName": "Ink Tertiary",
+        "canonical": "#87908c",
+        "tonalRamp": [
+          "#252826",
+          "#3d4240",
+          "#565d5a",
+          "#6e7773",
+          "#88918d",
+          "#b0b5b3",
+          "#cfd3d1",
+          "#f2f3f2"
+        ]
+      },
+      "ink-dead": {
+        "role": "neutral",
+        "displayName": "Ink Dead",
+        "canonical": "#5c6461",
+        "tonalRamp": [
+          "#252827",
+          "#3d4240",
+          "#565d5a",
+          "#6e7874",
+          "#87918d",
+          "#afb6b3",
+          "#cfd3d2",
+          "#f2f3f2"
+        ]
+      },
+      "safety-yellow": {
+        "role": "primary",
+        "displayName": "Safety Yellow",
+        "canonical": "#f4c20d",
+        "tonalRamp": [
+          "#493a03",
+          "#7a6106",
+          "#ab8708",
+          "#dcae0a",
+          "#f5c823",
+          "#f8da6d",
+          "#fbe9a7",
+          "#fef9e7"
+        ]
+      },
+      "safety-yellow-ink": {
+        "role": "neutral",
+        "displayName": "Safety Yellow Ink",
+        "canonical": "#1a1500",
+        "tonalRamp": [
+          "#4c3e00",
+          "#806700",
+          "#b29000",
+          "#e6b900",
+          "#ffd31a",
+          "#ffe266",
+          "#ffeda3",
+          "#fffae5"
+        ]
+      },
+      "stop-red": {
+        "role": "primary",
+        "displayName": "Stop Red",
+        "canonical": "#d7261e",
+        "tonalRamp": [
+          "#430c09",
+          "#701410",
+          "#9d1c16",
+          "#c9241c",
+          "#e33d36",
+          "#ec7e79",
+          "#f4b1ae",
+          "#fce9e9"
+        ]
+      },
+      "stop-red-light": {
+        "role": "neutral",
+        "displayName": "Stop Red Light",
+        "canonical": "#ef4a3f",
+        "tonalRamp": [
+          "#470a06",
+          "#76110a",
+          "#a5170e",
+          "#d41e12",
+          "#ed372b",
+          "#f37a72",
+          "#f8afaa",
+          "#fde9e7"
+        ]
+      },
+      "stop-red-deep": {
+        "role": "neutral",
+        "displayName": "Stop Red Deep",
+        "canonical": "#7d130e",
+        "tonalRamp": [
+          "#450a08",
+          "#73110d",
+          "#a11812",
+          "#ce1f17",
+          "#e83931",
+          "#f07b75",
+          "#f6b0ac",
+          "#fce9e8"
+        ]
+      },
+      "led-on": {
+        "role": "secondary",
+        "displayName": "Led On",
+        "canonical": "#5ee08f",
+        "tonalRamp": [
+          "#0c4020",
+          "#156b35",
+          "#1d964a",
+          "#25c060",
+          "#3fda79",
+          "#7fe6a6",
+          "#b2f0c9",
+          "#eafbf0"
+        ]
+      },
+      "led-off": {
+        "role": "neutral",
+        "displayName": "Led Off",
+        "canonical": "#2b3134",
+        "tonalRamp": [
+          "#23272a",
+          "#3a4246",
+          "#515c62",
+          "#68767e",
+          "#819097",
+          "#abb5ba",
+          "#cdd3d5",
+          "#f1f3f3"
+        ]
+      },
+      "fault": {
+        "role": "secondary",
+        "displayName": "Fault",
+        "canonical": "#ff6b5e",
+        "tonalRamp": [
+          "#4c0600",
+          "#800a00",
+          "#b20e00",
+          "#e61300",
+          "#ff2c1a",
+          "#ff7266",
+          "#ffaba3",
+          "#ffe8e5"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The single heading of a not-running view."
+      },
+      "legend": {
+        "displayName": "Legend",
+        "purpose": "Key legends and mode names printed on the housing."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Group titles and field labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Live values, notes and descriptions with tabular numerals."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "ROS topic names, endpoints and controller types only."
+      }
+    },
+    "shadows": [
+      {
+        "name": "housing-lift",
+        "value": "inset 0 1px 0 #2e3336, inset 0 -3px 0 #111314, 0 18px 40px rgba(0,0,0,0.55)",
+        "purpose": "The moulded pendant body."
+      },
+      {
+        "name": "key-raise",
+        "value": "inset 0 1px 0 #454b4f, 0 2px 0 #1a1d1f, 0 3px 6px rgba(0,0,0,0.45)",
+        "purpose": "Membrane keys at rest."
+      },
+      {
+        "name": "well-recess",
+        "value": "inset 0 0 0 1px #0a0b0c, inset 0 3px 10px rgba(0,0,0,0.75)",
+        "purpose": "Screen and mini-wells."
+      },
+      {
+        "name": "stop-mount",
+        "value": "inset 0 0 0 6px #7d130e, 0 0 0 8px #151718, 0 10px 16px rgba(0,0,0,0.55)",
+        "purpose": "Mushroom stop collar and mount."
+      }
+    ],
+    "motion": [
+      {
+        "name": "detent",
+        "value": "110ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Mode key snapping between detents."
+      },
+      {
+        "name": "press",
+        "value": "80ms ease-out",
+        "purpose": "Key depress and stop press."
+      },
+      {
+        "name": "conveyor",
+        "value": "600ms linear infinite",
+        "purpose": "Running program bar."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact-housing",
+        "value": "1279px"
+      },
+      {
+        "name": "pinned-stop",
+        "value": "1023px"
+      },
+      {
+        "name": "short-grip",
+        "value": "max-height 860px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Membrane Key",
+      "kind": "button",
+      "refersTo": "membrane-key",
+      "description": "Every pressable control: legend, key cap, optional LED.",
+      "html": "<button class=\"ds-key\"><span class=\"ds-led\"></span><span class=\"ds-legend\">Rest</span><span class=\"ds-cap\">R</span></button>",
+      "css": ".ds-key{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 10px;border:0;border-radius:7px;background:#33383b;color:#ebe8e1;box-shadow:inset 0 1px 0 #454b4f,0 2px 0 #1a1d1f,0 3px 6px rgba(0,0,0,.45);cursor:pointer;transition:transform 80ms ease-out,box-shadow 80ms ease-out}.ds-key:hover{background:#3a4043}.ds-key:active{transform:translateY(2px);box-shadow:inset 0 1px 0 #454b4f,0 1px 2px rgba(0,0,0,.45)}.ds-key:focus-visible{outline:2px solid #f4c20d;outline-offset:3px}.ds-legend{flex:1;font:600 14px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase}.ds-cap{padding:1px 5px;border-radius:4px;background:#1a1d1f;color:#b4bab7;font:600 12px 'Barlow Condensed',system-ui,sans-serif}.ds-led{width:8px;height:8px;border-radius:50%;background:#2b3134}.ds-key:active .ds-led{background:#5ee08f}"
+    },
+    {
+      "name": "Dead Key",
+      "kind": "button",
+      "refersTo": "membrane-key-dead",
+      "description": "A key the current mode or state does not allow.",
+      "html": "<button class=\"ds-key-dead\" aria-disabled=\"true\"><span class=\"ds-legend\">+X</span><span class=\"ds-cap\">W</span></button>",
+      "css": ".ds-key-dead{display:flex;align-items:center;gap:8px;min-height:44px;padding:8px 10px;border:0;border-radius:7px;background:#26292b;color:#5c6461;box-shadow:inset 0 1px 0 #2d3133,0 2px 0 #1a1d1f;cursor:not-allowed}.ds-key-dead:focus-visible{outline:2px solid #f4c20d;outline-offset:3px}.ds-key-dead .ds-legend{flex:1;font:600 14px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase}.ds-key-dead .ds-cap{padding:1px 5px;border-radius:4px;background:#1a1d1f;font:600 12px 'Barlow Condensed',system-ui,sans-serif}"
+    },
+    {
+      "name": "Soft Key (current)",
+      "kind": "nav",
+      "refersTo": "soft-key-current",
+      "description": "Screen view selector under the well; current view has a yellow lower edge.",
+      "html": "<button class=\"ds-soft\" aria-current=\"true\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z\"/><circle cx=\"12\" cy=\"13\" r=\"3\"/></svg><span>Camera</span><span class=\"ds-cap\">F1</span></button>",
+      "css": ".ds-soft{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:8px 14px;border:0;border-radius:7px;background:#3d4347;color:#ebe8e1;font:600 14px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.07em;text-transform:uppercase;box-shadow:inset 0 1px 0 #454b4f,inset 0 -3px 0 #f4c20d,0 2px 0 #1a1d1f,0 3px 6px rgba(0,0,0,.45);cursor:pointer}.ds-soft:focus-visible{outline:2px solid #f4c20d;outline-offset:3px}.ds-soft .ds-cap{padding:1px 5px;border-radius:4px;background:#1a1d1f;color:#b4bab7;font-size:12px}"
+    },
+    {
+      "name": "Mode Key Switch",
+      "kind": "custom",
+      "refersTo": "mode-key",
+      "description": "Five-detent key switch; the bar snaps to the selected mode.",
+      "html": "<button class=\"ds-dial\" aria-label=\"Mode key at MOTION\"><span class=\"ds-face\"></span><span class=\"ds-bar\"></span></button>",
+      "css": ".ds-dial{position:relative;width:132px;height:132px;border:0;border-radius:50%;padding:0;background:#f4c20d;box-shadow:inset 0 -3px 0 #b88f00,0 3px 8px rgba(0,0,0,.5);cursor:pointer}.ds-dial:focus-visible{outline:2px solid #f4c20d;outline-offset:3px}.ds-face{position:absolute;inset:14px;border-radius:50%;background:#141617;box-shadow:inset 0 2px 6px rgba(0,0,0,.8)}.ds-bar{position:absolute;top:50%;left:50%;width:16px;height:78px;margin:-39px 0 0 -8px;border-radius:8px;background:#3b4144;transition:transform 110ms cubic-bezier(.16,1,.3,1)}.ds-bar::after{content:'';position:absolute;top:7px;left:50%;width:4px;height:18px;margin-left:-2px;border-radius:2px;background:#f4c20d}.ds-dial:hover .ds-bar{transform:rotate(30deg)}"
+    },
+    {
+      "name": "Mushroom Stop",
+      "kind": "button",
+      "refersTo": "stop-mushroom",
+      "description": "Latching stop on its yellow plate, bound to Esc.",
+      "html": "<div class=\"ds-stop\"><button class=\"ds-mushroom\">STOP</button><span class=\"ds-state\">Run</span></div>",
+      "css": ".ds-stop{display:grid;justify-items:center;gap:10px;width:220px;padding:16px 12px;border-radius:12px;background:#f4c20d;color:#1a1500;box-shadow:inset 0 -3px 0 #b88f00,0 3px 8px rgba(0,0,0,.45)}.ds-mushroom{width:112px;height:112px;border:0;border-radius:50%;background:#d7261e;color:#fff;font:700 22px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.12em;box-shadow:inset 0 0 0 6px #7d130e,0 0 0 8px #151718,0 10px 16px rgba(0,0,0,.55);cursor:pointer;transition:transform 80ms ease-out}.ds-mushroom:active{transform:scale(.94)}.ds-mushroom:focus-visible{outline:2px solid #151718;outline-offset:12px}.ds-state{font:700 15px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.1em;text-transform:uppercase}"
+    },
+    {
+      "name": "Joint Readout",
+      "kind": "custom",
+      "refersTo": "screen-well",
+      "description": "Joint value against its limits with a text flag near a limit.",
+      "html": "<div class=\"ds-joint\"><div class=\"ds-row\"><span>wrist_flex</span><span><b class=\"ds-flag\">NEAR LIMIT</b> 81.9\u00b0</span></div><div class=\"ds-track\"><span class=\"ds-marker\" style=\"left:96%\"></span></div></div>",
+      "css": ".ds-joint{display:grid;gap:4px;width:260px;padding:12px 14px;border-radius:10px;background:#0e1214;color:#ebe8e1;font:400 13px Barlow,system-ui,sans-serif;font-variant-numeric:tabular-nums}.ds-row{display:flex;justify-content:space-between}.ds-row span:first-child{color:#b4bab7}.ds-flag{color:#f4c20d;font:600 11px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.08em}.ds-track{position:relative;height:8px;border-radius:2px;background:#1f272b}.ds-marker{position:absolute;top:-2px;width:3px;height:12px;margin-left:-1.5px;border-radius:1px;background:#f4c20d}"
+    },
+    {
+      "name": "Screen Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Numeric entry inside the screen well.",
+      "html": "<label class=\"ds-field\"><span>X \u00b7 M</span><input type=\"number\" value=\"0.3\" step=\"0.01\"></label>",
+      "css": ".ds-field{display:grid;gap:4px;width:120px;color:#87908c;font:600 12px 'Barlow Condensed',system-ui,sans-serif;letter-spacing:.08em;text-transform:uppercase}.ds-field input{min-height:36px;padding:6px 8px;border:1px solid #2f3a3f;border-radius:6px;background:#0a0d0e;color:#ebe8e1;font:400 14px Barlow,system-ui,sans-serif;caret-color:#f4c20d}.ds-field input:hover{border-color:#3d4a50}.ds-field input:focus-visible{outline:2px solid #f4c20d;outline-offset:1px;border-color:#f4c20d}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Operator's Pendant",
+    "overview": "The console is the handheld instrument every industrial robot operator already trusts: a matte graphite housing with a key switch and jog keys in the left grip, a recessed screen in the middle, and a red mushroom stop on a yellow plate in the right grip. Everything the robot reports lives inside the screen well; everything the operator does is a physical-looking key with a silkscreen legend and an LED. It is dense but calm: dark graphite, one safety yellow, one stop red, and flat LEDs, with no glow and no decoration that does not carry state.\n\nThe pendant is honest hardware. A key that cannot act is visibly dead, a subsystem that is not running says so in the screen, and a number only appears when a topic sent it. It reads on a screen recording from across the room: the mode, the stop state and the running program are large, labelled and never color-only.",
+    "keyCharacteristics": [
+      "Three-part housing: left grip (mode key, jog), centre screen well (status, view, program) with soft keys beneath, right grip (stop, joints, GPU).",
+      "Condensed uppercase silkscreen legends on raised membrane keys, each with a key-cap hint and an LED pip.",
+      "Safety yellow and stop red are reserved signals, never decoration.",
+      "Mechanical motion: short detent snaps and 2 px key depress; no fades or glow."
+    ],
+    "rules": [
+      {
+        "name": "The Two Signals Rule",
+        "body": "Yellow means find this or be careful; red means stop. Neither ever decorates a surface that carries no safety meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lit LED Rule",
+        "body": "A state is shown by an LED and a word together; color alone never carries state, because the console must read on a recording.",
+        "section": "colors"
+      },
+      {
+        "name": "The Silkscreen Rule",
+        "body": "Uppercase condensed type is for what is printed on the device; what the robot says is set in regular Barlow with tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Raised or Recessed Rule",
+        "body": "Controls are raised, information is recessed. A control never sits in a well; a readout never sits on a key.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do pair every state color with an LED and a word (\"NEAR LIMIT\", \"stopped\", \"active\").",
+      "Do keep the mushroom stop and Esc reachable in every view and at every window size.",
+      "Do show subsystems that are not running as not running, naming the service and the command that starts it.",
+      "Do use Barlow Condensed uppercase for housing legends and Barlow with tabular numerals for live values."
+    ],
+    "donts": [
+      "Don't use safety yellow or stop red on anything without safety meaning.",
+      "Don't add glow, fades or bouncy easing; motion is detent snaps and key presses.",
+      "Don't put a label or eyebrow above a heading; the heading carries itself.",
+      "Don't render placeholder numbers when a topic is silent."
+    ]
+  }
+}

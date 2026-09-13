@@ -65,3 +65,8 @@ Thumbs.db
 AGENTS.md
 CLAUDE.md
 TASKS.md
+
+# ── Design workflow scratch (captures, decision pages) ─────
+.impeccable/review/
+.impeccable/questions/
+.impeccable/mocks/
