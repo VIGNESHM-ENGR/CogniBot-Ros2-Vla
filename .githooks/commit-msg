@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# CogniBot commit-msg hook
+#  1. Reject co-author / AI attribution trailers (the repository has a single author).
+#  2. Enforce a Conventional Commits header: type(scope)!: subject
+# Enable with: git config core.hooksPath .githooks
+set -euo pipefail
+
+msg_file="$1"
+# Ignore comment lines (git strips them later).
+msg="$(grep -v '^#' "$msg_file" || true)"
+
+if grep -qiE '^[[:space:]]*co-authored-by:' <<<"$msg"; then
+  echo "commit-msg: 'Co-authored-by' trailers are not allowed in this repository." >&2
+  exit 1
+fi
+
+if grep -qiE 'generated with .*claude|noreply@anthropic\.com' <<<"$msg"; then
+  echo "commit-msg: AI attribution lines are not allowed in this repository." >&2
+  exit 1
+fi
+
+header="$(head -n1 <<<"$msg")"
+
+# Allow git-generated merge / revert / fixup messages.
+if grep -qE '^(Merge|Revert|fixup!|squash!) ' <<<"$header"; then
+  exit 0
+fi
+
+types='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+if ! grep -qE "^(${types})(\([a-z0-9_./-]+\))?!?: .{1,72}$" <<<"$header"; then
+  cat >&2 <<EOF
+commit-msg: header does not follow Conventional Commits.
+  got:      ${header}
+  expected: <type>(<optional-scope>): <subject, <=72 chars>
+  types:    ${types//|/, }
+EOF
+  exit 1
+fi
