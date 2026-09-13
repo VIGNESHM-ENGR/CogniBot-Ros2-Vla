@@ -140,16 +140,14 @@ ARG HOST_GID=1000
 # Client and policy-server MUST run the same LeRobot version (P5-T01 aligns it with the server image).
 ARG LEROBOT_VERSION=0.6.1
 ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
-ARG LEROBOT_ROS_COMMIT=dabe6c6c7637c2f139e1c9964864a64921893ba1
+# lerobot 0.6 needs numpy 2; unlike the core image nothing here links the apt numpy ABI.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-jazzy-rmw-cyclonedds-cpp python3-venv git curl \
  && rm -rf /var/lib/apt/lists/* \
  && python3 -m venv --system-site-packages /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url "${TORCH_INDEX}" \
- && /opt/venv/bin/pip install --no-cache-dir \
-      "lerobot[smolvla]==${LEROBOT_VERSION}" \
-      "lerobot-robot-ros @ git+https://github.com/ycheng517/lerobot-ros@${LEROBOT_ROS_COMMIT}#subdirectory=lerobot_robot_ros"
+ && /opt/venv/bin/pip install --no-cache-dir "lerobot[smolvla,async]==${LEROBOT_VERSION}"
 COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
 COPY cognibot_ws/docker/entrypoint.sh /entrypoint.sh
 COPY cognibot_ws/docker/cyclonedds.xml /etc/cognibot/cyclonedds.xml
@@ -158,8 +156,11 @@ RUN (id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu || true) \
  && useradd -m -o -u "${HOST_UID}" -g "${HOST_GID}" -s /bin/bash cognibot \
  && mkdir -p /ws && chown cognibot:cognibot /ws
 COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_vla /ws/src/cognibot_vla
-RUN source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
+# Not editable: the venv is used through PYTHONPATH, which skips .pth editable finders.
+RUN /opt/venv/bin/pip install --no-cache-dir --no-deps /ws/src/cognibot_vla/lerobot_plugins/lerobot_robot_cognibot \
+ && source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
  && cd /ws && colcon build --symlink-install && chown -R cognibot:cognibot /ws
+ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages:${PYTHONPATH}"
 USER cognibot
 WORKDIR /ws
 ENTRYPOINT ["/entrypoint.sh"]

@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | P5-T01, P5-T03/T04 (part), P5-T05 (part) | SmolVLA and ACT inference streaming into the simulated arm | feat |
 | 2026-09-13 | P2-T06 (part 1), P3-T06 | mink teleop and the dashboard jog keys | feat |
 | 2026-09-13 | P2-T05 (part 1) | safety_filter: joint range and velocity limits, mode gating | feat |
 | 2026-09-13 | P2-T04 | mode_manager: control-mode arbitration via controller switching | feat |
@@ -82,6 +83,57 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · P5-T01, P5-T03/T04 (part), P5-T05 (part) · SmolVLA and ACT inference streaming into the simulated arm
+
+**Context:** the owner asked to build SmolVLA inference and connect it. Phase 2's mode manager and safety filter now exist, so the VLA path (`robot_client` → `/cognibot/joint_command` → `safety_filter` → `arm_position_controller`) can be exercised end to end.
+**Outcome:** ✅ pipeline works with three checkpoints; ❌ none accomplishes the task in our scene (expected: none was trained on it). `make vla` + `make skill` run it.
+
+### Measurements (RTX 3060 Laptop, simulation running alongside)
+| Policy | Checkpoint | Load | Inference per chunk | VRAM (server) | Client stream | Safety filter |
+|---|---|---|---|---|---|---|
+| ACT | `szk1ck/so101-pickplace-sim-mujoco` | 6.6 s | 11 ms (50 actions) | ~450 MiB | 29 Hz, 33 chunks / 60 s | 3509 forwarded, 297 rate-limited, 0 dropped |
+| SmolVLA (compiled, max-autotune) | `bendca61/…cube_on_tray` | 25 s + **202 s** first inference | 75 ms | 1.5 GB | — | CUDA-graph capture failed once the simulator shared the GPU |
+| SmolVLA (uncompiled variant) | `$HF_HOME/cognibot/smolvla_mujoco_tray` | 23 s | 331 ms mean, 0.8 s max | 2.0 GB | 22–25 Hz, 39 chunks / 100 s | 75 clamped, heavy rate limiting |
+| SmolVLA base | `lerobot/smolvla_base` | 15 s | ~0.5 s (handshake only; 3 cameras at 256²) | 2.2 GB | — | — |
+
+### Work log
+- `policy-server`: stock `huggingface/lerobot-gpu` pinned by digest (lerobot 0.6.2). Runs as the host uid with `HOME=/tmp`, `HF_LEROBOT_HOME`, `TRITON_CACHE_DIR` and `TORCH_HOME` under the mounted cache, `working_dir: /tmp` (it writes `./logs`).
+- `lerobot_robot_cognibot` plugin (`cognibot_vla/lerobot_plugins`): `Robot` subclass over an rclpy node on a background executor; observation = joint positions (radians) + image topics decoded without cv_bridge; action = `JointState` on `/cognibot/joint_command`; requests VLA on connect and IDLE on disconnect. 4 pytest tests inside the `vla` image.
+- `vla` image: `lerobot[smolvla,async]==0.6.1` (numpy 2), plugin installed non-editable, ROS sourced by the entrypoint.
+- `download_checkpoints.sh` also fetches the SmolVLM2 backbone and writes uncompiled SmolVLA variants; `run_robot_client.sh` wraps the client with environment configuration; `make skill`.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | `pip` conflict in the `vla` image (`numpy==1.26.4` vs lerobot `numpy>=2`) | The numpy pin protects MoveIt's C++ bindings, which the `vla` image does not have | Pin only in `core` | image builds |
+| 2 | Plugin "not found" although `pip show` listed it | Editable install uses a `.pth` finder; the venv is reached through `PYTHONPATH`, which skips `.pth` | Non-editable install | `cognibot_so101` registered |
+| 3 | `PermissionError` on `/hf_cache/hub/...` and `/home/user_lerobot/.cache` | Image user is uid 1001; the mounted cache is uid 1000; image env bakes cache paths under its home | `user: HOST_UID`, `HOME=/tmp`, cache env vars | all three checkpoints load |
+| 4 | SmolVLA fine-tune: 202 s first inference, later `CUDA error: operation failed due to a previous error during capture` | Checkpoint config `compile_model: true, compile_mode: max-autotune` (CUDA graphs) | Local variant with `compile_model: false` (relative symlinks so the path works in both host and container) | 331 ms/chunk, no capture errors |
+| 5 | Fine-tune actions two orders of magnitude off | Dataset stores state in radians but actions in degrees (leader arm, LeRobot `use_degrees`) | Linear fit on 7467 frames: 1.0–1.15°/unit, R² 0.93–0.995 → `action_degrees=true` | arm moves in a plausible range |
+| 6 | rclpy `RCLError` tracebacks when the client was killed | rclpy's signal handler shut the context down under LeRobot's control loop | `rclpy.init(signal_handler_options=NO)`; client handles SIGINT | clean exit, mode returns to IDLE |
+| 7 | `--robot.camera_topics` YAML error | `${VAR:-{a: b}}` in bash ends at the first `}` | Default in a separate variable | runs |
+| 8 | `RobotConfig` rejected a `cameras` field of topic strings | Base class validates `cameras` as LeRobot camera configs | Field renamed `camera_topics` | tests pass |
+
+### Decisions
+#### D1: Client plugin instead of `lerobot_robot_ros`
+```mermaid
+flowchart TD
+  Q[LeRobot Robot over ROS 2] --> A[lerobot_robot_ros + subclass]
+  Q --> B[Own plugin following the same pattern]
+  A --> A1[✗ pins lerobot<0.5, hard-coded controller topics, joint normalization; the safety-path override would replace its core class]
+  B --> B1[✓ chosen: ~200 lines, radians end to end, publishes only to /cognibot/joint_command]
+```
+- **Revisit if:** lerobot-ros gains configurable topics and lerobot ≥0.6 support.
+
+#### D2: Uncompiled SmolVLA variant
+- Compiled inference is 4× faster (75 vs 331 ms) but costs a 3-minute autotune per server start and failed CUDA-graph capture beside the simulator. 331 ms still feeds 50-action chunks at 30 Hz with margin. Revisit when measuring the full VRAM budget (P5-T07).
+
+### Open questions
+- Task success needs a policy trained in this scene. The exported `so101_pick_and_place.xml` matches `johnsutor/MuJoCoPickAndPlace-v1`, but that dataset's state/action are in degrees and its cameras are `wrist`/`overhead`; fine-tuning `smolvla_base` on it (or recording our own episodes with the scripted pick-and-place) is the path to a working skill (training is out of scope for this repository; the checkpoint would be consumed here).
+- `make skill` requests VLA mode for the whole run; the skill executor (P5-T06) will bound it by `max_duration_s` and expose it as the `ExecuteSkill` action for the dashboard.
+
+---
 
 ## 2026-09-13 · P2-T06 (part 1), P3-T06 · mink teleop and the dashboard jog keys
 

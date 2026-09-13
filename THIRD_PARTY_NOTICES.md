@@ -18,7 +18,7 @@ Only works that are **copied into or derived within this repository** (models, m
 | mink | Kevin Zakka | Apache-2.0 | pip package |
 | foam | CoMMA Lab, Purdue | MIT | Offline tool (outputs committed) |
 | LeRobot (incl. async inference, SmolVLA code) | Hugging Face | Apache-2.0 | Container image + pip package |
-| lerobot-ros (`lerobot_robot_ros`) | Yifei Cheng | Apache-2.0 | pip package from a pinned commit |
+| lerobot-ros (`lerobot_robot_ros`) | Yifei Cheng | Apache-2.0 | Reference for the plugin pattern; not installed (see INTEGRATIONS §8) |
 | RAI (if adopted) | Robotec.AI | Apache-2.0 | pip package from a pinned commit |
 | llama.cpp | ggml-org | MIT | Container image (via llama-swap) |
 | llama-swap | Benson Wong (mostlygeek) | MIT | Container image |

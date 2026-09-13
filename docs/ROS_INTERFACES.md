@@ -34,7 +34,7 @@ Conventions:
 | Topic | Type | Publisher | Subscribers |
 |---|---|---|---|
 | `/joint_trajectory_controller/joint_trajectory` | `trajectory_msgs/JointTrajectory` | (debug only) | `joint_trajectory_controller` |
-| `/cognibot/joint_command` | `sensor_msgs/JointState` (name + position) | `mink_teleop`, LeRobot `robot_client` (via plugin), `twin_mirror` | `safety_filter` |
+| `/cognibot/joint_command` | `sensor_msgs/JointState` (name + position, radians) | `mink_teleop`, LeRobot `robot_client` (`lerobot_robot_cognibot`), `twin_mirror` | `safety_filter` |
 | `/arm_position_controller/commands` | `std_msgs/Float64MultiArray` (arm joints then gripper, registry order) | `safety_filter` **only** | `arm_position_controller` |
 | `/cognibot/mode` | `cognibot_interfaces/ControlMode` (transient local) | `mode_manager` | safety_filter, teleop, skill_executor, dashboard |
 

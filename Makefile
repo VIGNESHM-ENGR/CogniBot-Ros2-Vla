@@ -4,7 +4,7 @@ COMPOSE_DEV := $(COMPOSE) -f cognibot_ws/docker/compose.dev.yaml
 PROFILES    := vlm vla twin full
 
 .DEFAULT_GOAL := help
-.PHONY: help env deps build build-all config sim sim-dev dashboard demo moveit test vlm vla full twin down logs ps shell-sim
+.PHONY: help env deps build build-all config sim sim-dev dashboard demo moveit skill test vlm vla full twin down logs ps shell-sim
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -61,8 +61,11 @@ test: ## Build and run every workspace test (incl. GPU launch tests) in the core
 vlm: ## Core + llama-swap + VLM agent
 	$(COMPOSE) --profile vlm up -d
 
-vla: ## Core + LeRobot policy server + VLA client
+vla: ## Core + LeRobot policy server (+ idle VLA client). Download checkpoints first: cognibot_vla/scripts/download_checkpoints.sh
 	$(COMPOSE) --profile vla up -d
+
+skill: ## Stream a policy to the arm for SKILL_SECONDS (default 60): make skill [POLICY_TYPE=act VLA_CHECKPOINT=... TASK=...]
+	$(COMPOSE) --profile vla run --rm --no-deps vla-client bash -c 'timeout -s INT $(or $(SKILL_SECONDS),60) /ws/src/cognibot_vla/scripts/run_robot_client.sh; test $$? -eq 124'
 
 full: ## Everything except the twin
 	$(COMPOSE) --profile full up -d

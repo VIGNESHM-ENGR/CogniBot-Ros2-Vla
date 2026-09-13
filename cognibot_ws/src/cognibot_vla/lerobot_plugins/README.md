@@ -4,5 +4,4 @@ These are pip-installable packages discovered by LeRobot's third-party plugin me
 
 | Package | Task | Purpose |
 |---|---|---|
-| `lerobot_camera_ros2` | P5-T03 | LeRobot camera backed by a ROS 2 image topic |
-| `lerobot_robot_cognibot` | P5-T04 | CogniBot robot configs on top of `lerobot_robot_ros` |
+| `lerobot_robot_cognibot` | P5-T03/T04 | `cognibot_so101` / `cognibot_panda` LeRobot robots over ROS 2: joint states and image topics in, `JointState` commands to `/cognibot/joint_command` (safety filter) out, VLA/IDLE mode requests; camera keys and degree/radian flags per checkpoint |

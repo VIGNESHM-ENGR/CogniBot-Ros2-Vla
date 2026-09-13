@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerobot_robot_cognibot"
+version = "0.1.0"
+description = "LeRobot robot plugin driving CogniBot arms over ROS 2 through the safety filter"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = ["lerobot>=0.6.1,<0.7", "numpy"]
+
+[tool.setuptools.packages.find]
+include = ["lerobot_robot_cognibot*"]

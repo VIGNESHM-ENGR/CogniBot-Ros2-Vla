@@ -14,6 +14,8 @@ CHECKPOINTS=(
   "act_mujoco_tray|bendca61/act-so101-mujoco-cube_on_tray-v1|676050ad8a25816c238389a31795d1498691ec32|act|MuJoCo SO-101"
   "act_mujoco_pickplace|szk1ck/so101-pickplace-sim-mujoco|3dcc200be7aa0f8b19130586ab7b99d6ff304494|act|MuJoCo SO-101"
   "diffusion_real_cube|Chaenn/diffusion_so101_cube_multitask_hil_0729|1d39f411a36821e4b885f7d7dee1ac51ed0d4fb1|diffusion|real SO-101"
+  # Vision-language backbone every SmolVLA checkpoint loads at start (policy config vlm_model_name).
+  "smolvlm2_backbone|HuggingFaceTB/SmolVLM2-500M-Video-Instruct|7b375e1b73b11138ff12fe22c8f2822d8fe03467|vlm backbone|SmolVLA dependency"
 )
 
 HF=(uvx --from "huggingface_hub==1.31.0" hf)
@@ -25,5 +27,23 @@ for entry in "${CHECKPOINTS[@]}"; do
     continue
   fi
   echo ">>> ${name}: ${repo}@${rev:0:8} (${policy}, ${origin})"
-  "${HF[@]}" download "${repo}" --revision "${rev}"
+  snapshot="$("${HF[@]}" download "${repo}" --revision "${rev}" 2>/dev/null | tail -n1 | sed "s/^path=//")"
+  if [ "${policy}" = "smolvla" ]; then
+    # Some SmolVLA fine-tunes ship compile_model=true / compile_mode=max-autotune, which costs a
+    # ~3 min autotune on every server start and fails CUDA-graph capture next to the simulator's
+    # EGL context. Publish a local variant with compilation off under $HF_HOME/cognibot/<name>.
+    variant="${HF_HOME:-$HOME/.cache/huggingface}/cognibot/${name}"
+    mkdir -p "${variant}"
+    # Relative links: the cache is mounted at a different path inside the policy-server container.
+    rel="$(realpath --relative-to="${variant}" "${snapshot}")"
+    for f in "${snapshot}"/*; do ln -sfn "${rel}/$(basename "${f}")" "${variant}/$(basename "${f}")"; done
+    rm -f "${variant}/config.json"
+    python3 - "${snapshot}/config.json" "${variant}/config.json" <<'PY'
+import json, sys
+cfg = json.load(open(sys.argv[1]))
+cfg["compile_model"] = False
+json.dump(cfg, open(sys.argv[2], "w"), indent=2)
+PY
+    echo "    uncompiled variant: ${variant}"
+  fi
 done

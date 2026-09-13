@@ -134,13 +134,23 @@ services:
   # ─────────────── vla profile ───────────────
   policy-server:
     <<: *gpu
-    image: ${LEROBOT_GPU_IMAGE:-huggingface/lerobot-gpu:latest}
+    # lerobot 0.6.2 (main, 2026-09-13); async-inference protocol identical to the 0.6.1 client.
+    image: ${LEROBOT_GPU_IMAGE:-huggingface/lerobot-gpu@sha256:7f36ab17a87911c79ad0856bdfa2bf0d9b92ce03d677a3ef41a9d91bc659ed6b}
     profiles: [vla, full]
     network_mode: host
     restart: unless-stopped
+    # The image runs as uid 1001; run as the host user so it can read and lock the mounted cache.
+    # The server writes ./logs, so start from a writable directory.
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+    working_dir: /tmp
     command: python -m lerobot.async_inference.policy_server --host=127.0.0.1 --port=8090
     environment:
       HF_HOME: /hf_cache
+      TORCH_HOME: /hf_cache/torch
+      # The image bakes cache paths for its own uid 1001; point them at writable locations.
+      HOME: /tmp
+      HF_LEROBOT_HOME: /hf_cache/lerobot
+      TRITON_CACHE_DIR: /hf_cache/triton  # first SmolVLA run autotunes for ~3 min; keep the result
       HF_TOKEN: ${HF_TOKEN:-}
       PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
     volumes:
@@ -163,11 +173,19 @@ services:
       target: vla
       args: *build-args
     profiles: [vla, full]
-    command: ros2 launch cognibot_bringup vla.launch.py robot:=${ROBOT:-so101}
+    # Idle by default: a policy takes the arm the moment its client starts, so runs are started
+    # explicitly (`make skill ...`, or the skill executor from P5-T06).
+    command: sleep infinity
     environment:
       <<: *ros-env
+      HOME: /tmp
       POLICY_SERVER_ADDRESS: 127.0.0.1:8090
-      VLA_CHECKPOINT: ${VLA_CHECKPOINT:-lerobot/smolvla_base}
+      POLICY_TYPE: ${POLICY_TYPE:-smolvla}
+      # Path as seen by the policy-server (its HF cache is mounted at /hf_cache).
+      VLA_CHECKPOINT: ${VLA_CHECKPOINT:-/hf_cache/cognibot/smolvla_mujoco_tray}
+      ACTION_DEGREES: ${ACTION_DEGREES:-true}
+      CAMERA_TOPICS: "${CAMERA_TOPICS:-{realsense: /mujoco_camera_plugin/front_rgbd/color, wrist_cam: /mujoco_camera_plugin/wrist_cam/color}}"
+      TASK: ${TASK:-pick up the cube and place it on the tray}
       LLM_BASE_URL: http://127.0.0.1:8082
     mem_limit: 4g
     depends_on:

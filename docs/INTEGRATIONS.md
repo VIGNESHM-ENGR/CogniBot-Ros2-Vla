@@ -15,6 +15,7 @@ CogniBot is an integration project. This file lists **every external component**
 | `ghcr.io/mostlygeek/llama-swap:unified-cuda13` | `llm` | tag now → versioned tag **TBD** | P4-T01 | llama-swap + llama.cpp `llama-server` (CUDA) in one image; model hot-swap/TTL/unload API |
 | `huggingface/lerobot-gpu:latest` | `policy-server` | digest **TBD** | P5-T01 | Official LeRobot GPU image; runs `lerobot.async_inference.policy_server` unmodified |
 | `node:22-alpine` → `nginx:1.27-alpine` | `dashboard` | tags | P3-T03 | Standard SPA build and serve |
+| `huggingface/lerobot-gpu` | `policy-server` | `sha256:7f36ab17a87911c79ad0856bdfa2bf0d9b92ce03d677a3ef41a9d91bc659ed6b` (lerobot 0.6.2, torch 2.11+cu128, 2026-09-13) | P5-T01 | Stock `policy_server`; run as the host uid with `HOME`, `HF_LEROBOT_HOME`, `TRITON_CACHE_DIR` pointed at writable paths |
 
 ## 2. ROS 2 packages (apt, Jazzy binaries)
 
@@ -66,8 +67,7 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | [`mink`](https://github.com/kevinzakka/mink) | `core` venv | `1.3.0` | Differential IK QP with collision avoidance |
 | `qpsolvers[daqp]` | `core` venv | `4.13.0` | QP backend for mink |
 | [`foam`](https://github.com/CoMMALab/foam) | offline tool (`tools` stage) | `116928f71aaa7c40356d79c84d3c9ff1f4497d90` | URDF mesh → sphere approximation |
-| `lerobot[smolvla]` | `vla` venv | **same version as the policy-server image** (**TBD**, P5-T01) | `robot_client`, plugin discovery |
-| [`lerobot-robot-ros`](https://github.com/ycheng517/lerobot-ros) | `vla` venv | `dabe6c6c7637c2f139e1c9964864a64921893ba1` | `ROS2Robot` / `ROS2Config` LeRobot plugin over rclpy |
+| `lerobot[smolvla,async]` | `vla` venv | `0.6.1` (server image runs 0.6.2 from main; `async_inference` and the gRPC proto are byte-identical between the two) | `robot_client`, plugin discovery |
 | `openai` | `vlm` venv | **TBD** (P4-T02) | OpenAI-compatible client with tool calling (talks to llama-swap) |
 | `nvidia-ml-py` | `core` venv | `13.610.43` | NVML for `gpu_monitor` |
 | `numpy` | `core` venv | `1.26.4` (= Ubuntu Noble `python3-numpy`) | Keeps apt ROS extensions (moveit_py) on the numpy ABI they were built with |
@@ -93,15 +93,15 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 
 ### 6.1 Policy checkpoints (candidates for P5-T02)
 
-Downloaded with `cognibot_ws/src/cognibot_vla/scripts/download_checkpoints.sh` into the HF cache (`~/.cache/huggingface`, ~4.5 GB), which the `policy-server` service mounts. All take `observation.state` (6) and output a 6-D joint action. Real-arm and Isaac Sim checkpoints are kept as references; a visual domain gap makes them unlikely to succeed in MuJoCo.
+Downloaded with `cognibot_ws/src/cognibot_vla/scripts/download_checkpoints.sh` into the HF cache (`~/.cache/huggingface`; ~4.5 GB plus the 6.7 GB `HuggingFaceTB/SmolVLM2-500M-Video-Instruct` @ `7b375e1b73b11138ff12fe22c8f2822d8fe03467` backbone every SmolVLA checkpoint loads), which the `policy-server` service mounts at `/hf_cache`. All take `observation.state` (6) and output a 6-D joint action. Real-arm and Isaac Sim checkpoints are kept as references; a visual domain gap makes them unlikely to succeed in MuJoCo.
 
 | Name | Repo @ revision | Policy | Trained in | Image inputs | License |
 |---|---|---|---|---|---|
 | `smolvla_base` | [`lerobot/smolvla_base`](https://huggingface.co/lerobot/smolvla_base) @ `c83c3163b8ca9b7e67c509fffd9121e66cb96205` | SmolVLA (bf16) | pretraining on community real-arm data | `camera1..3` 256×256 | Apache-2.0 |
-| `smolvla_mujoco_tray` | [`bendca61/smolvla-mujoco-so101-cube_on_tray`](https://huggingface.co/bendca61/smolvla-mujoco-so101-cube_on_tray) @ `d9da3285e866aa6464ea1c6e71363d03d4c85682` | SmolVLA | MuJoCo SO-101 | `realsense`, `wrist_cam` 640×480 | Apache-2.0 |
+| `smolvla_mujoco_tray` | [`bendca61/smolvla-mujoco-so101-cube_on_tray`](https://huggingface.co/bendca61/smolvla-mujoco-so101-cube_on_tray) @ `d9da3285e866aa6464ea1c6e71363d03d4c85682` | SmolVLA (ships `compile_model: true, max-autotune`; run the uncompiled variant `$HF_HOME/cognibot/smolvla_mujoco_tray`) | MuJoCo SO-101; state in radians, **action in degrees** (fit on the dataset: 1.0–1.15°/unit, R² ≥ 0.93) | `realsense`, `wrist_cam` 640×480 | Apache-2.0 |
 | `smolvla_isaac_orange` | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) @ `71cf4a9d35ce317f6706efe1a9f9d4cbb2b8fb4d` | SmolVLA | Isaac Sim SO-101 (LeIsaac) | `front`, `wrist` 640×480 | Apache-2.0 |
 | `act_mujoco_tray` | [`bendca61/act-so101-mujoco-cube_on_tray-v1`](https://huggingface.co/bendca61/act-so101-mujoco-cube_on_tray-v1) @ `676050ad8a25816c238389a31795d1498691ec32` | ACT (chunk 100) | MuJoCo SO-101 | `realsense`, `wrist_cam` 640×480 | Apache-2.0 |
-| `act_mujoco_pickplace` | [`szk1ck/so101-pickplace-sim-mujoco`](https://huggingface.co/szk1ck/so101-pickplace-sim-mujoco) @ `3dcc200be7aa0f8b19130586ab7b99d6ff304494` | ACT (chunk 100) | MuJoCo SO-101 | `front`, `wrist` 640×480 | Apache-2.0 |
+| `act_mujoco_pickplace` | [`szk1ck/so101-pickplace-sim-mujoco`](https://huggingface.co/szk1ck/so101-pickplace-sim-mujoco) @ `3dcc200be7aa0f8b19130586ab7b99d6ff304494` | ACT (chunk 100) | MuJoCo SO-101; state and action in radians (cleanest unit match) | `front`, `wrist` 640×480 | Apache-2.0 |
 | `diffusion_real_cube` | [`Chaenn/diffusion_so101_cube_multitask_hil_0729`](https://huggingface.co/Chaenn/diffusion_so101_cube_multitask_hil_0729) @ `1d39f411a36821e4b885f7d7dee1ac51ed0d4fb1` | Diffusion (15 action steps) | real SO-101 (no MuJoCo diffusion checkpoint found on the Hub, 2026-09-13) | `side`, `wrist` 640×480 | Apache-2.0 |
 
 Relevant **datasets** (for camera and scene parity, not training): [`johnsutor/MuJoCoPickAndPlace-v1`](https://huggingface.co/datasets/johnsutor/MuJoCoPickAndPlace-v1), [`johnsutor/MuJoCoPickLift-v1`](https://huggingface.co/datasets/johnsutor/MuJoCoPickLift-v1), [`bendca61/vla-mujoco-so101-cube_on_tray-leader-v1`](https://huggingface.co/datasets/bendca61/vla-mujoco-so101-cube_on_tray-leader-v1). P5-T05 picks the checkpoint whose **camera names, image sizes and scene** are closest to our sim, and configures the `lerobot_robot_cognibot` camera keys to match (e.g. `realsense`, `wrist_cam`).
@@ -113,8 +113,8 @@ Pin model revisions by HF commit hash in config once they're chosen.
 | Glue | Reason |
 |---|---|
 | `cognibot_sim` robot registry, xacro wrapper with `<ros2_control>`, scene export script | Upstream so101 ROS stack has no MuJoCo support ("planned"); Menagerie and so101-nexus have no ROS wiring |
-| `lerobot_robot_cognibot` (LeRobot robot config plugin) | Registers our joint names, topics and cameras on top of `lerobot_robot_ros` |
-| `lerobot_camera_ros2` (LeRobot camera plugin) | `lerobot_robot_ros` reads cameras through LeRobot `CameraConfig` (OpenCV/RealSense) and has no ROS image topic camera. Adapt the ROS 2 camera from LeRobot PR [#866](https://github.com/huggingface/lerobot/pull/866) (credited) |
+| `lerobot_robot_cognibot` (LeRobot robot plugin) | `Robot` over rclpy: joint states and image topics in, `JointState` to `/cognibot/joint_command` out, VLA/IDLE requests to `mode_manager`; per-checkpoint camera keys and degree/radian flags |
+| ~~`lerobot_camera_ros2`~~ | Not needed: `lerobot_robot_cognibot` subscribes image topics itself and exposes them as `(H, W, 3)` observation features |
 | `mode_manager`, `safety_filter` | Project-specific arbitration and sphere-based filtering of streamed commands |
 | `mink_teleop` | Thin ROS wrapper around mink for WASD Cartesian jogging |
 | `reach_query` | Runtime query service over a stored REACH study |
@@ -135,6 +135,7 @@ Pin model revisions by HF commit hash in config once they're chosen.
 | MoveIt Servo for teleop | 5-DOF SO-101 can't track 6-D twists cleanly; mink handles task weighting natively |
 | cuRobo | Excellent sphere-based planning, but its VRAM footprint competes with the models |
 | ROS 2 Humble | Python 3.10 is incompatible with current LeRobot ([ADR-0001](adr/0001-jazzy-over-humble.md)) |
+| [ycheng517/lerobot-ros](https://github.com/ycheng517/lerobot-ros) `lerobot_robot_ros` | Pins `lerobot<0.5` (our client is 0.6.1), hard-codes `/position_controller/commands` and `/arm_controller/joint_trajectory` and normalizes joints to −100…100; wrapping it to reach `/cognibot/joint_command` would replace its `ROS2Interface` entirely. `lerobot_robot_cognibot` follows its plugin pattern instead (≈200 lines) |
 | [MuRain37/so101-ros2-mujoco](https://github.com/MuRain37/so101-ros2-mujoco) | Jazzy + MuJoCo + SmolVLA, but a custom sim node instead of ros2_control, synchronous inference, 1★, only weeks old. Useful as a reference |
 | [nimicurtis/so101_ros2](https://github.com/nimicurtis/so101_ros2) | LeRobot ↔ ROS 2 hardware bridge with Isaac Sim focus; no MuJoCo |
 | [adoodevv/so101_ros2](https://github.com/adoodevv/so101_ros2) | Good SO-101 description + MoveIt + Gazebo (BSD-3); overlaps legalaspro's stack, which also brings the Feetech driver we need for the twin |
