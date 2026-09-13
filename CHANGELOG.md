@@ -19,6 +19,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - Dashboard free-look 3D view (MuJoCo WASM + three.js on the simulator's own scene, live joints and cube), switchable with the front and wrist cameras (`V`).
 - `pick_place_server` with `FetchObject`/`PlaceObject` (scripted IK) and `/cognibot/sim/reset_objects`; dashboard Motion view gets Pick and place and Reset cube.
 - Live object poses on `/object_poses/free_joint_states` from mujoco_ros2_control's free-joint publisher plugin.
+- `mode_manager`: `/cognibot/set_mode` switches ros2_control controllers per `modes.yaml` and publishes `/cognibot/mode`; the dashboard mode key and STOP drive it.
+- `cognibot_common.qos` presets (sensor data, reliable command, transient local).
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.

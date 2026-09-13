@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P2-T04 | mode_manager: control-mode arbitration via controller switching | feat |
 | 2026-09-13 | owner test | Dashboard test session: joint-limit start states, MoveIt crash, free-look sync | fix |
 | 2026-09-13 | owner request | Free-look 3D view and IK pick-and-place from the dashboard | feat |
 | 2026-09-13 | P3-T03…T05 | Operator pendant: design direction, scaffold and live panels | feat |
@@ -79,6 +80,31 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P2-T04 · mode_manager: control-mode arbitration via controller switching
+
+**Context:** exactly one commander at a time ([ARCHITECTURE §6](ARCHITECTURE.md#6-control-modes-and-arbitration)); the dashboard mode key was UI-only.
+**Outcome:** ✅ done. `mode_manager` in `cognibot_motion` (launched by `motion.launch.py`), `config/modes.yaml`, 7 unit tests on the pure table plus a launch test (IDLE → TELEOP → VLA rejected → IDLE). Dashboard mode key now drives it: turning to TELEOP activated `arm_position_controller` and deactivated JTC/gripper in the live System view; STOP requests IDLE. `make test` 37/37.
+
+### Work log
+- `mode_logic.py`: `ModeTable` from YAML (mode → active controllers, declared transitions), `switch()` returns the minimal activate/deactivate lists; `load_mode_table` validates every mode is present.
+- `mode_manager.py`: `/cognibot/set_mode`, latched `/cognibot/mode` (`cognibot_common.qos.TRANSIENT_LOCAL`, new presets module), one STRICT `switch_controller` per transition.
+- Dashboard: `/cognibot/mode` is the source of truth when the manager is online; the local key is a fallback; refusals show for 5 s on the key.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | First switch failed: "Could not deactivate controller 'gripper_controller' because no controller with this name exists" | The manager aligned IDLE while the spawners were still loading | Startup waits until every managed controller is loaded and the state set is unchanged between two polls (60 s deadline) | launch test passes |
+| 2 | STRICT switch refused with a controller already in the requested state | STRICT rejects no-op activations | Filter activate/deactivate lists against `list_controllers` before every call | idle → motion is "no change" |
+
+### Decisions
+#### D1: Where transitions are defined
+- YAML (`modes.yaml`) rather than code, so Panda or a future controller set changes without touching the node. Any → IDLE and IDLE → any are implicit; other direct transitions are listed (`TELEOP → MOTION`, `MOTION → VLA`).
+
+### Open questions
+- `/cognibot/mode` shows who holds the arm, but MoveIt goals still run in IDLE (JTC active in both). The safety filter (P2-T05) is what makes TELEOP/VLA modes exclusive; MOTION exclusivity needs `pick_place_server`/MoveIt goals to request MOTION (P2-T09).
+
+---
 
 ## 2026-09-13 · owner test · Dashboard test session: joint-limit start states, MoveIt crash, free-look sync
 

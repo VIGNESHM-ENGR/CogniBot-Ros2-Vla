@@ -29,6 +29,12 @@ def generate_launch_description():
             ),
             Node(
                 package="cognibot_motion",
+                executable="mode_manager",
+                name="mode_manager",
+                output="screen",
+            ),
+            Node(
+                package="cognibot_motion",
                 executable="pick_place_server",
                 name="pick_place_server",
                 output="screen",

@@ -4,6 +4,7 @@ import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
   commandForKey,
+  MODES,
   nextSource,
   type JogKey,
   type Mode,
@@ -29,12 +30,14 @@ import {
 } from "./ros/hooks";
 import type {
   Clock,
+  ControlModeMsg,
   FollowJointTrajectoryFeedback,
   FollowJointTrajectoryGoal,
   FreeJointStateArray,
   GpuStatus,
   JointState,
   ResultMessage,
+  SetControlModeResponse,
   StageFeedback,
   StringMsg,
 } from "./ros/messages";
@@ -56,7 +59,8 @@ const latest = <T,>(...runs: (GoalRun<T> | null)[]) =>
 
 function Pendant() {
   const { link, url } = useRos();
-  const [mode, setMode] = useState<Mode>("IDLE");
+  const [localMode, setLocalMode] = useState<Mode>("IDLE");
+  const [modeNotice, setModeNotice] = useState<string | undefined>();
   const [view, setView] = useState<ViewId>("camera");
   const [source, setSource] = useState<SourceId>("free");
   const [stopped, setStopped] = useState(false);
@@ -69,6 +73,11 @@ function Pendant() {
   const urdfMsg = useTopic<StringMsg>(TOPICS.robotDescription, "std_msgs/msg/String");
   const srdfMsg = useTopic<StringMsg>(TOPICS.robotDescriptionSemantic, "std_msgs/msg/String");
   const { services, topics, actions } = useGraph();
+  const modeMsg = useTopic<ControlModeMsg>(TOPICS.mode, "cognibot_interfaces/msg/ControlMode");
+  const setModeService = useServiceCall<
+    { mode: number; requester: string; reason: string },
+    SetControlModeResponse
+  >(SERVICES.setMode, "cognibot_interfaces/srv/SetControlMode");
 
   const urdf = useMemo(() => (urdfMsg ? parseUrdf(urdfMsg.data) : null), [urdfMsg]);
   const groupStates = useMemo(() => (srdfMsg ? parseSrdfGroupStates(srdfMsg.data) : []), [srdfMsg]);
@@ -109,6 +118,26 @@ function Pendant() {
   const trajectoryOnline = actions.has(ACTIONS.trajectory);
   const gripperOnline = actions.has(ACTIONS.gripper);
   const managerOnline = services.has(SERVICES.setMode);
+  // With the mode manager running the key shows the arbitrated mode; without it, a local one.
+  const mode: Mode = managerOnline && modeMsg ? (MODES[modeMsg.mode] ?? "IDLE") : localMode;
+  const setMode = useCallback(
+    (target: Mode, reason = "mode key") => {
+      if (!managerOnline) {
+        setLocalMode(target);
+        return;
+      }
+      setModeService({ mode: MODES.indexOf(target), requester: "dashboard", reason }).then(
+        (r) => setModeNotice(r.success ? undefined : r.message),
+        (e: unknown) => setModeNotice(String(e)),
+      );
+    },
+    [managerOnline, setModeService],
+  );
+  useEffect(() => {
+    if (!modeNotice) return;
+    const t = setTimeout(() => setModeNotice(undefined), 5000);
+    return () => clearTimeout(t);
+  }, [modeNotice]);
   const pickPlaceOnline = actions.has(ACTIONS.fetch) && actions.has(ACTIONS.place);
   const teleopOnline = topics.has(TOPICS.teleop);
 
@@ -161,13 +190,14 @@ function Pendant() {
   const stop = useCallback(() => {
     cancelAll();
     setStopped(true);
+    setMode("IDLE", "stop");
     const state = jointsRef.current;
     const armNames = urdf?.joints.map((j) => j.name).filter((n) => n !== "gripper") ?? [];
     if (state && trajectoryOnline && armNames.length > 0) {
       const positions = armNames.map((n) => state.position[state.name.indexOf(n)] ?? 0);
       trajectory.send("Hold after stop", holdGoal(armNames, positions));
     }
-  }, [cancelAll, urdf, trajectoryOnline, trajectory]);
+  }, [cancelAll, urdf, trajectoryOnline, trajectory, setMode]);
 
   const flashJog = useCallback((jog: JogKey) => {
     setPressed((p) => new Set(p).add(jog));
@@ -215,7 +245,7 @@ function Pendant() {
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [stop, cancelAll, mode, stopped, flashJog]);
+  }, [stop, cancelAll, mode, stopped, flashJog, setMode]);
 
   const run = latest<unknown>(
     trajectory.run as GoalRun<unknown> | null,
@@ -260,7 +290,12 @@ function Pendant() {
             <div className="plate__name">COGNIBOT</div>
             <div className="plate__sub">Operator pendant · {urdf?.robotName ?? "no robot"}</div>
           </div>
-          <ModeKey mode={mode} onChange={setMode} managerOnline={managerOnline} />
+          <ModeKey
+            mode={mode}
+            onChange={setMode}
+            managerOnline={managerOnline}
+            notice={modeNotice}
+          />
           <JogBlock
             mode={mode}
             pressed={pressed}

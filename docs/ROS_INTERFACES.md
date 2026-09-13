@@ -37,6 +37,8 @@ Conventions:
 | `/cognibot/joint_command` | `sensor_msgs/JointState` (name + position) | `mink_teleop`, LeRobot `robot_client` (via plugin), `twin_mirror` | `safety_filter` |
 | `/arm_position_controller/commands` | `std_msgs/Float64MultiArray` | `safety_filter` **only** | `arm_position_controller` |
 | `/cognibot/mode` | `cognibot_interfaces/ControlMode` (transient local) | `mode_manager` | safety_filter, teleop, skill_executor, dashboard |
+
+> Mode → controllers and allowed transitions are in `cognibot_motion/config/modes.yaml`; the manager waits for the spawners to settle before publishing IDLE and switches only controllers whose state changes (STRICT rejects no-ops).
 | `/cognibot/safety/status` | `diagnostic_msgs/DiagnosticArray` | `safety_filter` | dashboard |
 | `/cognibot/viz/collision_spheres` | `visualization_msgs/MarkerArray` | `safety_filter` | RViz, dashboard |
 | `/cognibot/viz/workspace` | `visualization_msgs/MarkerArray` (transient local) | `reach_query` | RViz, dashboard |

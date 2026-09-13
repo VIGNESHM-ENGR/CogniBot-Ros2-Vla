@@ -73,3 +73,16 @@ export interface ResultMessage {
   success: boolean;
   message: string;
 }
+
+export interface ControlModeMsg {
+  stamp: { sec: number; nanosec: number };
+  mode: number;
+  requester: string;
+  reason: string;
+}
+
+export interface SetControlModeResponse {
+  success: boolean;
+  message: string;
+  active_mode: number;
+}

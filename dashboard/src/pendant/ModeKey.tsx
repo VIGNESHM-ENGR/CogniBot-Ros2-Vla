@@ -5,10 +5,12 @@ interface Props {
   mode: Mode;
   onChange: (mode: Mode) => void;
   managerOnline: boolean;
+  /** Last refusal from the mode manager, shown in place of the help line. */
+  notice?: string;
 }
 
 /** The pendant's key switch: five detents, one lit LED, and the mode it selects. */
-export function ModeKey({ mode, onChange, managerOnline }: Props) {
+export function ModeKey({ mode, onChange, managerOnline, notice }: Props) {
   const index = MODES.indexOf(mode);
   const step = (delta: number) =>
     onChange(MODES[Math.min(MODES.length - 1, Math.max(0, index + delta))] as Mode);
@@ -54,10 +56,11 @@ export function ModeKey({ mode, onChange, managerOnline }: Props) {
           </li>
         ))}
       </ul>
-      <p className="modekey__note">
-        {managerOnline
-          ? MODE_HELP[mode]
-          : "Mode manager offline: the key selects which console keys are live; controllers are not switched."}
+      <p className="modekey__note" data-tone={notice ? "yellow" : undefined}>
+        {notice ??
+          (managerOnline
+            ? MODE_HELP[mode]
+            : "Mode manager offline: the key selects which console keys are live; controllers are not switched.")}
       </p>
     </section>
   );

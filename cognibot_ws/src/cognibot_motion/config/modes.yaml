@@ -1,0 +1,18 @@
+# Control modes → ros2_control controllers (docs/ARCHITECTURE.md §6). Exactly one arm commander.
+# Controllers not listed for a mode are deactivated when entering it; joint_state_broadcaster is
+# never touched.
+modes:
+  IDLE:
+    active: [joint_trajectory_controller, gripper_controller]
+  MOTION:
+    active: [joint_trajectory_controller, gripper_controller]
+  TELEOP:
+    active: [arm_position_controller]
+  VLA:
+    active: [arm_position_controller]
+  TWIN:
+    active: [arm_position_controller]
+# Direct transitions allowed in addition to any → IDLE and IDLE → any.
+transitions:
+  - [TELEOP, MOTION]
+  - [MOTION, VLA]

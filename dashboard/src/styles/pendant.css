@@ -353,6 +353,10 @@ input {
   font-size: 12px;
 }
 
+.modekey__note[data-tone="yellow"] {
+  color: var(--yellow);
+}
+
 /* ───────────── jog block ───────────── */
 
 .jog {

@@ -9,6 +9,7 @@ export const TOPICS = {
   clock: "/clock",
   gpu: "/cognibot/gpu",
   teleop: "/cognibot/teleop/cmd",
+  mode: "/cognibot/mode",
   frontCamera: "/mujoco_camera_plugin/front_rgbd/color",
   objectPoses: "/object_poses/free_joint_states",
   wristCamera: "/mujoco_camera_plugin/wrist_cam/color",
