@@ -148,6 +148,12 @@ def export_scene(output_xml_path: Path, preview_png_path: Path, seed: int = 42) 
     front_cam.attrib["fovy"] = "48"
     front_cam.attrib["resolution"] = "640 480"
 
+    # 4. Render the wrist camera at 640x480 (upstream 1920x1080): the SO-101 policies take
+    # 640x480 wrist images, and 1080p rendering at 20 Hz costs ~14% GPU and ~200 MiB VRAM.
+    for wrist_cam in root.iter("camera"):
+        if wrist_cam.attrib.get("name") == "wrist_cam":
+            wrist_cam.attrib["resolution"] = "640 480"
+
     # Format XML nicely
     ET.indent(tree, space="  ")
     xml_str = ET.tostring(root, encoding="unicode")

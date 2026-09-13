@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | owner request | Scripted pick-and-place demo and simulation GPU load | feat |
 | 2026-09-13 | P5 prep | Pinned policy checkpoint download (SmolVLA, ACT, Diffusion) | feat |
 | 2026-09-13 | infra | Reproducible core image, GPU-free CI and `make test` | build |
 | 2026-09-13 | owner request | Red robot color switch and green cube | feat |
@@ -73,6 +74,37 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · owner request · Scripted pick-and-place demo and simulation GPU load
+
+**Context:** the owner wanted to watch the arm pick and place the cube before the planning stack exists, and asked why the simulation uses so much GPU.
+**Outcome:** ✅ `make demo` opens the viewer and the SO-101 moves `green_cube` onto `blue_target` (verified three times, final cube 2.4 cm from the disc centre). Wrist camera reduced to 640×480: headless GPU 40% → 26%, VRAM 587 → 385 MiB. `make test` 24/24.
+
+### Work log
+- `cognibot_motion/scripts/demo_pick_place.py`: damped-least-squares IK on the MuJoCo scene for gripper position plus a soft top-down approach axis (5 DOF = 3 position + 2 pointing), then `FollowJointTrajectory` goals to `joint_trajectory_controller` and `ParallelGripperCommand` goals to `gripper_controller`. This is a demo, not the P2-T09 `pick_place_server`: it bypasses MoveIt, `mode_manager` and the safety filter, which is allowed only because it uses the trajectory and gripper action interfaces.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Arm ran the sequence but the cube stayed on the floor | The `gripperframe` site sits at the fixed jaw, ~2 cm outboard of the jaw centre. The P1-T03 edit moved it from `x=0.012` to `x=-0.0079` to match URDF `gripper_frame_link`; the Menagerie original was the grasp centre | Demo shifts grasp targets 2 cm towards the base (`GRASP_OFFSET`) | Offline grid search over ±3 cm: only offsets ≈ -2 cm radial lift the cube (z 0.012 → 0.075) |
+| 2 | Strict top-down IK left 20–200 mm position error at hover and carry points | Wrist flex hits its 1.658 rad limit; `blue_target` is 0.365 m out, near max reach | Orientation weight 0.1 (soft) and no inset on the drop point | Grasp 0.0 mm, drop 8.7 mm IK error |
+| 3 | Scene uses ~40% GPU headless, ~38% with viewer, 1.1 GB VRAM | `wrist_cam` rendered at 1920×1080 at 20 Hz; the viewer redraws at panel refresh rate at full window size | `export_nexus_scene.py` sets `wrist_cam` to 640×480 (the SO-101 checkpoints use 640×480); viewer kept for demos only | Table below |
+
+### Measurements (RTX 3060 Laptop, 25 s warm-up, mean of 4 samples)
+| Configuration | GPU | VRAM | Power |
+|---|---|---|---|
+| headless, wrist 1920×1080 | 40% | 587 MiB | 18.6 W |
+| headless, wrist 640×480 | 26% | 385 MiB | 17.2 W |
+| viewer, wrist 640×480 | 37% | 910 MiB | 28.7 W |
+| viewer, wrist 640×480, `__GL_SYNC_TO_VBLANK=1 vblank_mode=3` | 39% | 910 MiB | 29.0 W |
+
+- `mujoco_ros2_control` 0.1.1 exposes `camera_publish_rate` and `sim_speed_factor` but no viewer frame-rate parameter; the vsync environment variables had no measurable effect.
+
+### Open questions
+- TCP definition for P2: keep `gripperframe`/`gripper_frame_link` at the fixed jaw and offset grasps, or move both MJCF site and a URDF TCP link to the jaw centre (would change the P1-T03 consistency test).
+- VRAM_BUDGET estimated 150–300 MiB for the sim; measured 385 MiB headless. Update in P5-T07.
+
+---
 
 ## 2026-09-13 · P5 prep · Pinned policy checkpoint download (SmolVLA, ACT, Diffusion)
 

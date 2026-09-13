@@ -13,7 +13,7 @@ Exported from [`so101-nexus`](https://github.com/johnsutor/so101-nexus) `MuJoCoP
   - `green_cube`: freejoint box body (size `0.0125` m half-size, mass `0.01` kg, rgba `[0, 1, 0, 1]`; recolored from the upstream red so red is reserved for the robot) at spawn pose `(0.274100, -0.019501, 0.012445)`.
   - `blue_target`: static cylinder target disc (radius `0.05` m, rgba `[0, 0, 1, 1]`) at spawn pose `(0.307045, 0.197373, 0.001000)`.
 - **Cameras**:
-  - `wrist_cam`: wrist-mounted camera on `camera_mount` body (`1920x1080`, `fovy=48.5`).
+  - `wrist_cam`: wrist-mounted camera on `camera_mount` body (`640x480`, reduced from the upstream `1920x1080`; `fovy=48.5`).
   - `front_rgbd`: fixed front tabletop camera framing the robot workspace, cube, and target disc (`640x480`, `fovy=48`, pos `[0.56, 0.08, 0.36]`, xyaxes `[0, 1, 0, -0.696, 0, 0.718]`).
 
 ### `panda_pick_and_place.xml`
