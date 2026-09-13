@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="VLA skill execution: exposes LeRobot async inference (robot_client) as a ROS 2 action.",
+    description="Exposes LeRobot async inference (robot_client) as a ROS 2 action.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

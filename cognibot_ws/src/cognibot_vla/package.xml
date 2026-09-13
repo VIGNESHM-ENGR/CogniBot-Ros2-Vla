@@ -3,7 +3,7 @@
   <package format="3">
     <name>cognibot_vla</name>
     <version>0.1.0</version>
-    <description>VLA skill execution: exposes LeRobot async inference (robot_client) as a ROS 2 action.</description>
+    <description>Exposes LeRobot async inference (robot_client) as a ROS 2 action.</description>
     <maintainer email="vigneshm1engr@gmail.com">Vignesh</maintainer>
     <license>Apache-2.0</license>
 

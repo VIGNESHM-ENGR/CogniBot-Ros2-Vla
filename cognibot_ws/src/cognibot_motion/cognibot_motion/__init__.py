@@ -1,1 +1,1 @@
-"""Motion and safety: control-mode manager, sphere-based safety filter, reachability query and fetch/place action server."""
+"""Mode manager, safety filter, reachability query and fetch/place server."""

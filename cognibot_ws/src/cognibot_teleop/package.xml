@@ -3,7 +3,7 @@
   <package format="3">
     <name>cognibot_teleop</name>
     <version>0.1.0</version>
-    <description>Cartesian teleoperation backend using mink differential IK with collision avoidance.</description>
+    <description>Cartesian teleop backend using mink IK with collision avoidance.</description>
     <maintainer email="vigneshm1engr@gmail.com">Vignesh</maintainer>
     <license>Apache-2.0</license>
 

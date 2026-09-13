@@ -1,1 +1,1 @@
-"""Shared utilities: robot registry loader, QoS presets, image conversion helpers and the GPU monitor node."""
+"""Shared utilities: robot registry, QoS presets, image helpers, GPU monitor."""

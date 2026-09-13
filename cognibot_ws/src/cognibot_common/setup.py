@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="Shared utilities: robot registry loader, QoS presets, image conversion helpers and the GPU monitor node.",
+    description="Shared utilities: robot registry, QoS presets, image helpers, GPU monitor.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

@@ -1,1 +1,1 @@
-"""Vision-language agent node: tool calling against a local llama.cpp server and bbox-to-3D grounding."""
+"""VLM agent: tool calling via local llama.cpp and bbox-to-3D grounding."""

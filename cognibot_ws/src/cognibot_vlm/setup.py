@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="Vision-language agent node: tool calling against a local llama.cpp server and bbox-to-3D grounding.",
+    description="VLM agent: tool calling via local llama.cpp and bbox-to-3D grounding.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

@@ -3,7 +3,7 @@
   <package format="3">
     <name>cognibot_common</name>
     <version>0.1.0</version>
-    <description>Shared utilities: robot registry loader, QoS presets, image conversion helpers and the GPU monitor node.</description>
+    <description>Shared utilities: robot registry, QoS presets, image helpers, GPU monitor.</description>
     <maintainer email="vigneshm1engr@gmail.com">Vignesh</maintainer>
     <license>Apache-2.0</license>
 

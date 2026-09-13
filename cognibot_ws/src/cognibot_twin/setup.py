@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="Digital twin connector: mirrors a real (or mock) SO-101 into the simulation.",
+    description="Digital twin connector mirroring a real or mock SO-101 into sim.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

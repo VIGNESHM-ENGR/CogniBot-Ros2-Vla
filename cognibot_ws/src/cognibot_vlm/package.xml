@@ -3,7 +3,7 @@
   <package format="3">
     <name>cognibot_vlm</name>
     <version>0.1.0</version>
-    <description>Vision-language agent node: tool calling against a local llama.cpp server and bbox-to-3D grounding.</description>
+    <description>VLM agent: tool calling via local llama.cpp and bbox-to-3D grounding.</description>
     <maintainer email="vigneshm1engr@gmail.com">Vignesh</maintainer>
     <license>Apache-2.0</license>
 

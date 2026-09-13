@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="Motion and safety: control-mode manager, sphere-based safety filter, reachability query and fetch/place action server.",
+    description="Mode manager, safety filter, reachability query and fetch/place server.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={

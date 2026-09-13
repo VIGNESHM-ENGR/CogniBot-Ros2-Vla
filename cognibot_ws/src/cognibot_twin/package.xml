@@ -3,7 +3,7 @@
   <package format="3">
     <name>cognibot_twin</name>
     <version>0.1.0</version>
-    <description>Digital twin connector: mirrors a real (or mock) SO-101 into the simulation.</description>
+    <description>Digital twin connector mirroring a real or mock SO-101 into sim.</description>
     <maintainer email="vigneshm1engr@gmail.com">Vignesh</maintainer>
     <license>Apache-2.0</license>
 

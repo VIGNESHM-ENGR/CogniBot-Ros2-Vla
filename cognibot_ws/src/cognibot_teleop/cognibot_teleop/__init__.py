@@ -1,1 +1,1 @@
-"""Cartesian teleoperation backend using mink differential IK with collision avoidance."""
+"""Cartesian teleop backend using mink IK with collision avoidance."""

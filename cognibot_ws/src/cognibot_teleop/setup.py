@@ -18,7 +18,7 @@ setup(
     zip_safe=True,
     maintainer="Vignesh",
     maintainer_email="vigneshm1engr@gmail.com",
-    description="Cartesian teleoperation backend using mink differential IK with collision avoidance.",
+    description="Cartesian teleop backend using mink IK with collision avoidance.",
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={
