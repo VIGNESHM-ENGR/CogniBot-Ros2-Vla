@@ -10,6 +10,8 @@ repos:
       - id: check-xml
       - id: check-added-large-files
         args: [--maxkb=2048]
+        # Vendored MuJoCo Menagerie meshes are upstream files kept byte-identical.
+        exclude: ^cognibot_ws/src/cognibot_sim/robots/[^/]+/mjcf/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.13.0
     hooks:
