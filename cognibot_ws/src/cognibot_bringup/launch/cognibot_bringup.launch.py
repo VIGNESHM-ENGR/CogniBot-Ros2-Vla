@@ -24,6 +24,11 @@ def generate_launch_description():
         default_value="true",
         description="Use simulation clock",
     )
+    robot_color_arg = DeclareLaunchArgument(
+        "robot_color",
+        default_value="red",
+        description="Robot shell color: red, or stock (as sim policies were trained)",
+    )
 
     # Simulation bringup
     sim_launch = IncludeLaunchDescription(
@@ -40,6 +45,7 @@ def generate_launch_description():
             "robot": LaunchConfiguration("robot"),
             "headless": LaunchConfiguration("headless"),
             "use_sim_time": LaunchConfiguration("use_sim_time"),
+            "robot_color": LaunchConfiguration("robot_color"),
         }.items(),
     )
 
@@ -48,6 +54,7 @@ def generate_launch_description():
             robot_arg,
             headless_arg,
             use_sim_time_arg,
+            robot_color_arg,
             sim_launch,
         ]
     )

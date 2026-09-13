@@ -171,7 +171,7 @@ string message
 
 ### srv/GetObjectCoordinates.srv
 ```
-string label            # natural language, e.g. "red cube"
+string label            # natural language, e.g. "green cube"
 string camera           # registry camera key; empty = "front"
 ---
 bool success

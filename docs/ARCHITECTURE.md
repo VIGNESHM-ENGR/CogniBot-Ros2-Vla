@@ -160,9 +160,9 @@ sequenceDiagram
   participant L as llama-swap (Qwen3-VL-4B)
   participant R as reach_query
   participant P as pick_place_server (MoveItPy)
-  D->>A: RunAgentTask("pick the red cube and place it near the blue cup")
+  D->>A: RunAgentTask("pick the green cube and place it near the blue cup")
   A->>L: chat.completions(messages + front image, tools=[...])
-  L-->>A: tool_call get_object_coordinates("red cube")
+  L-->>A: tool_call get_object_coordinates("green cube")
   A->>L: grounding prompt → bbox (0–1000 rel coords)
   A->>A: bbox center → median depth ROI → deproject(CameraInfo) → TF → base_link
   A->>R: CheckReachability(point)

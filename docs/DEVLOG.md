@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | owner request | Red robot color switch and green cube | feat |
 | 2026-09-13 | P1-T10 | Release-readiness review of Phase 1 | fix |
 | 2026-09-13 | P1-T01…T10 | Phase 1 Simulation Core (SO-101, Panda, cameras, TF, GPU monitor) | feat |
 | 2026-09-13 | P0-T05…T07 | Docker/Compose stack, CI and README | build |
@@ -70,6 +71,38 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · owner request · Red robot color switch and green cube
+
+**Context:** the owner asked for a red robot instead of the stock yellow SO-101 (and white Panda).
+**Outcome:** ✅ done. `robot_color:=red` (default) or `stock`; cube renamed `green_cube`. 11/11 `cognibot_sim` colcon tests and 13/13 `cognibot_common` tests pass in the core image.
+
+### Work log
+- `cognibot_common.mjcf_tint.tint_scene` writes a temporary copy of the scene with listed materials recolored and relative `compiler` asset directories made absolute. The committed MJCF stays byte-identical to the export and Menagerie.
+- `robot.yaml` gains optional `mjcf.tint_materials` (11 printed-part materials for SO-101; `white`, `off_white` for Panda). Motors and other dark parts keep their colors.
+- `sim.launch.py` and both bringup launches accept `robot_color`.
+- `export_nexus_scene.py` now names the cube `green_cube` and sets `rgba="0 1 0 1"`; re-running the export changed only those three lines (determinism preserved). The reprojection test detects green pixels.
+
+### Decisions
+#### D1: How to recolor the robot
+```mermaid
+flowchart TD
+  Q[Red robot] --> A[Edit Menagerie/exported MJCF materials]
+  Q --> B[Second committed scene file]
+  Q --> C[Tint a temporary copy at launch]
+  A --> A1[✗ breaks byte-identical vendoring and loses the stock look policies were trained on]
+  B --> B1[✗ duplicated 200-line scenes drift apart]
+  C --> C1[✓ chosen: one source scene, switchable per launch]
+```
+- **Revisit if:** the dashboard 3D view (P3-T07) needs the same color; the URDF materials would then need a matching xacro argument.
+
+#### D2: Cube color
+- A red robot makes red-pixel detection and "the red cube" prompts ambiguous, so the cube became green. Revisit if a chosen SmolVLA/ACT checkpoint was trained with a red cube: run it with `robot_color:=stock` and a red-cube scene variant.
+
+### Open questions
+- MuJoCo-trained checkpoints saw a yellow arm and red cube; measure the success-rate effect of both changes in P5-T02.
+
+---
 
 ## 2026-09-13 · P1-T10 · Release-readiness review of Phase 1
 

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Launch headless MuJoCo simulation with ros2_control."""
 
+from cognibot_common.mjcf_tint import ROBOT_COLORS, tint_scene
 from cognibot_common.robot_registry import load_robot
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
@@ -18,6 +19,13 @@ def launch_setup(context, *args, **kwargs):
     urdf_xacro_path = str(robot_cfg.urdf)
     controllers_yaml_path = str(robot_cfg.controllers)
     scene_xml_path = str(robot_cfg.mjcf.scene)
+
+    robot_color = LaunchConfiguration("robot_color").perform(context)
+    if robot_color not in ROBOT_COLORS:
+        raise ValueError(f"robot_color must be one of {sorted(ROBOT_COLORS)}, got '{robot_color}'")
+    rgba = ROBOT_COLORS[robot_color]
+    if rgba is not None:
+        scene_xml_path = str(tint_scene(robot_cfg.mjcf.scene, robot_cfg.mjcf.tint_materials, rgba))
 
     robot_description_content = ParameterValue(
         Command(
@@ -202,6 +210,11 @@ def generate_launch_description():
                 "use_sim_time",
                 default_value="true",
                 description="Use simulation (MuJoCo) clock",
+            ),
+            DeclareLaunchArgument(
+                "robot_color",
+                default_value="red",
+                description="Robot shell color: red, or stock (as sim policies were trained)",
             ),
             OpaqueFunction(function=launch_setup),
         ]

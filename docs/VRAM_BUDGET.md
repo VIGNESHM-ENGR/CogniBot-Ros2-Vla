@@ -74,7 +74,7 @@ Rules implemented by `vlm_agent_node` and `skill_executor_node`:
 gantt
   dateFormat  s
   axisFormat  %S
-  title VRAM ownership during "pick the red cube, then run a VLA skill" (illustrative)
+  title VRAM ownership during "pick the green cube, then run a VLA skill" (illustrative)
   section llm (Qwen3-VL)
   gpu profile: plan + ground   :a1, 0, 8s
   unload                       :milestone, 8, 0s

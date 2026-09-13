@@ -47,7 +47,7 @@ flowchart LR
 - **Exit criteria:** `docker compose config` valid for all profiles; images build; interfaces visible via `ros2 interface list`; CI green; commit hook active.
 
 ### P1: Simulation core (`v0.2.0`)
-- **Goal:** `make sim` gives a headless MuJoCo SO-101 on a desk with a red cube and blue cup, controllable through ros2_control, with cameras and TF.
+- **Goal:** `make sim` gives a headless MuJoCo SO-101 on a desk with a green cube and blue target, controllable through ros2_control, with cameras and TF.
 - **Key risks:** EGL in Docker on hybrid graphics; camera plugin config; joint-name alignment between Menagerie MJCF and so101_description URDF.
 - **Exit criteria:** controllers active; `/joint_states` ≥ 100 Hz; RGB-D ≥ 15 Hz; a scripted JTC goal moves the arm; camera reprojection test passes; `robot:=panda` also comes up.
 

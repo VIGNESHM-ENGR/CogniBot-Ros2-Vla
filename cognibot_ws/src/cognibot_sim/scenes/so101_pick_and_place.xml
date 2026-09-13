@@ -149,9 +149,9 @@
         </body>
       </body>
     </body>
-    <body name="red_cube" pos="0.274100 -0.019501 0.012445">
-      <joint name="red_cube_joint" type="free" />
-      <geom name="red_cube" size="0.0125 0.0125 0.0125" type="box" condim="4" friction="1 0.05 0.001" solref="0.01" solimp="0.95 0.99" rgba="1 0 0 1" mass="0.01" />
+    <body name="green_cube" pos="0.274100 -0.019501 0.012445">
+      <joint name="green_cube_joint" type="free" />
+      <geom name="green_cube" size="0.0125 0.0125 0.0125" type="box" condim="4" friction="1 0.05 0.001" solref="0.01" solimp="0.95 0.99" rgba="0 1 0 1" mass="0.01" />
     </body>
     <body name="blue_target" pos="0.307045 0.197373 0.001000">
       <geom name="blue_target" size="0.05 0.001" type="cylinder" contype="0" conaffinity="0" rgba="0 0 1 1" />

@@ -21,6 +21,19 @@ home_pose:
 mjcf:
   scene: scenes/so101_pick_and_place.xml
   ik_model: robots/so101/mjcf/so101_ik_spheres.xml
+  # Printed-part materials recolored by sim.launch.py robot_color (motors stay black).
+  tint_materials:
+    - base_motor_holder_so101_v1_material
+    - base_so101_v2_material
+    - waveshare_mounting_plate_so101_v2_material
+    - motor_holder_so101_base_v1_material
+    - rotation_pitch_so101_v1_material
+    - upper_arm_so101_v1_material
+    - under_arm_so101_v1_material
+    - motor_holder_so101_wrist_v1_material
+    - wrist_roll_pitch_so101_v2_material
+    - wrist_roll_follower_so101_v1_material
+    - moving_jaw_so101_v1_material
 urdf: robots/so101/urdf/so101_mujoco.urdf.xacro
 controllers: robots/so101/config/controllers.yaml
 moveit:

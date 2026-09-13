@@ -5,7 +5,8 @@ This script:
 1. Instantiates `MuJoCoPickAndPlace-v1` from so101-nexus with a fixed seed (42).
 2. Exports the compiled scene XML via `mujoco.mj_saveLastXML`.
 3. Standardizes mesh paths to reference `../robots/so101/mjcf/assets/`.
-4. Names the cube `red_cube` and the target disc `blue_target`.
+4. Names the cube `green_cube` (recolored green so red is reserved for the robot) and the
+   target disc `blue_target`.
 5. Aligns robot joint limits (wrist_roll) and site poses with Menagerie / URDF.
 6. Adds a front RGB-D camera (`front_rgbd`) with optimal workspace framing.
 7. Renders and saves `cognibot_sim/scenes/preview.png`.
@@ -113,16 +114,17 @@ def export_scene(output_xml_path: Path, preview_png_path: Path, seed: int = 42) 
 
     for body in worldbody.findall("body"):
         name = body.attrib.get("name", "")
-        # Pick slot cube body -> red_cube
+        # Pick slot cube body -> green_cube
         if name.startswith("pick_slot_"):
-            body.attrib["name"] = "red_cube"
+            body.attrib["name"] = "green_cube"
             body.attrib["pos"] = f"{cube_pos[0]:.6f} {cube_pos[1]:.6f} {cube_pos[2]:.6f}"
             for joint in body.findall("joint"):
-                joint.attrib["name"] = "red_cube_joint"
+                joint.attrib["name"] = "green_cube_joint"
             for freejoint in body.findall("freejoint"):
-                freejoint.attrib["name"] = "red_cube_joint"
+                freejoint.attrib["name"] = "green_cube_joint"
             for geom in body.findall("geom"):
-                geom.attrib["name"] = "red_cube"
+                geom.attrib["name"] = "green_cube"
+                geom.attrib["rgba"] = "0 1 0 1"
 
         # Target disc body -> blue_target
         elif name == "target":
@@ -172,7 +174,7 @@ def export_scene(output_xml_path: Path, preview_png_path: Path, seed: int = 42) 
 
     # Sanity checks
     body_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i) for i in range(model.nbody)]
-    assert "red_cube" in body_names, f"red_cube not in bodies: {body_names}"
+    assert "green_cube" in body_names, f"green_cube not in bodies: {body_names}"
     assert "blue_target" in body_names, f"blue_target not in bodies: {body_names}"
     cam_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_CAMERA, i) for i in range(model.ncam)]
     assert "front_rgbd" in cam_names, f"front_rgbd not in cameras: {cam_names}"

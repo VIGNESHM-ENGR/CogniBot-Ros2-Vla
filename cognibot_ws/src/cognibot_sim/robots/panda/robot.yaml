@@ -25,6 +25,10 @@ home_pose:
 mjcf:
   scene: scenes/panda_pick_and_place.xml
   ik_model: robots/panda/mjcf/panda.xml
+  # Shell materials recolored by sim.launch.py robot_color.
+  tint_materials:
+    - white
+    - off_white
 urdf: robots/panda/urdf/panda_mujoco.urdf.xacro
 controllers: robots/panda/config/controllers.yaml
 moveit:

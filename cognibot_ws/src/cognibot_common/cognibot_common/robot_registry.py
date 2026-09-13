@@ -34,6 +34,7 @@ class GripperConfig:
 class MJCFConfig:
     scene: Path
     ik_model: Path
+    tint_materials: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -165,6 +166,7 @@ def parse_robot_config(data: dict[str, Any], base_dir: Path) -> RobotConfig:
     mjcf = MJCFConfig(
         scene=_resolve_path(_require_key(raw_mjcf, "scene", f"{name}.mjcf"), base_dir),
         ik_model=_resolve_path(_require_key(raw_mjcf, "ik_model", f"{name}.mjcf"), base_dir),
+        tint_materials=tuple(str(m) for m in raw_mjcf.get("tint_materials", ())),
     )
 
     urdf = _resolve_path(_require_key(data, "urdf", name), base_dir)

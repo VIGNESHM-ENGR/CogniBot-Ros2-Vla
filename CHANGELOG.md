@@ -6,6 +6,12 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ## [Unreleased]
 
+### Added
+- `robot_color` launch argument (`red` default, `stock`) that recolors the robot via `cognibot_common.mjcf_tint` and `mjcf.tint_materials` in the robot registry.
+
+### Changed
+- The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
+
 ## [0.2.0] - 2026-09-13
 
 ### Added

@@ -2,8 +2,8 @@
 
 Verifies:
 1. /mujoco_camera_plugin/front_rgbd/color and depth are published at >= 15 Hz.
-2. The known red cube in so101_pick_and_place.xml (pos: 0.274100, -0.019501, 0.012445)
-   reprojects into front_rgbd camera frame within 10 px of the visual red-pixel centroid.
+2. The known green cube in so101_pick_and_place.xml (pos: 0.274100, -0.019501, 0.012445)
+   reprojects into front_rgbd camera frame within 10 px of the visual green-pixel centroid.
 """
 
 import time
@@ -142,15 +142,15 @@ class TestCameraReprojection(unittest.TestCase):
 
         img = np.frombuffer(last_color_msg.data, dtype=np.uint8).reshape((h, w, 3))
 
-        # Find red cube centroid
-        red_mask = (img[:, :, 0] > 150) & (img[:, :, 1] < 80) & (img[:, :, 2] < 80)
-        self.assertTrue(np.any(red_mask), "No red pixels found in camera image for red_cube")
+        # Find green cube centroid
+        green_mask = (img[:, :, 1] > 150) & (img[:, :, 0] < 80) & (img[:, :, 2] < 80)
+        self.assertTrue(np.any(green_mask), "No green pixels found in camera image for green_cube")
 
-        y_idx, x_idx = np.where(red_mask)
+        y_idx, x_idx = np.where(green_mask)
         u_centroid = float(np.mean(x_idx))
         v_centroid = float(np.mean(y_idx))
 
-        # Known spawn of red cube in world frame: (0.274100, -0.019501, 0.012445)
+        # Known spawn of green cube in world frame: (0.274100, -0.019501, 0.012445)
         # Camera in world frame: pos=(0.56, 0.08, 0.36),
         # quat=[0.651157, 0.651157, -0.275672, -0.275672]
         from scipy.spatial.transform import Rotation as R

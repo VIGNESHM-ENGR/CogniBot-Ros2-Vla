@@ -42,7 +42,7 @@ Every third-party component is listed with its pin in [INTEGRATIONS.md](INTEGRAT
 | G5 | Reachability study (ros-industrial REACH) plus a fitted **workspace sphere** used to reject unreachable targets | P2 |
 | G6 | Control-mode arbitration (IDLE / TELEOP / MOTION / VLA / TWIN) through controller switching; exactly one commander at a time | P2 |
 | G7 | Web control dashboard: camera, joint states, WASD / ↑↓ / G teleop pad, mode switch, safety overlays, VRAM gauge | P3 |
-| G8 | Local VLM agent: Qwen3-VL-4B (llama.cpp via llama-swap) with tool calling. Grounds "the red cube" to a 3D point via bbox + depth + TF, then calls motion or VLA tools | P4 |
+| G8 | Local VLM agent: Qwen3-VL-4B (llama.cpp via llama-swap) with tool calling. Grounds "the green cube" to a 3D point via bbox + depth + TF, then calls motion or VLA tools | P4 |
 | G9 | VLA inference: stock LeRobot async `policy_server` (GPU) + `robot_client` with the `lerobot_robot_ros` plugin, streaming ~30 Hz joint targets through the safety filter | P5 |
 | G10 | VRAM coordination so the VLM and VLA coexist on 6 GB, using 40 GB system RAM as an offload tier (llama.cpp gpu/hybrid/cpu profiles via llama-swap, unload before VLA streaming); a measured budget is published | P5 |
 | G11 | Digital-twin mode: a real SO-101 (Feetech STS3215 bus via `feetech_ros2_driver`) mirrored into MuJoCo. Mock hardware now, real arm when available | P6 |
@@ -70,7 +70,7 @@ Every third-party component is listed with its pin in [INTEGRATIONS.md](INTEGRAT
 | Safety | A scripted colliding joint command is clamped or rejected 100% of the time | pytest + launch_testing |
 | Reach | `check_reachability` agrees with an actual MoveIt IK attempt on ≥ 95% of 200 random desk targets | eval script |
 | Motion | `fetch_object` / `place_object` succeed on ground-truth cube poses in ≥ 90% of 20 trials (SO-101) | eval script |
-| VLM | Grounding error ≤ 3 cm (median) against MuJoCo ground truth on the default scene; end-to-end "pick the red cube and place it near the blue cup" succeeds using MoveIt tools | eval script |
+| VLM | Grounding error ≤ 3 cm (median) against MuJoCo ground truth on the default scene; end-to-end "pick the green cube and place it near the blue cup" succeeds using MoveIt tools | eval script |
 | VLA | Stable action stream at 30 Hz ± 10%, observation → action-chunk latency reported, zero safety-filter bypasses. **Task success is not a criterion**: zero-shot `smolvla_base` isn't expected to solve our sim scene | `/cognibot/vla/status` log |
 | VRAM | Full profile runs within 6 GB without OOM for a 10-minute scripted session; peak usage documented | `nvidia-smi` log + `/cognibot/gpu` |
 | Twin | With mock hardware, the sim mirrors the published joint states with < 50 ms lag | launch_testing |
