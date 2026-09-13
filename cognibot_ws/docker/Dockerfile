@@ -143,11 +143,12 @@ ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
 # lerobot 0.6 needs numpy 2; unlike the core image nothing here links the apt numpy ABI.
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ros-jazzy-rmw-cyclonedds-cpp python3-venv git curl \
+      ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-control-msgs ros-jazzy-mujoco-ros2-control-msgs \
+      python3-venv git curl \
  && rm -rf /var/lib/apt/lists/* \
  && python3 -m venv --system-site-packages /opt/venv \
  && /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url "${TORCH_INDEX}" \
- && /opt/venv/bin/pip install --no-cache-dir "lerobot[smolvla,async]==${LEROBOT_VERSION}"
+ && /opt/venv/bin/pip install --no-cache-dir "lerobot[smolvla,async,dataset]==${LEROBOT_VERSION}"
 COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
 COPY cognibot_ws/docker/entrypoint.sh /entrypoint.sh
 COPY cognibot_ws/docker/cyclonedds.xml /etc/cognibot/cyclonedds.xml
