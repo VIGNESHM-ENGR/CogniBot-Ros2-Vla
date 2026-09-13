@@ -1,3 +1,20 @@
+[project]
+name = "cognibot-ros2-vla"
+version = "0.1.0"
+description = "CogniBot-ROS2-VLA robot manipulation and simulation stack"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "mujoco>=3.12.0",
+    "numpy>=1.26.0",
+    "pytest>=8.0.0",
+    "pyyaml>=6.0.0",
+    "ruff>=0.5.0",
+    "scipy>=1.12.0",
+    "pynvml>=11.5.0",
+    "xacro>=2.1.1",
+]
+
 # Repository-wide tool configuration only (ROS packages keep their own setup.py).
 [tool.ruff]
 line-length = 100
@@ -6,3 +23,19 @@ extend-exclude = ["cognibot_ws/build", "cognibot_ws/install", "cognibot_ws/log",
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM"]
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.2",
+]
+
+[tool.pytest.ini_options]
+# Host runs only the ROS-free tests; launch and rclpy tests run in the core image via colcon test.
+testpaths = [
+    "cognibot_ws/src/cognibot_common/test/test_robot_registry.py",
+    "cognibot_ws/src/cognibot_sim/test/test_model_consistency.py",
+]
+pythonpath = [
+    "cognibot_ws/src/cognibot_common",
+    "cognibot_ws/src/cognibot_sim",
+]
