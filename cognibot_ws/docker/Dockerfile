@@ -7,8 +7,8 @@
 #   vla        → LeRobot robot_client + ROS plugins (CPU; talks to policy_server)
 # Pins: docs/INTEGRATIONS.md. Digests are resolved in P1-T01.
 
-ARG ROS_BASE_IMAGE=ros:jazzy-ros-base-noble
-ARG MOVEIT_IMAGE=moveit/moveit2:jazzy-release
+ARG ROS_BASE_IMAGE=ros:jazzy-ros-base-noble@sha256:386d06ec6d4188f731bae5678e07b4cb64a4e4d4152090c0bd1f881dcf7706f5
+ARG MOVEIT_IMAGE=moveit/moveit2:jazzy-release@sha256:3298b58131628b9384397d402542ad1e6c57ed6055f70c3c3fdc688f403b38d2
 
 # ───────────────────────────── interfaces ─────────────────────────────
 FROM ${ROS_BASE_IMAGE} AS interfaces
@@ -26,8 +26,8 @@ FROM ${MOVEIT_IMAGE} AS core
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG HOST_UID=1000
 ARG HOST_GID=1000
-# Placeholder: must equal the MuJoCo version bundled by mujoco_vendor (resolved in P1-T01).
-ARG MUJOCO_PY_VERSION=3.3.7
+# MuJoCo version bundled by ros-jazzy-mujoco-vendor (3.12.0)
+ARG MUJOCO_PY_VERSION=3.12.0
 ARG MINK_VERSION=1.3.0
 ARG QPSOLVERS_VERSION=4.13.0
 ARG NVML_VERSION=13.610.43
@@ -65,6 +65,7 @@ RUN python3 -m venv --system-site-packages /opt/venv \
       "mink==${MINK_VERSION}" \
       "qpsolvers[daqp]==${QPSOLVERS_VERSION}" \
       "nvidia-ml-py==${NVML_VERSION}"
+ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages:${PYTHONPATH}"
 
 COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
 COPY cognibot_ws/docker/entrypoint.sh /entrypoint.sh

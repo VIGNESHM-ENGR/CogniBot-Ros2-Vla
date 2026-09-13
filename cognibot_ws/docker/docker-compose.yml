@@ -14,6 +14,7 @@ x-ros: &ros
     ROS_AUTOMATIC_DISCOVERY_RANGE: LOCALHOST
     CYCLONEDDS_URI: file:///etc/cognibot/cyclonedds.xml
     ROBOT: ${ROBOT:-so101}
+    PYTHONPATH: /opt/venv/lib/python3.12/site-packages
 
 x-gpu: &gpu
   deploy:
