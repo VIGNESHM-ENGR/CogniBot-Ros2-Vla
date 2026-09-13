@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P0-T05…T07 | Docker/Compose stack, CI and README | build |
 | 2026-09-13 | P0-T04 | Workspace skeleton and interface package | build |
 | 2026-09-13 | P0-T01…T03 | Research, architecture and integration strategy | planning |
 
@@ -67,6 +68,53 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P0-T05…T07 · Docker/Compose stack, CI and README
+
+**Context:** make the workspace buildable and runnable per profile ([ADR-0002](adr/0002-split-containers.md), [NETWORKING](NETWORKING.md)).
+**Outcome:** 🟡 partial. Compose validated for all profiles, the `vlm` image built and smoke-tested, CI and README added. **Not yet verified:** building the `core` image (MoveIt base pull) and the `vla` image (torch + LeRobot download), and a first CI run. Release `v0.1.0` is therefore not tagged.
+
+### Work log
+- Confirmed Jazzy apt candidates inside `ros:jazzy-ros-base`: `mujoco-ros2-control` 0.1.1, `mujoco-ros2-control-plugins` 0.1.1, `pick-ik` 1.1.2, `moveit-py` 2.12.4, `rosbridge-server` 2.7.1, `web-video-server` 3.1.0, `moveit-resources-panda-moveit-config` 3.1.0, `rmw-cyclonedds-cpp` 2.2.4. There's no `ros-jazzy-reach` binary, so REACH builds from source (P2-T07).
+- Read the llama-swap README and unified image docs: `LLAMA_SWAP_*` env configuration, `llama-server` on `PATH`, `groups` with `swap`/`exclusive`, and `unified-cuda13` supporting Ampere.
+- `make config` → core, vlm, vla, twin, full all valid.
+- `docker build --target vlm` → runs as `cognibot`, `ros2 interface list | grep -c cognibot` = 13, `openai 3.13.0` importable.
+- ruff 0.13.0: all checks pass; format check clean.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | (anticipated) `useradd -u 1000` fails in Noble-based images | `ubuntu:24.04` (and therefore `ros:jazzy-*`) ships a default `ubuntu` user with UID 1000 | Delete `ubuntu` if present, then create `cognibot` with `-o` for the host UID/GID | `vlm` image runs as `cognibot` |
+| 2 | Dockerfile `ARG X=1.0   # comment` would corrupt the value | Dockerfile comments are only recognized at line start | Move comments to their own lines | Dockerfile review |
+| 3 | ruff E501 on generated `setup.py` / `__init__.py` | Long package descriptions exceeded the 100-column limit | Shortened descriptions to one line | `ruff check` passes |
+| 4 | llama-swap tag choice | `unified-cuda` targets CUDA 12 for older cards; `unified-cuda13` covers Ampere and needs a CUDA 13 driver | Use `unified-cuda13` (host driver 595 supports CUDA 13) | llama-swap README tag table |
+| 5 | The LeRobot client version can't be pinned to the server image yet | `huggingface/lerobot-gpu` publishes only `latest`; PyPI has `lerobot` 0.6.1 while `main` is 0.6.2 | Pin the client to 0.6.1 for now; P5-T01 pins the server digest and aligns both versions | INTEGRATIONS §1, §5 |
+
+### Decisions
+#### D1: Where third-party ROS sources get built
+```mermaid
+flowchart TD
+  Q{Build upstream ROS sources in P0 core image?} --> A[Yes, vcs import + rosdep + colcon now]
+  Q --> B[No, each phase adds the sources it needs]
+  A --> A1[✗ unverified multi-repo build blocks the foundation release]
+  B --> B1[✓ core image stays lean and buildable; P1-T03 adds so101_description, P2-T07 REACH, P6-T01 feetech driver]
+```
+
+#### D2: VLA client container contents
+```mermaid
+flowchart TD
+  Q{vla-client needs LeRobot but not the GPU} --> A[CUDA torch]
+  Q --> B[CPU torch wheel]
+  A --> A1[✗ multi-GB image, reserves nothing useful]
+  B --> B1[✓ robot_client only serializes observations; inference runs in policy-server]
+```
+
+### Open questions / follow-ups
+- [ ] Build `core` and `vla` targets and record image digests (P1-T01, P5-T01).
+- [ ] First CI run on a remote, which needs a GitHub remote (owner decision).
+- [ ] Tag `v0.1.0` once the above pass.
+
+---
 
 ## 2026-09-13 · P0-T04 · Workspace skeleton and interface package
 
