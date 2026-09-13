@@ -4,7 +4,7 @@ COMPOSE_DEV := $(COMPOSE) -f cognibot_ws/docker/compose.dev.yaml
 PROFILES    := vlm vla twin full
 
 .DEFAULT_GOAL := help
-.PHONY: help env deps build build-all config sim sim-dev demo moveit test vlm vla full twin down logs ps shell-sim
+.PHONY: help env deps build build-all config sim sim-dev dashboard demo moveit test vlm vla full twin down logs ps shell-sim
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -26,9 +26,11 @@ config: ## Validate the compose file for every profile
 	@$(COMPOSE) config -q && echo "core: ok"
 	@for p in $(PROFILES); do $(COMPOSE) --profile $$p config -q && echo "$$p: ok"; done
 
-# motion and dashboard join `sim` once their launch files and sources exist.
-sim: ## Headless simulation + browser bridge (rosbridge :9090, MJPEG :8080)
-	$(COMPOSE) up -d sim bridge
+sim: ## Headless simulation + MoveIt + browser bridge (rosbridge :9090, MJPEG :8080)
+	$(COMPOSE) up -d sim motion bridge
+
+dashboard: ## Operator console dev server on http://127.0.0.1:8000 (needs `make sim`)
+	cd dashboard && npm ci && npm run dev
 
 sim-dev: ## Simulation with the MuJoCo viewer over X11 and live source mounts (run `make deps` first)
 	xhost +si:localuser:$$(whoami) >/dev/null

@@ -1,0 +1,47 @@
+:root {
+  /* Moulded housing */
+  --room: #070808;
+  --housing: #1d2022;
+  --housing-hi: #2e3336;
+  --housing-lo: #111314;
+  --seam: #0a0b0c;
+
+  /* Keys */
+  --key: #33383b;
+  --key-hi: #454b4f;
+  --key-lo: #1a1d1f;
+  --key-dead: #26292b;
+
+  /* Screen well */
+  --well: #0a0d0e;
+  --screen: #0e1214;
+  --screen-rule: #1f272b;
+  --screen-rule-strong: #2f3a3f;
+
+  /* Silkscreen and screen ink */
+  --ink: #ebe8e1;
+  --ink-2: #b4bab7;
+  --ink-3: #87908c;
+  --ink-dead: #5c6461;
+
+  /* Signals: yellow = key switch, dead-man, caution; red = stop and faults only */
+  --yellow: #f4c20d;
+  --yellow-ink: #1a1500;
+  --red: #d7261e;
+  --red-hi: #ef4a3f;
+  --red-lo: #7d130e;
+  --led-on: #5ee08f;
+  --led-off: #2b3134;
+  --fault: #ff6b5e;
+
+  --font-ui: "Barlow", system-ui, sans-serif;
+  --font-legend: "Barlow Condensed", "Barlow", system-ui, sans-serif;
+
+  --r-housing: 28px;
+  --r-well: 12px;
+  --r-key: 7px;
+
+  --snap: cubic-bezier(0.16, 1, 0.3, 1);
+  --t-detent: 110ms;
+  --t-press: 80ms;
+}

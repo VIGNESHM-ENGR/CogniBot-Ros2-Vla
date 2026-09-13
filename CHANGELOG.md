@@ -14,11 +14,13 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - MoveIt 2 for SO-101 with position-only pick_ik: `cognibot_motion` `move_group.launch.py` (`rviz:=true`), `move_to_point` command and launch test.
 - `make moveit`: MuJoCo viewer plus RViz MotionPlanning for interactive IK goals.
 - `bridge` service: rosbridge WebSocket (:9090) and MJPEG camera streams (:8080) on loopback; `make sim` starts it with the simulation.
+- Operator pendant dashboard (Vite + React + roslib): live front/wrist cameras, joint readouts against URDF limits, VRAM gauge, controller list, MoveIt named poses, gripper and move-to-point, latching STOP on Esc; `make dashboard`.
+- `make sim` also starts MoveIt (`motion` service) and the GPU monitor.
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
 - The core image fetches third-party ROS sources from `third_party.repos` instead of the build context; `.dockerignore` added.
-- `make sim` and `make sim-dev` start only the `sim` service until motion, bridge and dashboard exist; `ROBOT_COLOR` is passed through compose.
+- `make sim-dev` starts only the `sim` service with the viewer; `ROBOT_COLOR` is passed through compose.
 - `policy-server` mounts the host Hugging Face cache (`HF_CACHE_DIR`, default `~/.cache/huggingface`) instead of a named volume.
 - SO-101 `wrist_cam` renders at 640×480 instead of 1920×1080 (headless GPU 40% → 26%, VRAM 587 → 385 MiB).
 

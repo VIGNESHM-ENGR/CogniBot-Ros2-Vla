@@ -48,10 +48,11 @@ make sim          # headless MuJoCo sim (ROBOT=so101|panda, ROBOT_COLOR=red|stoc
 make deps sim-dev # same, with the MuJoCo viewer window (X11)
 make demo         # viewer + scripted pick-and-place
 make moveit       # viewer + MoveIt RViz: drag the goal marker, Plan & Execute
+make dashboard    # operator pendant on http://127.0.0.1:8000 (after make sim)
 make test         # all workspace tests in the core image (needs the NVIDIA GPU)
 ```
 
-The operator dashboard (http://localhost:8000) arrives in Phase 3.
+`make sim` starts the simulation, MoveIt and the browser bridge; `make down` stops everything.
 
 Host preparation (NVIDIA toolkit, EGL, DDS buffers): [docs/SETUP.md](docs/SETUP.md).
 

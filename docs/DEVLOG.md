@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P3-T03…T05 | Operator pendant: design direction, scaffold and live panels | feat |
 | 2026-09-13 | P3-T01, P3-T02 | Browser bridge and rosbridge action support | feat |
 | 2026-09-13 | P2-T01 | MoveIt 2 with pick_ik for SO-101 | feat |
 | 2026-09-13 | owner request | Scripted pick-and-place demo and simulation GPU load | feat |
@@ -76,6 +77,54 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P3-T03…T05 · Operator pendant: design direction, scaffold and live panels
+
+**Context:** operator console (G7). PRODUCT.md written from an owner interview (audience: owner operating + watchers of recordings; jobs: watch, drive, demo, instruct; must-haves: persistent emergency stop, keyboard-first). Code-led build: no image generation in this environment.
+**Outcome:** 🟡 partial. Teach-pendant console live against the simulation: cameras, joints with URDF limits, VRAM, controllers, MoveIt named poses, gripper and move-to-point from the browser, latching STOP (Esc) that cancels goals and holds the pose. Mode switching and teleop wait for `mode_manager` (P2-T04) and `mink_teleop` (P2-T06), so P3-T05 stays open. `npm run lint`, `tsc -b`, `vite build` clean; 15 vitest tests.
+
+### Work log
+- Direction round (concept seed `623f7fa6`): rolled Drawing Sheet; owner chose Teach Pendant. Contract in `.impeccable/surfaces/dashboard.md`; system recorded in `dashboard/DESIGN.md` + `dashboard/.impeccable/design.json`.
+- Stack: Vite 8.3, React 19.3, TypeScript 6.0.3 (typescript-eslint 8.70 does not support TS 7), roslib 2.1.0 (ESM rewrite: `Ros`, `Topic`, `Service`, `Action.sendGoal`), Barlow / Barlow Condensed via Fontsource, lucide-react icons. All versions exact.
+- Pure logic with tests: URDF/SRDF parsing and limit states, MoveGroup goal builders, keyboard command map.
+- Backend support: `gpu_monitor` launched with the simulation; `motion.launch.py` for the compose `motion` service; `move_group` publishes `/robot_description_semantic`; `make sim` = sim + motion + bridge; `make dashboard`.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Cameras showed NO SIGNAL; stream returned 22 bytes | Topic URL-encoded (`%2F`); web_video_server 3.1 does not decode it | Pass topic names raw (they are URL-safe) | Same URL unencoded streams 1.1 MB/2 s |
+| 2 | Motion view said move_group not running while it was | rosapi `/rosapi/services` hides `_action` services, so `…/_action/send_goal` never appeared | Query `/rosapi/action_servers` | Returned `['/move_action']`; Motion view enabled |
+| 3 | Named poses and gripper keys empty | `move_group` does not publish the SRDF topic by default | `publish_robot_description_semantic: true` | Keys zero/rest/extended/open/closed rendered; EXTENDED executed from the browser |
+| 4 | Canceled goals could report success | rosbridge sends `result: true` for CANCELED | Verified roslib 2.1 routes non-SUCCEEDED statuses to the failure callback; phase mapping relies on it | `sendGoal` source |
+| 5 | STOP unreachable below 1024 px (review finding) | Housing min-width with `body { overflow: hidden }` | Page scrolls below 1024 px and a compact STOP is pinned top-right | 390 px capture shows pinned STOP |
+| 6 | Laptop heat during verification | Headless sim stack left running between screenshot rounds | Tear down in the same command as each capture round | GPU back to 0% / 11 W after `down` |
+
+### Decisions
+#### D1: Visual world
+```mermaid
+flowchart TD
+  Q[Operator console world] --> R[Drawing Sheet: rolled]
+  Q --> P[Teach Pendant: model pick]
+  Q --> S[Step sequencer / dense module grid: competitive]
+  Q --> C[Foxglove-style panel grid: category standard]
+  R --> R1[✗ not chosen by owner]
+  P --> P1[✓ chosen: operators already trust the pendant's stop, key switch and jog keys]
+  C --> C1[✗ indistinguishable from other ROS web tools]
+```
+- **Revisit if:** VLA/agent panels (P4–P5) need a timeline; the step-sequencer grammar is the recorded alternate.
+
+#### D2: STOP semantics before a safety filter exists
+- STOP cancels every console-issued goal and sends a 0.25 s hold trajectory at the current joint positions, latching until Release (R). It is not a controller-level e-stop; the label says what it does. **Revisit when** `mode_manager` and `safety_filter` land (P2-T04/T05): STOP should request IDLE through the mode manager.
+
+### Finish review (inline; second round)
+- Disposition **fix**. Resolved: pinned STOP at narrow widths, flat matte stop dome. Partial: grips still clip the jog block at 1024×700 (scrollable, thin scrollbar). Unverified: System-table wrapping (needs live controllers).
+- Detector: removed width transition and overshoot easing; two `side-tab` flags are the housing's moulded 3 px lower lip, kept by design.
+
+### Open questions
+- Mode key and jog keys are UI-only until P2-T04/P2-T06; P3-T05 acceptance ("mode switching works from the UI") is not met yet.
+- `move_group` showed ~100% CPU in an earlier RViz session; measure headless in `motion` before making it always-on for battery/heat.
+
+---
 
 ## 2026-09-13 · P3-T01, P3-T02 · Browser bridge and rosbridge action support
 
