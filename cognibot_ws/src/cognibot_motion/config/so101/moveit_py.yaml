@@ -1,0 +1,20 @@
+# MoveItPy (MoveItCpp) parameters for scripts and tests.
+planning_scene_monitor_options:
+  name: planning_scene_monitor
+  robot_description: robot_description
+  joint_state_topic: /joint_states
+  attached_collision_object_topic: /moveit_cpp/planning_scene_monitor
+  publish_planning_scene_topic: /moveit_cpp/publish_planning_scene
+  monitored_planning_scene_topic: /moveit_cpp/monitored_planning_scene
+  wait_for_initial_state_timeout: 10.0
+
+planning_pipelines:
+  pipeline_names: [ompl]
+
+plan_request_params:
+  planning_attempts: 1
+  planning_pipeline: ompl
+  planner_id: RRTConnect
+  max_velocity_scaling_factor: 0.5
+  max_acceleration_scaling_factor: 0.5
+  planning_time: 2.0

@@ -1,0 +1,31 @@
+# Maps MoveIt execution to the controllers started by cognibot_sim (root namespace).
+trajectory_execution:
+  allowed_execution_duration_scaling: 2.5
+  allowed_goal_duration_margin: 1.0
+  allowed_start_tolerance: 0.05
+  execution_duration_monitoring: true
+
+moveit_controller_manager: moveit_simple_controller_manager/MoveItSimpleControllerManager
+
+moveit_simple_controller_manager:
+  controller_names:
+    - joint_trajectory_controller
+    - gripper_controller
+
+  joint_trajectory_controller:
+    type: FollowJointTrajectory
+    joints:
+      - shoulder_pan
+      - shoulder_lift
+      - elbow_flex
+      - wrist_flex
+      - wrist_roll
+    action_ns: follow_joint_trajectory
+    default: true
+
+  gripper_controller:
+    type: ParallelGripperCommand
+    joints:
+      - gripper
+    action_ns: gripper_cmd
+    default: true

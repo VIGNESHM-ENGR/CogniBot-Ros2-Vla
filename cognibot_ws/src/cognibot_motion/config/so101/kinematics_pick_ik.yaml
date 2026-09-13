@@ -1,0 +1,10 @@
+# pick_ik for the 5-DOF SO-101. Position-only (rotation_scale 0.0): a 5-DOF arm cannot reach
+# arbitrary 6-D poses, so orientation is left free and the solver tracks position.
+manipulator:
+  kinematics_solver: pick_ik/PickIkPlugin
+  kinematics_solver_timeout: 0.2
+  kinematics_solver_attempts: 10
+  mode: global
+  position_scale: 1.0
+  rotation_scale: 0.0
+  position_threshold: 0.001

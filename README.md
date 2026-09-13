@@ -46,6 +46,8 @@ make config       # validates every compose profile
 make build        # core, vlm and vla images
 make sim          # headless MuJoCo sim (ROBOT=so101|panda, ROBOT_COLOR=red|stock)
 make deps sim-dev # same, with the MuJoCo viewer window (X11)
+make demo         # viewer + scripted pick-and-place
+make moveit       # viewer + MoveIt RViz: drag the goal marker, Plan & Execute
 make test         # all workspace tests in the core image (needs the NVIDIA GPU)
 ```
 

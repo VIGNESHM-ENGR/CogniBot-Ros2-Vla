@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P2-T01 | MoveIt 2 with pick_ik for SO-101 | feat |
 | 2026-09-13 | owner request | Scripted pick-and-place demo and simulation GPU load | feat |
 | 2026-09-13 | P5 prep | Pinned policy checkpoint download (SmolVLA, ACT, Diffusion) | feat |
 | 2026-09-13 | infra | Reproducible core image, GPU-free CI and `make test` | build |
@@ -74,6 +75,44 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P2-T01 · MoveIt 2 with pick_ik for SO-101
+
+**Context:** planned motion for the 5-DOF SO-101 ([ADR-0003](adr/0003-mink-plus-moveit.md)), and the owner asked to see IK running.
+**Outcome:** ✅ done. `test_move_group.py`: home → (0.35, 0, 0.142) executed with **0.31 mm** end-effector error (limit 10 mm). `make test` 25/25. `make moveit` opens RViz MotionPlanning next to the MuJoCo viewer; `move_group` plan-and-execute goals return SUCCESS.
+
+### Work log
+- `cognibot_motion.moveit_config.build_moveit_config` reuses the upstream `so101_moveit_config` SRDF and joint limits, and overrides kinematics (`pick_ik`, `rotation_scale: 0.0`), controllers (root-namespace `joint_trajectory_controller`, `gripper_controller`) and MoveItCpp parameters.
+- `move_group.launch.py` (`robot`, `use_sim_time`, `rviz`).
+- `move_to_point` console script: plan-and-execute to x/y/z, prints JSON with IK, execution status and measured EE error. The launch test runs it as a subprocess.
+- Target interpretation: "10 cm in front of the base" is taken as 10 cm forward of the home end-effector position along base +x.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | `MoveItPy(config_dict={..., use_sim_time: True})` aborts: `parameter 'qos_overrides./clock.subscription.durability' could not be set` | moveit_py 2.12 `config_dict` path conflicts with the sim-time clock subscription | Write parameters to a `/**` params file and pass `launch_params_filepaths` (`write_moveit_py_params`) | Constructor succeeds with sim time; wall-clock variant fails `current_state_monitor` (stamps 21 s vs 1.79e9 s) |
+| 2 | Segfault in `RobotState.set_joint_group_positions(np.array)` | The core venv pulled numpy 2.5.3 (mujoco dependency) and shadowed Ubuntu numpy 1.26.4, the ABI moveit_py is built against | Pin `numpy==1.26.4` in the venv (Dockerfile and CI); mujoco 3.12, mink 1.3 and daqp verified with a mink IK solve | Probe executes home and two IK goals (0.32 mm, 0.55 mm) |
+| 3 | Segfault inside the launch_testing test method when constructing MoveItPy | MoveItPy's rclcpp init on launch_testing's worker thread, in a process that already runs rclpy for launch_ros | MoveItPy runs in a subprocess (`python3 -m cognibot_motion.move_to_point`) | Test passes |
+| 4 | `move_to_point` exits 245 after printing its result | moveit_py segfaults during interpreter teardown after `shutdown()` | `gc.collect()` before `shutdown()`, then `os._exit(code)` after flushing output | Exit code 0 asserted by the test |
+| 5 | RViz stuck at a 400×287 splash; MuJoCo viewer at ~85% CPU | Hybrid graphics: X runs on the Intel iGPU, the container has no `/dev/dri`, Mesa `iris` fails and GLX falls back to software rendering | `compose.dev.yaml`: `__NV_PRIME_RENDER_OFFLOAD=1`, `__GLX_VENDOR_LIBRARY_NAME=nvidia` | RViz loads at 31 fps on NVIDIA; `ros2_control_node` CPU 85% → 49% |
+
+### Decisions
+#### D1: IK orientation handling on 5 DOF
+```mermaid
+flowchart TD
+  Q[pick_ik for 5-DOF SO-101] --> A[rotation_scale 0.5 upstream]
+  Q --> B[rotation_scale 0.2 soft]
+  Q --> C[rotation_scale 0.0 position-only]
+  A --> A1[✗ trades position accuracy for unreachable orientations]
+  B --> B1[✗ same trade-off, smaller; RViz marker orientations are arbitrary]
+  C --> C1[✓ chosen: sub-mm position, orientation left free; grasp orientation handled by pick_place_server]
+```
+- **Revisit if:** P2-T09 needs top-down grasps through MoveIt; add an orientation path constraint or a two-stage IK there.
+
+### Open questions
+- `move_group` shows ~100% CPU while idle in the RViz session; check planning scene monitor update rates in P2-T04/P2-T09.
+
+---
 
 ## 2026-09-13 · owner request · Scripted pick-and-place demo and simulation GPU load
 

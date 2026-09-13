@@ -4,7 +4,7 @@ COMPOSE_DEV := $(COMPOSE) -f cognibot_ws/docker/compose.dev.yaml
 PROFILES    := vlm vla twin full
 
 .DEFAULT_GOAL := help
-.PHONY: help env deps build build-all config sim sim-dev demo test vlm vla full twin down logs ps shell-sim
+.PHONY: help env deps build build-all config sim sim-dev demo moveit test vlm vla full twin down logs ps shell-sim
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "} {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
@@ -41,14 +41,20 @@ demo: ## Open the MuJoCo viewer and run the scripted SO-101 pick-and-place (run 
 	  sleep 12 && python3 /ws/src/cognibot_motion/scripts/demo_pick_place.py; \
 	  echo "Demo finished; close the viewer or press Ctrl+C to exit"; wait'
 
+moveit: ## MuJoCo viewer + move_group + RViz: drag the goal marker, Plan & Execute (run `make deps` first)
+	xhost +si:localuser:$$(whoami) >/dev/null
+	$(COMPOSE_DEV) run --rm --no-deps sim bash -c '\
+	  ros2 launch cognibot_bringup sim.launch.py robot:=so101 headless:=false > /tmp/sim.log 2>&1 & \
+	  sleep 10 && ros2 launch cognibot_motion move_group.launch.py robot:=so101 rviz:=true'
+
 test: ## Build and run every workspace test (incl. GPU launch tests) in the core image
 	$(COMPOSE) run --rm --no-deps -v $(CURDIR)/cognibot_ws/src:/src:ro --entrypoint bash sim -c '\
 	  source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash && \
 	  mkdir -p /tmp/w && cd /tmp/w && ln -s /src src && \
-	  colcon build --packages-up-to cognibot_common cognibot_sim cognibot_bringup \
+	  colcon build --packages-up-to cognibot_common cognibot_sim cognibot_bringup cognibot_motion \
 	    --packages-skip cognibot_interfaces --event-handlers console_cohesion- && \
 	  source install/setup.bash && \
-	  colcon test --packages-select cognibot_common cognibot_sim && colcon test-result --verbose'
+	  colcon test --packages-select cognibot_common cognibot_sim cognibot_motion && colcon test-result --verbose'
 
 vlm: ## Core + llama-swap + VLM agent
 	$(COMPOSE) --profile vlm up -d

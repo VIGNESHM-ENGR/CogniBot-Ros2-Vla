@@ -13,6 +13,7 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/config", glob("config/*.yaml")),
+        ("share/" + package_name + "/config/so101", glob("config/so101/*.yaml")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -22,6 +23,8 @@ setup(
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={
-        "console_scripts": [],
+        "console_scripts": [
+            "move_to_point = cognibot_motion.move_to_point:main",
+        ],
     },
 )

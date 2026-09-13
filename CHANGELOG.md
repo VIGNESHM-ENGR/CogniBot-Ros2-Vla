@@ -11,6 +11,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `make test` (all workspace tests, including GPU launch tests, in the core image) and `make deps` (fetch pinned third-party sources on the host).
 - `cognibot_vla/scripts/download_checkpoints.sh`: pinned download of SmolVLA base, two SmolVLA fine-tunes, two MuJoCo ACT policies and one Diffusion policy for SO-101.
 - `make demo`: opens the MuJoCo viewer and runs a scripted SO-101 pick-and-place (`cognibot_motion/scripts/demo_pick_place.py`).
+- MoveIt 2 for SO-101 with position-only pick_ik: `cognibot_motion` `move_group.launch.py` (`rviz:=true`), `move_to_point` command and launch test.
+- `make moveit`: MuJoCo viewer plus RViz MotionPlanning for interactive IK goals.
 
 ### Changed
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
@@ -21,6 +23,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ### Fixed
 - CI `ros` job now installs MuJoCo and third-party sources and runs the GPU-free tests.
+- Core venv pins numpy 1.26.4 so apt ROS extensions (moveit_py) no longer segfault against numpy 2.
+- GUI containers render through NVIDIA PRIME offload instead of software GL on hybrid-graphics laptops.
 
 ## [0.2.0] - 2026-09-13
 
