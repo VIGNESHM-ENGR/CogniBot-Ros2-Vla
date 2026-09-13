@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { DEMO, MOVEIT, TOPICS } from "../config";
+import { CUBES, DEMO, MOVEIT, TOPICS, cubeBody, type CubeColor } from "../config";
 import type { GroupState } from "../lib/robotModel";
 import type { SourceId } from "../lib/modes";
 import { CameraFeed } from "./CameraFeed";
@@ -20,6 +20,9 @@ interface Props {
   onPoint: (point: { x: number; y: number; z: number }) => void;
   onPickPlace: () => void;
   onReset: () => void;
+  cube: CubeColor;
+  onCube: (color: CubeColor) => void;
+  onSpawn: (x: number, y: number) => void;
 }
 
 function Offline({ service, start }: { service: string; start: string }) {
@@ -34,6 +37,7 @@ function Offline({ service, start }: { service: string; start: string }) {
 export function MotionView(props: Props) {
   const { moveitOnline, gripperOnline, pickPlaceOnline, resetOnline, groupStates, enabled } = props;
   const [point, setPoint] = useState({ x: 0.3, y: 0.0, z: 0.12 });
+  const [spawnAt, setSpawnAt] = useState({ x: 0.27, y: -0.02 });
   const arm = groupStates.filter((s) => s.group === MOVEIT.arm);
   const gripper = groupStates.filter((s) => s.group === MOVEIT.gripper);
   const axes = ["x", "y", "z"] as const;
@@ -72,7 +76,7 @@ export function MotionView(props: Props) {
                 </button>
               </div>
               <p className="note">
-                {DEMO.object}{" "}
+                {cubeBody(props.cube)}{" "}
                 {cube
                   ? `at (${cube.map((v) => v.toFixed(3)).join(", ")}) m`
                   : "position unknown (no object poses)"}
@@ -82,6 +86,63 @@ export function MotionView(props: Props) {
             </>
           ) : (
             <Offline service="pick_place_server" start="make sim" />
+          )}
+        </section>
+
+        <section>
+          <h2 className="legend">Spawn cube</h2>
+          {resetOnline ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                props.onSpawn(spawnAt.x, spawnAt.y);
+              }}
+            >
+              <div className="swatches" role="radiogroup" aria-label="Cube colour">
+                {CUBES.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    role="radio"
+                    aria-checked={props.cube === color}
+                    className="swatch"
+                    data-color={color}
+                    onClick={() => props.onCube(color)}
+                  >
+                    <span className="swatch__chip" />
+                    <span className="key__legend">{color}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="fields">
+                {(["x", "y"] as const).map((axis) => (
+                  <label key={axis} className="field">
+                    <span className="legend">{axis} · m</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={spawnAt[axis]}
+                      onChange={(e) =>
+                        setSpawnAt((p) => ({ ...p, [axis]: Number(e.target.value) }))
+                      }
+                    />
+                  </label>
+                ))}
+                <span className="field">
+                  <span className="legend">z · m</span>
+                  <span className="field__fixed">floor</span>
+                </span>
+              </div>
+              <button type="submit" className="key" style={{ width: "100%" }}>
+                <span className="key__legend">Spawn</span>
+              </button>
+              <p className="note">
+                Places the selected cube on the floor at (x, y) in the base frame; the pick above
+                picks the selected colour. Reset parks every cube again.
+              </p>
+            </form>
+          ) : (
+            <Offline service="simulator" start="make sim" />
           )}
         </section>
 

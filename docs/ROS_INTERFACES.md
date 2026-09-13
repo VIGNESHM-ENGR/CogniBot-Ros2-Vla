@@ -69,6 +69,7 @@ Conventions:
 | `/cognibot/check_reachability` | `cognibot_interfaces/srv/CheckReachability` | `reach_query` | vlm-agent, dashboard |
 | `/cognibot/vlm/get_object_coordinates` | `cognibot_interfaces/srv/GetObjectCoordinates` | `vlm_agent_node` | dashboard (debug), eval scripts |
 | `/cognibot/sim/reset_objects` | `std_srvs/srv/Trigger` | `pick_place_server` | dashboard (simulation only: moves free bodies back to their MJCF spawn pose) |
+| `/mujoco_ros2_control_node/set_free_joint_state` | `mujoco_ros2_control_msgs/srv/SetFreeJointState` | mujoco_ros2_control (upstream) | dashboard *Spawn cube* (simulation only: teleports a parked `<colour>_cube` body onto the floor) |
 | `/controller_manager/switch_controller` | `controller_manager_msgs/srv/SwitchController` | controller_manager | `mode_manager` only |
 
 ## 3. Actions
@@ -87,7 +88,7 @@ Conventions:
 >
 > **Camera streams for the browser:** `web_video_server` on `127.0.0.1:8080` serves the simulator topics directly, e.g. `/stream?topic=/mujoco_camera_plugin/front_rgbd/color` (MJPEG) and `/snapshot?topic=…` (JPEG).
 
-> **Pick and place targets (interim, until P2-T09):** `pick_place_server` executes `FetchObject`/`PlaceObject` with scripted top-down IK. `target.header.frame_id` empty, `world` or the robot base frame means `target.point` is a position; any other value names a MuJoCo body (`green_cube` resolves to its live pose from `/object_poses/free_joint_states`, static bodies such as `blue_target` to their model position) and `point` is an offset. Feedback stages follow the action definitions.
+> **Pick and place targets (interim, until P2-T09):** `pick_place_server` executes `FetchObject`/`PlaceObject` with scripted top-down IK. `target.header.frame_id` empty, `world` or the robot base frame means `target.point` is a position; any other value names a MuJoCo body (`green_cube` resolves to its live pose from `/object_poses/free_joint_states`, static bodies such as `target` to their model position) and `point` is an offset. Feedback stages follow the action definitions.
 
 ## 4. Custom interface definitions (`cognibot_interfaces`)
 

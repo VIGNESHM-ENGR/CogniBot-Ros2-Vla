@@ -6,7 +6,9 @@ This script:
 2. Exports the compiled scene XML via `mujoco.mj_saveLastXML`.
 3. Standardizes mesh paths to reference `../robots/so101/mjcf/assets/`.
 4. Names the cube `green_cube` (recolored green so red is reserved for the robot) and the
-   target disc `blue_target`.
+   target disc `blue_target`. The committed SO-101 scene was then hand-edited (see
+   scenes/README.md): the disc became the black frame body `target` and four parked cubes
+   were added; re-exporting overwrites those edits.
 5. Aligns robot joint limits (wrist_roll) and site poses with Menagerie / URDF.
 6. Adds a front RGB-D camera (`front_rgbd`) with optimal workspace framing.
 7. Renders and saves `cognibot_sim/scenes/preview.png`.

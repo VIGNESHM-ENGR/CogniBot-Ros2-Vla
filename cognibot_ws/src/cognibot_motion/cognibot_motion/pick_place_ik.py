@@ -80,9 +80,21 @@ def solve_from_seeds(
     target: np.ndarray,
     seeds: list[np.ndarray],
 ) -> tuple[np.ndarray, float]:
-    """Solve from each seed (e.g. current pose, then home) and keep the closest solution."""
-    best: tuple[np.ndarray, float] | None = None
+    """Solve from each seed (e.g. current pose, then home) and keep the closest solution.
+
+    The descent can stall against a joint limit when the seed faces away from the target, so
+    each seed is also retried with the base joint turned to the target's azimuth (either sign,
+    as the base joint's sense depends on the model).
+    """
+    azimuth = float(np.arctan2(target[1], target[0]))
+    turned = []
     for seed in seeds:
+        for sign in (1.0, -1.0):
+            q = np.array(seed, dtype=float)
+            q[0] = sign * azimuth
+            turned.append(q)
+    best: tuple[np.ndarray, float] | None = None
+    for seed in [*seeds, *turned]:
         q, err = solve_top_down_ik(model, joints, site, target, seed)
         if best is None or err < best[1]:
             best = (q, err)

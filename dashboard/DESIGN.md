@@ -219,6 +219,14 @@ Deep `well` background, 1 px strong screen rule, safety-yellow border and caret 
 
 The Camera view shows one source full size — Free look (default), Front RGB-D or Wrist — and the other two as clickable insets stacked at the lower right (24% wide, 4:3, 8 px radius, strong screen-rule ring). `V` cycles the main source; a small label at the lower left names it. Free look is a three.js mirror of the simulator's own MJCF on the screen-black ground with a hairline grid, robot shell in the recolored red; it renders only when state or the orbit changes, and its View key resets the camera.
 
+### VLA view
+
+Two `system`-style columns: the Policy stream heading, an LED status line (green + "STREAMING · <requester>" while commands flow, yellow while VLA is held without commands, dim "No policy client connected" otherwise), a joint table of target / actual / Δ in tabular degrees, and a Stream table (command rate, mode holder, reason). Idle shows the same `offline` block as the Motion view with the start command.
+
+### Spawn cube
+
+Five colour swatches as a radio group (18 px chip with an inset hairline, name below, safety-yellow ring on the checked one), x/y fields, a fixed "floor" z, and a full-width Spawn key; the pick-and-place note names the selected cube.
+
 ### Not-running view
 
 One Display heading, a yellow LED status line naming the missing service, a short description of what the view will do, and the exact start command.

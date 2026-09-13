@@ -1,5 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ACTIONS, DEMO, MOVEIT, ROSBRIDGE_URL, SERVICES, TOPICS } from "./config";
+import {
+  ACTIONS,
+  CUBE_HALF,
+  DEMO,
+  MOVEIT,
+  ROSBRIDGE_URL,
+  SERVICES,
+  TOPICS,
+  cubeBody,
+  type CubeColor,
+} from "./config";
 import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
@@ -38,6 +48,7 @@ import type {
   JointState,
   ResultMessage,
   SetControlModeResponse,
+  SetFreeJointStateRequest,
   StageFeedback,
   StringMsg,
 } from "./ros/messages";
@@ -46,6 +57,7 @@ import { CameraView } from "./views/CameraView";
 import { MotionView } from "./views/MotionView";
 import { NotRunning } from "./views/NotRunning";
 import { SystemView } from "./views/SystemView";
+import { VlaView } from "./views/VlaView";
 import { useKeyboardTeleop } from "./teleop/useKeyboardTeleop";
 
 interface MoveGroupFeedback {
@@ -64,10 +76,13 @@ function Pendant() {
   const [modeNotice, setModeNotice] = useState<string | undefined>();
   const [view, setView] = useState<ViewId>("camera");
   const [source, setSource] = useState<SourceId>("free");
+  const [cube, setCube] = useState<CubeColor>("green");
   const [stopped, setStopped] = useState(false);
 
   const joints = useTopic<JointState>(TOPICS.jointStates, "sensor_msgs/msg/JointState", 100);
   const jointRate = useTopicRate(TOPICS.jointStates, "sensor_msgs/msg/JointState");
+  const command = useTopic<JointState>(TOPICS.jointCommand, "sensor_msgs/msg/JointState", 200);
+  const commandRate = useTopicRate(TOPICS.jointCommand, "sensor_msgs/msg/JointState");
   const clock = useTopic<Clock>(TOPICS.clock, "rosgraph_msgs/msg/Clock", 250);
   const gpu = useTopic<GpuStatus>(TOPICS.gpu, "cognibot_interfaces/msg/GpuStatus", 1000);
   const urdfMsg = useTopic<StringMsg>(TOPICS.robotDescription, "std_msgs/msg/String");
@@ -107,12 +122,36 @@ function Pendant() {
     SERVICES.resetObjects,
     "std_srvs/srv/Trigger",
   );
+  const setFreeJointState = useServiceCall<SetFreeJointStateRequest, ResultMessage>(
+    SERVICES.setFreeJointState,
+    "mujoco_ros2_control_msgs/srv/SetFreeJointState",
+  );
+  // Bodies can't be added to a running MuJoCo model: spawning teleports a parked cube.
+  const spawnCube = (x: number, y: number) =>
+    setFreeJointState({
+      free_joints: [
+        {
+          name: cubeBody(cube),
+          pose: {
+            header: { frame_id: "world" },
+            pose: { position: { x, y, z: CUBE_HALF }, orientation: { x: 0, y: 0, z: 0, w: 1 } },
+          },
+          twist: {
+            header: { frame_id: "world" },
+            twist: { linear: { x: 0, y: 0, z: 0 }, angular: { x: 0, y: 0, z: 0 } },
+          },
+        },
+      ],
+    }).then(
+      (r) => setModeNotice(r.success ? undefined : r.message),
+      (e: unknown) => setModeNotice(String(e)),
+    );
   const objectPoses = useTopic<FreeJointStateArray>(
     TOPICS.objectPoses,
     "mujoco_ros2_control_msgs/msg/FreeJointStateArray",
     250,
   );
-  const demoObject = objectPoses?.free_joints.find((o) => o.name === DEMO.object);
+  const demoObject = objectPoses?.free_joints.find((o) => o.name === cubeBody(cube));
 
   const moveitOnline = actions.has(ACTIONS.moveGroup);
   const trajectoryOnline = actions.has(ACTIONS.trajectory);
@@ -171,8 +210,8 @@ function Pendant() {
   };
   const pickAndPlace = () =>
     fetchObject.send(
-      `Pick ${DEMO.object}`,
-      { target: { header: { frame_id: DEMO.object }, point: { x: 0, y: 0, z: 0 } } },
+      `Pick ${cubeBody(cube)}`,
+      { target: { header: { frame_id: cubeBody(cube) }, point: { x: 0, y: 0, z: 0 } } },
       describeResult,
       () =>
         placeObject.send(
@@ -265,7 +304,12 @@ function Pendant() {
           ? moveGroupFeedback.state.toLowerCase()
           : run.detail,
   };
-  const commander = run?.phase === "active" ? run.label : "no commander";
+  const commander =
+    run?.phase === "active"
+      ? run.label
+      : mode === "VLA" && commandRate > 0
+        ? `policy · ${modeMsg?.requester ?? "vla"}`
+        : "no commander";
   const programActive = run?.phase === "active";
   const motionEnabled = mode === "MOTION" && !stopped && !programActive;
   const motionBlocked = stopped
@@ -338,6 +382,9 @@ function Pendant() {
                   source={source}
                   onPickPlace={pickAndPlace}
                   onReset={() => resetObjects({}).catch(() => undefined)}
+                  cube={cube}
+                  onCube={setCube}
+                  onSpawn={spawnCube}
                   groupStates={groupStates}
                   enabled={motionEnabled}
                   blockedReason={motionBlocked}
@@ -369,10 +416,13 @@ function Pendant() {
                 </NotRunning>
               )}
               {view === "vla" && (
-                <NotRunning title="VLA skills" missing="policy-server" start="make vla">
-                  SmolVLA and ACT policies stream joint targets through the safety filter. Skill,
-                  action rate, queue depth and latency will show here.
-                </NotRunning>
+                <VlaView
+                  active={mode === "VLA"}
+                  modeMsg={modeMsg}
+                  command={command}
+                  commandRate={commandRate}
+                  joints={joints}
+                />
               )}
               {view === "system" && <SystemView services={services} topics={topics} gpu={gpu} />}
             </div>

@@ -69,6 +69,23 @@ export interface StageFeedback {
   progress: number;
 }
 
+interface Vector3 {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface SetFreeJointStateRequest {
+  free_joints: {
+    name: string;
+    pose: {
+      header: { frame_id: string };
+      pose: { position: Vector3; orientation: { x: number; y: number; z: number; w: number } };
+    };
+    twist: { header: { frame_id: string }; twist: { linear: Vector3; angular: Vector3 } };
+  }[];
+}
+
 export interface ResultMessage {
   success: boolean;
   message: string;

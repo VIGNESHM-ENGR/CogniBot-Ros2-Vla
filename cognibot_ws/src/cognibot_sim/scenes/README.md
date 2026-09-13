@@ -11,14 +11,15 @@ Exported from [`so101-nexus`](https://github.com/johnsutor/so101-nexus) `MuJoCoP
 - **Robot**: SO-101 6-DOF manipulator (Menagerie `robotstudio_so101` at commit `8161bba264d7fa7c99ca301e91e7fb44737676ad` with aligned `wrist_roll` range `[-2.74385, 2.84121]` and `gripperframe` site `[-0.0079, -0.000218, -0.098127]`).
 - **Objects**:
   - `green_cube`: freejoint box body (size `0.0125` m half-size, mass `0.01` kg, rgba `[0, 1, 0, 1]`; recolored from the upstream red so red is reserved for the robot) at spawn pose `(0.274100, -0.019501, 0.012445)`.
-  - `blue_target`: static cylinder target disc (radius `0.05` m, rgba `[0, 0, 1, 1]`) at spawn pose `(0.307045, 0.197373, 0.001000)`.
+  - `red_cube`, `blue_cube`, `yellow_cube`, `white_cube`: identical free cubes parked behind the robot at `x = -0.55` (outside both camera views). Bodies cannot be added to a running MuJoCo model, so the dashboard's *Spawn cube* teleports one of these through `set_free_joint_state`; *Reset objects* parks them again.
+  - `target`: static black rectangle frame (outer `0.16 × 0.112` m, edge width `0.012` m, non-colliding) at `(0.307045, 0.197373, 0.001000)`, replacing the upstream blue disc to match the white-table/black-boundary look of community SO-101 datasets. The floor plane is light grey (`0.92`) for the same reason.
 - **Cameras**:
   - `wrist_cam`: wrist-mounted camera on `camera_mount` body (`640x480`, reduced from the upstream `1920x1080`; `fovy=48.5`).
-  - `front_rgbd`: fixed front tabletop camera framing the robot workspace, cube, and target disc (`640x480`, `fovy=48`, pos `[0.56, 0.08, 0.36]`, xyaxes `[0, 1, 0, -0.696, 0, 0.718]`).
+  - `front_rgbd`: fixed front tabletop camera framing the robot workspace, cube, and target (`640x480`, `fovy=48`, pos `[0.56, 0.08, 0.36]`, xyaxes `[0, 1, 0, -0.696, 0, 0.718]`).
 
 ### `panda_pick_and_place.xml`
 
-Hand-built Panda scene reusing the same objects scaled for Panda reach (`green_cube` on a table, `blue_target`).
+Hand-built Panda scene reusing the upstream objects scaled for Panda reach (`green_cube` on a table, `blue_target` disc).
 
 ## Robot color
 

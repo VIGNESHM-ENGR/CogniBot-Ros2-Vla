@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | P5-T05 (part), P5-T08 (part), owner request | Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target | feat |
 | 2026-09-14 | P5-T01, P5-T03/T04 (part), P5-T05 (part) | SmolVLA and ACT inference streaming into the simulated arm | feat |
 | 2026-09-13 | P2-T06 (part 1), P3-T06 | mink teleop and the dashboard jog keys | feat |
 | 2026-09-13 | P2-T05 (part 1) | safety_filter: joint range and velocity limits, mode gating | feat |
@@ -83,6 +84,46 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · P5-T05 (part), P5-T08 (part), owner request · Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target
+
+**Context:** from the Hub survey (140 SmolVLA SO-101 candidates) the owner picked `Chaenn/smolvla_policy_so101_cube_multitask_sim_0824` (295 sim episodes, the largest simulated pick-and-place set) to run live; while watching, the dashboard's VLA tab still showed the static "not running" placeholder, and the owner asked for a way to spawn cubes at chosen positions/colours and for the target to match the black-boundary look of that dataset.
+**Outcome:** ✅ checkpoint wired and streaming (187 inferences / 120 s, 29.5 Hz commands through the safety filter); ❌ it does not complete the task in our scene (camera on the opposite side, different table). ✅ VLA view live; ✅ spawn/frame target; three spawned cubes picked and placed from the UI.
+
+### Work log
+- Checkpoint inspected from its files, not the model card: `train_config.json` → dataset `Chaenn/so101_cube_sim_place_0824` (`capstone_arena` generator, `robot_type: so_follower`, 30 fps, cameras `side` + `wrist` 640×480, task "Pick and place each of the five cubes inside the black boundary."); normaliser stats → **degrees on all six joints** (gripper 1.5–44.7°). Joint signs/ranges checked against our MuJoCo model by solving our own grasp pose in degrees (`[5, 17, −21, 94, 1]` vs their reach frames `[12, 41, −57, 104, 15]`).
+- `download_checkpoints.sh` entry `smolvla_arena_multitask` @ `111cf919`; compose passes `STATE_DEGREES`; INTEGRATIONS §6.1 row.
+- Dashboard `VlaView`: mode holder from `/cognibot/mode`, rate and latest targets from `/cognibot/joint_command`, target-vs-actual table; status strip commander = streaming policy.
+- Scene: target body renamed `target` and drawn as a black 0.16 × 0.112 m frame (four non-colliding boxes), floor 0.92 grey; `red/blue/yellow/white_cube` parked at x = −0.55 (outside both cameras). Dashboard *Spawn cube* teleports the selected cube with `set_free_joint_state`; *Reset cube* parks all five.
+- `solve_from_seeds` retries every seed with the base joint turned to ±azimuth of the target.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Policy server: `Error in StreamActions: 'observation.images.side'` on every observation; arm never moved | LeRobot's async server resizes each robot camera by looking its key up in the policy's `input_features` (`camera1..3`) *before* the preprocessor's `rename_observations_processor` (`side→camera1`) runs, and the client's empty `rename_map` overrides that step anyway | Feed the model's own keys: `CAMERA_TOPICS="{camera1: front, camera2: wrist}"` | second run: 187 inferences, 29.5 Hz stream |
+| 2 | VLA tab said "policy-server is not running" while the arm was streaming | The tab was the P3 `NotRunning` placeholder (P5-T08 pending) | `VlaView` driven by live topics | screenshot: STREAMING · lerobot_robot_cognibot, 29.5 Hz |
+| 3 | Cube spawned at (0.25, 0.08): fetch fine, place aborted "target [0.29, 0.187, 0.085] out of reach" (err 63 mm) | Damped-least-squares descent stalls against the shoulder_pan limit when the seed (post-lift pose or home) faces away from the target; only current pose and home were seeds | Azimuth-turned seeds (both signs; the base joint's sense depends on the model) | offline sweep 56/69 floor points solvable (remaining 13 are r ≥ 0.30 m, 30–45 mm short of a true top-down reach); UI runs red (0.25, 0.08), yellow (0.18, 0), blue (0.22, −0.12) all "placed" |
+| 4 | Hugging Face returned "We had to rate limit your IP" for anonymous model-card and `info.json` fetches | Anonymous Hub API quota | Read everything from the downloaded snapshot instead; `hf download` itself still worked | this entry's checkpoint facts |
+
+### Decisions
+#### D1: how to "spawn" cubes in a running MuJoCo model
+```mermaid
+flowchart TD
+  Q{Spawn a cube at (x, y)} --> A[Rebuild the model with a new body]
+  Q --> B[Pool of parked cubes, teleported by set_free_joint_state]
+  Q --> C[One cube per colour, recoloured at runtime]
+  A --> A1[✗ mujoco_ros2_control cannot reload; would restart controllers and MoveIt]
+  C --> C1[✗ geom rgba is not settable through the ROS interface]
+  B --> B1[✓ upstream service already exists; reset parks them; free-look renders them from the same MJCF]
+```
+- **Revisit if:** more than one cube of a colour is needed (add bodies to the pool).
+
+#### D2: target shape
+- Replace the disc with a black frame in the committed scene (chosen) rather than a launch-time `target:=disc|frame` switch: the free-look mirror renders the committed file, so a runtime switch would show a stale target there; the disc variant has no remaining user.
+
+### Open questions / follow-ups
+- [ ] The Chaenn policy's `side` camera looks at the robot from the front; ours looks from behind. Add a second fixed camera at their viewpoint (or move `front_rgbd`) before judging any of these checkpoints further.
+- [ ] Skill executor (P5-T06) so the VLA view can start/stop a run instead of `make skill`.
 
 ## 2026-09-14 · P5-T01, P5-T03/T04 (part), P5-T05 (part) · SmolVLA and ACT inference streaming into the simulated arm
 

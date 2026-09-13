@@ -35,7 +35,7 @@ def test_waypoint_stages_follow_the_action_contracts():
 def test_grasp_and_drop_points_are_reachable(scene):
     cfg, model = scene
     cube = model.body("green_cube").pos.copy()
-    target = model.body("blue_target").pos.copy()
+    target = model.body("target").pos.copy()
     q = np.array(cfg.home_pose)
     joints = list(cfg.arm_joints)
     for plan, low_limit in ((fetch_waypoints(cube), 0.001), (place_waypoints(target), 0.01)):

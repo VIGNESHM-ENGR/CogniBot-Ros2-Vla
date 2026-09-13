@@ -4,6 +4,7 @@ export const VIDEO_URL = import.meta.env.VITE_VIDEO_URL ?? "http://127.0.0.1:808
 
 export const TOPICS = {
   jointStates: "/joint_states",
+  jointCommand: "/cognibot/joint_command",
   robotDescription: "/robot_description",
   robotDescriptionSemantic: "/robot_description_semantic",
   clock: "/clock",
@@ -20,6 +21,7 @@ export const SERVICES = {
   setMode: "/cognibot/set_mode",
   listControllers: "/controller_manager/list_controllers",
   resetObjects: "/cognibot/sim/reset_objects",
+  setFreeJointState: "/mujoco_ros2_control_node/set_free_joint_state",
 } as const;
 
 export const ACTIONS = {
@@ -45,5 +47,11 @@ export const mjpegUrl = (topic: string, quality = 80) =>
 /** Scene mirror assets copied from cognibot_sim by scripts/sync-scene.mjs. */
 export const SCENE_URL = `${import.meta.env.BASE_URL}sim/so101`;
 
-/** Objects the IK pick-and-place demo moves (MuJoCo body names in the scene). */
-export const DEMO = { object: "green_cube", target: "blue_target" };
+/** Cubes in the scene, by colour; the MuJoCo body is `<colour>_cube`. Reset parks them again. */
+export const CUBES = ["green", "red", "blue", "yellow", "white"] as const;
+export type CubeColor = (typeof CUBES)[number];
+export const cubeBody = (color: CubeColor) => `${color}_cube`;
+/** Half-size of a cube: spawning rests it on the floor. */
+export const CUBE_HALF = 0.0125;
+/** Where the IK pick-and-place demo drops the cube (static MuJoCo body). */
+export const DEMO = { target: "target" };

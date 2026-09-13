@@ -74,7 +74,7 @@ class PickPlaceDemo(Node):
         self.arm.wait_for_server()
         self.gripper.wait_for_server()
         cube = self.model.body("green_cube").pos.copy()
-        target = self.model.body("blue_target").pos.copy()
+        target = self.model.body("target").pos.copy()
         grasp = cube.copy()
         grasp[:2] -= GRASP_OFFSET * cube[:2] / np.linalg.norm(cube[:2])
         drop = target.copy()

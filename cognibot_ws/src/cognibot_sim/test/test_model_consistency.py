@@ -219,7 +219,7 @@ def test_exported_scene_compilation():
 
     body_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i) for i in range(model.nbody)]
     assert "green_cube" in body_names
-    assert "blue_target" in body_names
+    assert "target" in body_names
 
     cam_names = [mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_CAMERA, i) for i in range(model.ncam)]
     assert "wrist_cam" in cam_names
