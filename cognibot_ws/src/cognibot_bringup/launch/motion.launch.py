@@ -35,6 +35,13 @@ def generate_launch_description():
             ),
             Node(
                 package="cognibot_motion",
+                executable="safety_filter",
+                name="safety_filter",
+                output="screen",
+                parameters=[{"robot": LaunchConfiguration("robot")}],
+            ),
+            Node(
+                package="cognibot_motion",
                 executable="pick_place_server",
                 name="pick_place_server",
                 output="screen",

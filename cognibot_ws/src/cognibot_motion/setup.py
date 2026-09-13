@@ -27,6 +27,7 @@ setup(
             "move_to_point = cognibot_motion.move_to_point:main",
             "pick_place_server = cognibot_motion.pick_place_server:main",
             "mode_manager = cognibot_motion.mode_manager:main",
+            "safety_filter = cognibot_motion.safety_filter:main",
         ],
     },
 )

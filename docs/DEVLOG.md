@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P2-T05 (part 1) | safety_filter: joint range and velocity limits, mode gating | feat |
 | 2026-09-13 | P2-T04 | mode_manager: control-mode arbitration via controller switching | feat |
 | 2026-09-13 | owner test | Dashboard test session: joint-limit start states, MoveIt crash, free-look sync | fix |
 | 2026-09-13 | owner request | Free-look 3D view and IK pick-and-place from the dashboard | feat |
@@ -80,6 +81,30 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P2-T05 (part 1) · safety_filter: joint range and velocity limits, mode gating
+
+**Context:** streamed commands must reach `arm_position_controller` only through the safety filter (AGENTS.md rule 7). Collision spheres (P2-T03) are not built yet; the owner agreed to ship joint/velocity limits and mode gating first so teleop can start, with the sphere check added to the same node next.
+**Outcome:** ✅ part 1 done. Launch test: IDLE drops everything; TELEOP forwards a 10 rad target clamped to ≤ 1.92 rad with steps ≤ 0.02 rad per 10 ms (2 rad/s); the arm follows; leaving TELEOP cuts the stream. 4 unit tests on `JointLimiter`. Diagnostics on `/cognibot/safety/status` count forwarded/dropped/clamped/rate-limited and say `collision_check: not yet`.
+
+### Work log
+- `joint_limiter.py` (pure): reorder by name, clamp to scene joint ranges (5 mrad margin), scale the whole step so the fastest joint stays under `max_joint_velocity` (direction preserved).
+- `safety_filter.py`: 100 Hz tick, 300 ms dead-man hold on the current pose, targets discarded on every mode change, forwards only in TELEOP/VLA/TWIN. Launched by `motion.launch.py` after `mode_manager`.
+
+### Decisions
+#### D1: Limits-first, spheres next
+```mermaid
+flowchart TD
+  Q[Teleop needs the filter; the filter spec needs foam spheres] --> A[Build P2-T03 spheres first]
+  Q --> B[Ship limits + mode gating now, add sphere check in place]
+  A --> A1[✗ no keyboard teleop until foam and REACH tooling exist]
+  B --> B1[✓ chosen with the owner: the safety path is honoured from day one; only the collision term is missing and is reported as such in diagnostics]
+```
+
+### Open questions
+- Velocity limit is per joint against the *measured* position, so a controller lagging its target reduces the effective step (0.013 rad observed vs 0.02 allowed). Acceptable for teleop; revisit for VLA streaming at 30 Hz.
+
+---
 
 ## 2026-09-13 · P2-T04 · mode_manager: control-mode arbitration via controller switching
 
