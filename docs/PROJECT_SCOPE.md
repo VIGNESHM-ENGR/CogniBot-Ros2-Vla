@@ -102,7 +102,7 @@ Every third-party component is listed with its pin in [INTEGRATIONS.md](INTEGRAT
 
 1. Source repository with a colcon workspace, Docker images and Compose profiles.
 2. Documentation: this scope, [PROJECT_PLAN.md](PROJECT_PLAN.md), [ARCHITECTURE.md](ARCHITECTURE.md), [NETWORKING.md](NETWORKING.md), [ROS_INTERFACES.md](ROS_INTERFACES.md), [VRAM_BUDGET.md](VRAM_BUDGET.md), [INTEGRATIONS.md](INTEGRATIONS.md), [SETUP.md](SETUP.md), ADRs.
-3. [TASKS.md](../TASKS.md): a task breakdown that small coding agents can execute.
+3. [DEVLOG.md](DEVLOG.md): engineering log of work done, problems with root causes and solutions, and decision trees.
 4. Web dashboard with its design system (`dashboard/DESIGN.md`).
 5. Evaluation scripts and a benchmark report (latency, VRAM, grounding error, reach accuracy).
 6. Demo recordings (GIF/MP4) for the README.

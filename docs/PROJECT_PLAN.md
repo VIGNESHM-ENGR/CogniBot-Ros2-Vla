@@ -1,8 +1,8 @@
 # Project Plan: CogniBot-ROS2-VLA
 
-Related: [PROJECT_SCOPE.md](PROJECT_SCOPE.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [TASKS.md](../TASKS.md)
+Related: [PROJECT_SCOPE.md](PROJECT_SCOPE.md) · [ARCHITECTURE.md](ARCHITECTURE.md) · [DEVLOG.md](DEVLOG.md)
 
-The high-level roadmap. Individual work items, with their acceptance criteria, live in [TASKS.md](../TASKS.md).
+The high-level roadmap. Each phase is split into small tasks with runnable acceptance criteria on a private task board. Progress, problems and decisions for each task are recorded in [DEVLOG.md](DEVLOG.md), and user-visible changes in [CHANGELOG.md](../CHANGELOG.md).
 
 ---
 
@@ -19,7 +19,7 @@ The high-level roadmap. Individual work items, with their acceptance criteria, l
 | **P6** | Digital twin | `v0.7.0` | `feetech_ros2_driver` / mock hardware under `/real`, mirrored into sim through the safety filter | P2 |
 | **P7** | Polish & showcase | `v1.0.0` | README with GIFs, architecture figure, benchmarks, demo scripts, docs audit | P3–P6 |
 
-**Your stated priority:** P1 and P2 first (Jazzy + MuJoCo, IK solvers, collision spheres, collision avoidance). P3–P6 can then run in parallel.
+**Priority:** P1 and P2 first (Jazzy + MuJoCo, IK solvers, collision spheres, collision avoidance). P3–P6 can then run in parallel.
 
 ## 2. Dependency graph
 
@@ -43,7 +43,7 @@ flowchart LR
 ## 3. Phase details
 
 ### P0: Foundation (`v0.1.0`)
-- **Goal:** anyone (or any agent) can clone, build the images and start an empty-but-healthy stack.
+- **Goal:** anyone can clone, build the images and start an empty-but-healthy stack.
 - **Exit criteria:** `docker compose config` valid for all profiles; images build; interfaces visible via `ros2 interface list`; CI green; commit hook active.
 
 ### P1: Simulation core (`v0.2.0`)
@@ -86,7 +86,7 @@ flowchart LR
 - **Authorship:** the repository owner is the sole author. No `Co-authored-by` or AI attribution trailers (enforced by `.githooks/commit-msg`).
 - **Changelog:** every user-visible change adds a line under `## [Unreleased]` in `CHANGELOG.md` (Keep a Changelog). When a phase is tagged, `Unreleased` is renamed to the version.
 - **Pins:** new third-party components are added to [INTEGRATIONS.md](INTEGRATIONS.md) in the same commit.
-- **Definition of done:** acceptance commands in TASKS.md pass; tests added; docs updated; changelog updated; task checkbox ticked.
+- **Definition of done:** acceptance commands pass; tests added; docs updated; CHANGELOG entry added; DEVLOG entry written (work, problems, decisions).
 
 ## 5. Versioning
 

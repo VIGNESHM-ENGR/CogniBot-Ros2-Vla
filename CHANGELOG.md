@@ -7,6 +7,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ## [Unreleased]
 
 ### Added
+- Engineering devlog (`docs/DEVLOG.md`) recording work, problems with root causes and solutions, and decision trees; backfilled for planning and scaffolding.
 - ROS 2 Jazzy workspace skeleton: `cognibot_interfaces`, `cognibot_common`, `cognibot_sim`, `cognibot_motion`, `cognibot_teleop`, `cognibot_vlm`, `cognibot_vla`, `cognibot_twin`, `cognibot_bringup`.
 - `cognibot_interfaces`: 5 messages, 3 services and 5 actions generated from `docs/ROS_INTERFACES.md`.
 - `cognibot_ws/third_party.repos` pinning so101-ros-physical-ai, feetech_ros2_driver, REACH and reach_ros2.

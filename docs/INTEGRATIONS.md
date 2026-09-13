@@ -106,7 +106,7 @@ Pin model revisions by HF commit hash in config once they're chosen.
 
 | Component | Why not |
 |---|---|
-| Ollama | You preferred llama.cpp; llama-swap gives explicit unload control and direct llama-server flags |
+| Ollama | llama.cpp was the project's preferred runtime; llama-swap gives explicit unload control and direct llama-server flags |
 | vLLM | Pre-allocates VRAM; poor fit next to SmolVLA on 6 GB |
 | `so101-ros-physical-ai` `so101_inference` | SO-101-specific and pixi-based; the stock LeRobot `robot_client` + `lerobot_robot_ros` stays robot-agnostic (Panda) |
 | `ROBOTIS lerobot_robot_ros2_zenoh` | Requires a Zenoh router and unpublished local SDK packages |

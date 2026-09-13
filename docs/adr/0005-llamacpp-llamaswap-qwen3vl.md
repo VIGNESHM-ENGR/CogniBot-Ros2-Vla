@@ -5,7 +5,7 @@
 
 ## Context
 
-The VLM must ground objects in images and call tools, and share a 6 GB GPU with SmolVLA. The host has 40 GB of RAM and a 6-core CPU. You asked for llama.cpp.
+The VLM must ground objects in images and call tools, and share a 6 GB GPU with SmolVLA. The host has 40 GB of RAM and a 6-core CPU. The project owner chose llama.cpp as the inference runtime.
 
 ## Decision
 
@@ -21,6 +21,6 @@ The VLM must ground objects in images and call tools, and share a 6 GB GPU with 
 
 ## Alternatives considered
 
-- **Ollama.** Simpler UX, but less direct control over llama-server flags; you preferred llama.cpp.
+- **Ollama.** Simpler UX, but less direct control over llama-server flags; llama.cpp was preferred.
 - **vLLM.** Pre-allocates VRAM; no CPU offload suited to this budget.
 - **SmolVLM2-2.2B.** Weaker grounding; would require classical segmentation for coordinates.

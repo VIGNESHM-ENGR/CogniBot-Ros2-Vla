@@ -5,7 +5,7 @@
 
 ## Context
 
-The brief initially read as "write a SmolVLA inference node, a mock servo driver, IK tooling, …". Mature open-source implementations of most of these already exist. You asked explicitly to act as an integrator and not invent what isn't necessary.
+The brief initially read as "write a SmolVLA inference node, a mock servo driver, IK tooling, …". Mature open-source implementations of most of these already exist. The project's direction is to act as an integrator and not build what already exists.
 
 ## Decision
 
@@ -30,7 +30,7 @@ Before writing any component, search for a maintained upstream implementation. I
 
 - Much less code to maintain. The portfolio story becomes system integration, safety and architecture.
 - Upstream churn risk, mitigated by pinning every component (SHA, digest, version) and bumping pins in dedicated commits.
-- Every task in TASKS.md starts with a "check upstream first" step and records any new dependency in INTEGRATIONS.md.
+- Every task starts with a "check upstream first" step, records any new dependency in INTEGRATIONS.md, and logs the adopt-or-build decision in DEVLOG.md.
 
 ## Alternatives considered
 
