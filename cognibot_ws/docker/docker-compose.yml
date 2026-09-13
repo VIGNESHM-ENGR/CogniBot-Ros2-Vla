@@ -144,7 +144,8 @@ services:
       HF_TOKEN: ${HF_TOKEN:-}
       PYTORCH_CUDA_ALLOC_CONF: expandable_segments:True
     volumes:
-      - hf_cache:/hf_cache
+      # Host HF cache, filled by cognibot_vla/scripts/download_checkpoints.sh
+      - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/hf_cache
     shm_size: 2g
     mem_limit: 8g
     healthcheck:
@@ -192,4 +193,3 @@ services:
 
 volumes:
   llm_models:
-  hf_cache:

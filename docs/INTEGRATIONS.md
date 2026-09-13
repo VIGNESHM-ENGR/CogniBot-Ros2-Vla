@@ -78,9 +78,19 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | Model | Source | Variant | Served by |
 |---|---|---|---|
 | Qwen3-VL-4B-Instruct | [`Qwen/Qwen3-VL-4B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF) | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` + `mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf` | llama-swap → llama-server |
-| SmolVLA base | [`lerobot/smolvla_base`](https://huggingface.co/lerobot/smolvla_base) | bf16 | LeRobot policy_server |
-| SmolVLA fine-tuned in a MuJoCo SO-101 scene (candidate) | [`bendca61/smolvla-mujoco-so101-cube_on_tray`](https://huggingface.co/bendca61/smolvla-mujoco-so101-cube_on_tray) @ `d9da3285e866aa6464ea1c6e71363d03d4c85682` | inputs: `observation.state`(6), `observation.images.realsense` 640×480, `observation.images.wrist_cam` 640×480; 6-D joint action | LeRobot policy_server |
-| Community real-arm SO-101 fine-tunes | HF Hub (chosen in P5-T05) | – | LeRobot policy_server |
+
+### 6.1 Policy checkpoints (candidates for P5-T02)
+
+Downloaded with `cognibot_ws/src/cognibot_vla/scripts/download_checkpoints.sh` into the HF cache (`~/.cache/huggingface`, ~4.5 GB), which the `policy-server` service mounts. All take `observation.state` (6) and output a 6-D joint action. Real-arm and Isaac Sim checkpoints are kept as references; a visual domain gap makes them unlikely to succeed in MuJoCo.
+
+| Name | Repo @ revision | Policy | Trained in | Image inputs | License |
+|---|---|---|---|---|---|
+| `smolvla_base` | [`lerobot/smolvla_base`](https://huggingface.co/lerobot/smolvla_base) @ `c83c3163b8ca9b7e67c509fffd9121e66cb96205` | SmolVLA (bf16) | pretraining on community real-arm data | `camera1..3` 256×256 | Apache-2.0 |
+| `smolvla_mujoco_tray` | [`bendca61/smolvla-mujoco-so101-cube_on_tray`](https://huggingface.co/bendca61/smolvla-mujoco-so101-cube_on_tray) @ `d9da3285e866aa6464ea1c6e71363d03d4c85682` | SmolVLA | MuJoCo SO-101 | `realsense`, `wrist_cam` 640×480 | Apache-2.0 |
+| `smolvla_isaac_orange` | [`edge-inference/smolvla-so101-pick-orange`](https://huggingface.co/edge-inference/smolvla-so101-pick-orange) @ `71cf4a9d35ce317f6706efe1a9f9d4cbb2b8fb4d` | SmolVLA | Isaac Sim SO-101 (LeIsaac) | `front`, `wrist` 640×480 | Apache-2.0 |
+| `act_mujoco_tray` | [`bendca61/act-so101-mujoco-cube_on_tray-v1`](https://huggingface.co/bendca61/act-so101-mujoco-cube_on_tray-v1) @ `676050ad8a25816c238389a31795d1498691ec32` | ACT (chunk 100) | MuJoCo SO-101 | `realsense`, `wrist_cam` 640×480 | Apache-2.0 |
+| `act_mujoco_pickplace` | [`szk1ck/so101-pickplace-sim-mujoco`](https://huggingface.co/szk1ck/so101-pickplace-sim-mujoco) @ `3dcc200be7aa0f8b19130586ab7b99d6ff304494` | ACT (chunk 100) | MuJoCo SO-101 | `front`, `wrist` 640×480 | Apache-2.0 |
+| `diffusion_real_cube` | [`Chaenn/diffusion_so101_cube_multitask_hil_0729`](https://huggingface.co/Chaenn/diffusion_so101_cube_multitask_hil_0729) @ `1d39f411a36821e4b885f7d7dee1ac51ed0d4fb1` | Diffusion (15 action steps) | real SO-101 (no MuJoCo diffusion checkpoint found on the Hub, 2026-09-13) | `side`, `wrist` 640×480 | Apache-2.0 |
 
 Relevant **datasets** (for camera and scene parity, not training): [`johnsutor/MuJoCoPickAndPlace-v1`](https://huggingface.co/datasets/johnsutor/MuJoCoPickAndPlace-v1), [`johnsutor/MuJoCoPickLift-v1`](https://huggingface.co/datasets/johnsutor/MuJoCoPickLift-v1), [`bendca61/vla-mujoco-so101-cube_on_tray-leader-v1`](https://huggingface.co/datasets/bendca61/vla-mujoco-so101-cube_on_tray-leader-v1). P5-T05 picks the checkpoint whose **camera names, image sizes and scene** are closest to our sim, and configures the `lerobot_robot_cognibot` camera keys to match (e.g. `realsense`, `wrist_cam`).
 

@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-13 | P5 prep | Pinned policy checkpoint download (SmolVLA, ACT, Diffusion) | feat |
 | 2026-09-13 | infra | Reproducible core image, GPU-free CI and `make test` | build |
 | 2026-09-13 | owner request | Red robot color switch and green cube | feat |
 | 2026-09-13 | P1-T10 | Release-readiness review of Phase 1 | fix |
@@ -72,6 +73,37 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-13 · P5 prep · Pinned policy checkpoint download (SmolVLA, ACT, Diffusion)
+
+**Context:** the owner asked to download LeRobot ACT and Diffusion policies and SmolVLA fine-tunes ahead of Phase 5.
+**Outcome:** ✅ done. Six checkpoints (~4.5 GB) in `~/.cache/huggingface`, pinned by HF commit in `download_checkpoints.sh` and `INTEGRATIONS.md` §6.1. Not yet evaluated (P5-T02).
+
+### Work log
+- Searched the Hub (`/api/models?search=…`) for `so101` + `act` / `diffusion` / `smolvla` and `mujoco so101`, then read each candidate's `config.json` (input features, chunk size) and `train_config.json` (dataset).
+- Selection favours checkpoints trained **in MuJoCo on the SO-101**, because real-arm and Isaac Sim images differ strongly from our renders.
+
+### Decisions
+#### D1: Which checkpoints to fetch
+```mermaid
+flowchart TD
+  Q[Candidate SO-101 checkpoints] --> M[Trained in MuJoCo SO-101]
+  Q --> I[Trained in Isaac Sim]
+  Q --> R[Trained on a real arm]
+  M --> M1[✓ smolvla_mujoco_tray, act_mujoco_tray, act_mujoco_pickplace]
+  I --> I1[✓ one reference: smolvla_isaac_orange, the most downloaded SO-101 SmolVLA]
+  R --> R1[✓ only diffusion_real_cube: no MuJoCo diffusion checkpoint exists on the Hub]
+  R --> R2[✗ other real-arm fine-tunes: visual domain gap, no scene parity]
+```
+- `lerobot/smolvla_base` is included as the fine-tuning starting point and handshake model for P5-T01.
+- **Revisit if:** P5-T02 shows all MuJoCo checkpoints fail in our scene. Then fine-tune `smolvla_base` on `johnsutor/MuJoCoPickAndPlace-v1`, which shares our exported scene.
+
+### Open questions
+- Camera keys differ per checkpoint (`realsense`/`wrist_cam`, `front`/`wrist`, `side`/`wrist`); P5-T05 maps them per checkpoint.
+- The MuJoCo checkpoints were trained with a yellow arm; evaluate with `robot_color:=stock`.
+- `policy-server` still uses `huggingface/lerobot-gpu:latest`; P5-T01 must pin the digest and match the client LeRobot version.
+
+---
 
 ## 2026-09-13 · infra · Reproducible core image, GPU-free CI and `make test`
 
