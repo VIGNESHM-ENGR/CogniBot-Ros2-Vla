@@ -1,4 +1,5 @@
 # ── colcon / ROS 2 ─────────────────────────────────────────
+cognibot_ws/src/third_party/
 cognibot_ws/build/
 cognibot_ws/install/
 cognibot_ws/log/
@@ -58,3 +59,9 @@ rosbag2_*/
 *.swp
 .DS_Store
 Thumbs.db
+
+# ── Local agent/editor settings and private planning files ─
+.claude/
+AGENTS.md
+CLAUDE.md
+TASKS.md
