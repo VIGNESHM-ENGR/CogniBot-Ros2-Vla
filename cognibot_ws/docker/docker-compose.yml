@@ -184,6 +184,7 @@ services:
       # Path as seen by the policy-server (its HF cache is mounted at /hf_cache).
       VLA_CHECKPOINT: ${VLA_CHECKPOINT:-/hf_cache/cognibot/smolvla_mujoco_tray}
       ACTION_DEGREES: ${ACTION_DEGREES:-true}
+      STATE_DEGREES: ${STATE_DEGREES:-false}
       CAMERA_TOPICS: "${CAMERA_TOPICS:-{realsense: /mujoco_camera_plugin/front_rgbd/color, wrist_cam: /mujoco_camera_plugin/wrist_cam/color}}"
       TASK: ${TASK:-pick up the cube and place it on the tray}
       LLM_BASE_URL: http://127.0.0.1:8082
