@@ -1,0 +1,51 @@
+<?xml version="1.0"?>
+<robot name="so101_arm" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:arg name="variant" default="follower"/>
+  <xacro:arg name="mujoco_model" default=""/>
+  <xacro:arg name="headless" default="true"/>
+
+  <!-- Include upstream so101_description model -->
+  <xacro:include filename="$(find so101_description)/urdf/so101_arm.urdf.xacro"/>
+
+  <!-- MuJoCo ros2_control hardware interface -->
+  <ros2_control name="MujocoSystem" type="system">
+    <hardware>
+      <plugin>mujoco_ros2_control/MujocoSystemInterface</plugin>
+      <param name="mujoco_model">$(arg mujoco_model)</param>
+      <param name="headless">$(arg headless)</param>
+      <param name="camera_publish_rate">20.0</param>
+    </hardware>
+    <joint name="shoulder_pan">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="shoulder_lift">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="elbow_flex">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="wrist_flex">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="wrist_roll">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+    <joint name="gripper">
+      <command_interface name="position"/>
+      <state_interface name="position"/>
+      <state_interface name="velocity"/>
+    </joint>
+  </ros2_control>
+
+</robot>
