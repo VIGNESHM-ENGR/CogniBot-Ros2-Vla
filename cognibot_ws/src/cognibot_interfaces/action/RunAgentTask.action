@@ -1,0 +1,6 @@
+string query
+---
+bool success
+string summary
+---
+cognibot_interfaces/AgentEvent event

@@ -1,0 +1,7 @@
+uint8 mode              # ControlMode constant
+string requester
+string reason
+---
+bool success
+string message
+uint8 active_mode

@@ -1,0 +1,6 @@
+geometry_msgs/PointStamped target
+---
+bool reachable
+float32 score           # 0..1 REACH score (manipulability-weighted); 0 if unreachable
+string source           # "reach_study" | "workspace_sphere"
+string message

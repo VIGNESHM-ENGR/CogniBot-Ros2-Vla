@@ -1,0 +1,8 @@
+geometry_msgs/PointStamped target       # object center
+float32 approach_height_m               # 0 = use config default
+---
+bool success
+string message
+---
+string stage                            # plan_approach | approach | grasp | lift
+float32 progress                        # 0..1

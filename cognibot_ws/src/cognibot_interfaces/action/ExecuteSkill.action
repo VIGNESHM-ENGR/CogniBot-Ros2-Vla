@@ -1,0 +1,13 @@
+string instruction                      # language task passed to the VLA
+string checkpoint                       # HF repo id / path; empty = registry default
+float32 max_duration_s
+---
+bool success
+string message
+uint32 actions_executed
+float32 mean_rate_hz
+---
+float32 elapsed_s
+float32 rate_hz
+uint32 queue_size
+float32 latency_ms

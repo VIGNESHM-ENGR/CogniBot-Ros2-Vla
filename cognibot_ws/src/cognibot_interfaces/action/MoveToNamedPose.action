@@ -1,0 +1,6 @@
+string pose_name                        # SRDF group state, e.g. "home"
+---
+bool success
+string message
+---
+float32 progress

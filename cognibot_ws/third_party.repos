@@ -1,0 +1,19 @@
+# Upstream ROS 2 sources imported at image build time (vcs import src/third_party < third_party.repos).
+# Pins and rationale: docs/INTEGRATIONS.md §3. Bump in a dedicated `build(deps)` commit.
+repositories:
+  so101-ros-physical-ai:
+    type: git
+    url: https://github.com/legalaspro/so101-ros-physical-ai.git
+    version: 58318c905a2c61289fa907de85cb8473322fbe68
+  feetech_ros2_driver:
+    type: git
+    url: https://github.com/legalaspro/feetech_ros2_driver.git
+    version: 4c0fdbfe16c84c686f8ace09526c52d98d0110ca
+  reach:
+    type: git
+    url: https://github.com/ros-industrial/reach.git
+    version: 33160eb67b1c711700b766ba325666b8ce5b061f
+  reach_ros2:
+    type: git
+    url: https://github.com/ros-industrial/reach_ros2.git
+    version: cd048ffcb69c5a0ba2b74124f15afa1ad63c27b5

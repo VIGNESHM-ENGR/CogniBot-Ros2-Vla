@@ -1,0 +1,6 @@
+string label            # natural language, e.g. "red cube"
+string camera           # registry camera key; empty = "front"
+---
+bool success
+cognibot_interfaces/ObjectDetection detection
+string message
