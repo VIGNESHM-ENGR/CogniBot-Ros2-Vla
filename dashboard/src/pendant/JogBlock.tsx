@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Grip } from "lucide-react";
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Grip } from "lucide-react";
 import type { JogKey, Mode } from "../lib/modes";
 
 interface Props {
@@ -32,9 +32,35 @@ const AXES: { axis: string; keys: { jog: JogKey; legend: string; cap: string }[]
       { jog: "z-", legend: "−Z", cap: "↓" },
     ],
   },
+  {
+    axis: "Pan  left / right",
+    keys: [
+      { jog: "pan+", legend: "+PAN", cap: "Q" },
+      { jog: "pan-", legend: "−PAN", cap: "E" },
+    ],
+  },
+  {
+    axis: "Wrist roll",
+    keys: [
+      { jog: "roll+", legend: "+ROLL", cap: "←" },
+      { jog: "roll-", legend: "−ROLL", cap: "→" },
+    ],
+  },
 ];
 
-/** Cartesian jog keys. They wake only in TELEOP and only move the arm when mink teleop runs. */
+const ICONS: Partial<Record<JogKey, typeof ArrowUp>> = {
+  "z+": ArrowUp,
+  "z-": ArrowDown,
+  "roll+": ArrowLeft,
+  "roll-": ArrowRight,
+};
+
+function JogLegend({ jog, legend }: { jog: JogKey; legend: string }) {
+  const Icon = ICONS[jog];
+  return Icon ? <Icon size={14} aria-label={legend} /> : <>{legend}</>;
+}
+
+/** Cartesian jog keys plus base pan and wrist roll. They wake only in TELEOP and only move the arm when mink teleop runs. */
 export function JogBlock({ mode, pressed, backendOnline, stopped, onDown, onUp }: Props) {
   const live = mode === "TELEOP" && !stopped;
   const reason = stopped
@@ -71,13 +97,7 @@ export function JogBlock({ mode, pressed, backendOnline, stopped, onDown, onUp }
               >
                 <span className="led" />
                 <span className="key__legend">
-                  {k.jog === "z+" ? (
-                    <ArrowUp size={14} />
-                  ) : k.jog === "z-" ? (
-                    <ArrowDown size={14} />
-                  ) : (
-                    k.legend
-                  )}
+                  <JogLegend jog={k.jog} legend={k.legend} />
                 </span>
                 <span className="key__cap">{k.cap}</span>
               </button>

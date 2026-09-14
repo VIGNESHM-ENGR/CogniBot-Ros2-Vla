@@ -27,7 +27,7 @@ flowchart LR
 
 | Profile | Services | Use |
 |---|---|---|
-| *(core)* | sim · motion · bridge · dashboard | Simulation, teleop (WASD / ↑↓ / G), planning |
+| *(core)* | sim · motion · bridge · dashboard | Simulation, teleop (WASD / ↑↓ / Q E / ← → / G), planning |
 | `vlm` | + llm · vlm-agent | Natural-language pick-and-place via tool calls |
 | `vla` | + policy-server · vla-client | SmolVLA skills streamed at 30 Hz |
 | `twin` | + twin | Mirror a real (or mock) SO-101 into MuJoCo |

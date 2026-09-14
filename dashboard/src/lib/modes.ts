@@ -27,7 +27,8 @@ export const VIEWS: { id: ViewId; key: string; label: string }[] = [
   { id: "system", key: "F5", label: "System" },
 ];
 
-export type JogKey = "x+" | "x-" | "y+" | "y-" | "z+" | "z-" | "grip";
+export type JogKey =
+  "x+" | "x-" | "y+" | "y-" | "z+" | "z-" | "pan+" | "pan-" | "roll+" | "roll-" | "grip";
 
 const JOG_BY_CODE: Record<string, JogKey> = {
   KeyW: "x+",
@@ -36,6 +37,10 @@ const JOG_BY_CODE: Record<string, JogKey> = {
   KeyD: "y-",
   ArrowUp: "z+",
   ArrowDown: "z-",
+  KeyQ: "pan+",
+  KeyE: "pan-",
+  ArrowLeft: "roll+",
+  ArrowRight: "roll-",
   KeyG: "grip",
 };
 

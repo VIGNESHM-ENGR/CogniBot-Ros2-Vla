@@ -22,7 +22,7 @@ from rcl_interfaces.msg import ParameterDescriptor
 from rclpy.node import Node
 from sensor_msgs.msg import JointState
 
-from cognibot_teleop.teleop_math import Workspace, integrate_target
+from cognibot_teleop.teleop_math import Workspace, integrate_target, yaw_about_base
 
 
 def _desc(text: str) -> ParameterDescriptor:
@@ -50,6 +50,7 @@ class MinkTeleop(Node):
         self.arm_joints = list(self.cfg.arm_joints)
         self.qadr = [self.model.jnt_qposadr[self.model.joint(j).id] for j in self.arm_joints]
         self.gripper_qadr = self.model.jnt_qposadr[self.model.joint(self.cfg.gripper.joint).id]
+        self.roll_joint_id = self.model.joint(self.arm_joints[-1]).id
         self.dt = 1.0 / float(p("rate_hz"))
         self.max_linear = float(p("max_linear_speed"))
         self.max_angular = float(p("max_angular_speed"))
@@ -75,6 +76,7 @@ class MinkTeleop(Node):
         self._mode = ControlMode.IDLE
         self._joints: dict[str, float] = {}
         self._linear = np.zeros(3)
+        self._pan = 0.0
         self._roll = 0.0
         self._last_cmd = -np.inf
         self._engaged = False
@@ -109,6 +111,7 @@ class MinkTeleop(Node):
     def _on_command(self, msg: TeleopCommand) -> None:
         self._linear = np.array([msg.linear.x, msg.linear.y, msg.linear.z])
         self._roll = float(np.clip(msg.wrist_roll, -1.0, 1.0))
+        self._pan = float(np.clip(msg.shoulder_pan, -1.0, 1.0))
         self._last_cmd = self._now()
         if msg.gripper == TeleopCommand.GRIPPER_TOGGLE:
             closed = abs(self._gripper - self.cfg.gripper.closed) < 1e-3
@@ -169,15 +172,22 @@ class MinkTeleop(Node):
         active = self._now() - self._last_cmd <= self.deadman
         linear = self._linear if active else np.zeros(3)
         roll = self._roll if active else 0.0
+        pan = self._pan if active else 0.0
 
-        position = integrate_target(
-            self._target.translation(), linear, self.max_linear, self.dt, self.workspace
-        )
+        position = self._target.translation()
         rotation = self._target.rotation()
+        if pan:
+            # Yaw the whole target about the base: the arm turns on shoulder_pan, tool orientation
+            # following, instead of translating sideways.
+            yaw = pan * self.max_angular * self.dt
+            position = yaw_about_base(position, yaw)
+            rotation = mink.SO3.exp(np.array([0.0, 0.0, yaw])) @ rotation
+        position = integrate_target(position, linear, self.max_linear, self.dt, self.workspace)
         if roll:
-            rotation = rotation @ mink.SO3.exp(
-                np.array([0.0, 0.0, roll * self.max_angular * self.dt])
-            )
+            # Roll about the last arm joint's world axis (the tool axis), not the site's local z:
+            # the IK model's site orientation differs from the scene's and is not the tool frame.
+            axis = self.configuration.data.xaxis[self.roll_joint_id]
+            rotation = mink.SO3.exp(axis * (roll * self.max_angular * self.dt)) @ rotation
         self._target = mink.SE3.from_rotation_and_translation(rotation, position)
         self.ee_task.set_target(self._target)
 

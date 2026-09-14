@@ -18,6 +18,8 @@ describe("commandForKey", () => {
   it("maps jog keys", () => {
     expect(commandForKey("ArrowUp", false)).toEqual({ kind: "jog", jog: "z+" });
     expect(commandForKey("KeyG", false)).toEqual({ kind: "jog", jog: "grip" });
+    expect(commandForKey("KeyQ", false)).toEqual({ kind: "jog", jog: "pan+" });
+    expect(commandForKey("ArrowRight", false)).toEqual({ kind: "jog", jog: "roll-" });
   });
 });
 

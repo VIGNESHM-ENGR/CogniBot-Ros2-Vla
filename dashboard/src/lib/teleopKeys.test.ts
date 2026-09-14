@@ -32,4 +32,12 @@ describe("commandFor", () => {
     s = jogReducer(s, { type: "down", jog: "y+" });
     expect(commandFor(s, "base_link")?.linear).toEqual({ x: 0, y: 1, z: 0 });
   });
+  it("maps pan and roll keys to the joint fields", () => {
+    let s = jogReducer(EMPTY_JOG, { type: "down", jog: "pan-" });
+    s = jogReducer(s, { type: "down", jog: "roll+" });
+    const c = commandFor(s, "base_link");
+    expect(c?.shoulder_pan).toBe(-1);
+    expect(c?.wrist_roll).toBe(1);
+    expect(c?.linear).toEqual({ x: 0, y: 0, z: 0 });
+  });
 });

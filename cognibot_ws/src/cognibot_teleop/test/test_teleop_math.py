@@ -1,6 +1,11 @@
 import numpy as np
 import pytest
-from cognibot_teleop.teleop_math import Workspace, clamp_to_workspace, integrate_target
+from cognibot_teleop.teleop_math import (
+    Workspace,
+    clamp_to_workspace,
+    integrate_target,
+    yaw_about_base,
+)
 
 WS = Workspace(center=np.array([0.0, 0.0, 0.12]), r_min=0.08, r_max=0.38, z_min=0.01)
 
@@ -25,3 +30,9 @@ def test_inner_shell():
 def test_integrate_scales_and_clips_command():
     t = integrate_target(np.array([0.2, 0.0, 0.15]), np.array([2.0, 0.0, -1.0]), 0.1, 0.5, WS)
     assert t.tolist() == pytest.approx([0.25, 0.0, 0.10])
+
+
+def test_yaw_about_base_keeps_radius_and_height():
+    p = yaw_about_base(np.array([0.2, 0.0, 0.15]), np.pi / 2)
+    assert p.tolist() == pytest.approx([0.0, 0.2, 0.15], abs=1e-12)
+    assert np.linalg.norm(p[:2]) == pytest.approx(0.2)

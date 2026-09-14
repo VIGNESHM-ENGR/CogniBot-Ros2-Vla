@@ -50,7 +50,7 @@ Conventions:
 | `/cognibot/teleop/cmd` | `cognibot_interfaces/TeleopCommand` | dashboard (rosbridge) | `mink_teleop` |
 | `/cognibot/teleop/ee_target` | `geometry_msgs/PoseStamped` | `mink_teleop` | dashboard, RViz |
 
-> `mink_teleop` requests TELEOP on the first command, seeds its IK configuration from `/joint_states` on engage, integrates the target at `max_linear_speed` (0.1 m/s) inside the registry workspace shell and above `table_z_min`, and streams at 100 Hz. The dashboard publishes `TeleopCommand` at 30 Hz while a jog key is held; the presence of `/cognibot/teleop/ee_target` is how it detects the node.
+> `mink_teleop` requests TELEOP on the first command, seeds its IK configuration from `/joint_states` on engage, integrates the target at `max_linear_speed` (0.1 m/s) inside the registry workspace shell and above `table_z_min`, yaws it about the base z axis for `shoulder_pan` and rolls the tool for `wrist_roll` (both at `max_angular_speed`), and streams at 100 Hz. The dashboard publishes `TeleopCommand` at 30 Hz while a jog key is held; the presence of `/cognibot/teleop/ee_target` is how it detects the node.
 
 ### 1.4 AI (owners: `cognibot_vlm`, `cognibot_vla`)
 
@@ -58,7 +58,7 @@ Conventions:
 |---|---|---|---|
 | `/cognibot/agent/events` | `cognibot_interfaces/AgentEvent` | `vlm_agent_node` | dashboard |
 | `/cognibot/agent/detections` | `cognibot_interfaces/ObjectDetection` | `vlm_agent_node` | dashboard, RViz (overlay) |
-| `/cognibot/vla/status` | `diagnostic_msgs/DiagnosticArray` | `skill_executor_node` | dashboard |
+| `/cognibot/vla/status` | `diagnostic_msgs/DiagnosticArray` | `skill_executor_node` (planned; the dashboard currently derives stream status from `/cognibot/mode` and `/cognibot/joint_command`) | dashboard |
 | `/cognibot/gpu` | `cognibot_interfaces/GpuStatus` | `gpu_monitor` | dashboard |
 
 ## 2. Services
@@ -83,6 +83,8 @@ Conventions:
 | `/cognibot/agent/run_task` | `cognibot_interfaces/action/RunAgentTask` | `vlm_agent_node` | dashboard |
 | `/joint_trajectory_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | JTC | move_group |
 | `/gripper_controller/gripper_cmd` | `control_msgs/action/ParallelGripperCommand` | gripper controller | move_group, pick_place_server |
+
+> `skill_executor_node` runs one `ExecuteSkill` goal at a time by starting LeRobot's async `robot_client` (`run_robot_client.sh`) as a subprocess with the container's policy configuration; a non-empty `instruction` overrides `TASK` and `checkpoint` overrides `VLA_CHECKPOINT`. The client requests VLA itself and IDLE on disconnect. Feedback carries `elapsed_s` and the observed `/cognibot/joint_command` rate (`queue_size`/`latency_ms` are 0 until the client exposes them). The run ends on cancel, `max_duration_s`, client exit, or when the arm leaves VLA (STOP or the mode key), which SIGINTs the client so it releases the arm.
 
 > **rosbridge and actions (verified P3-T02, `ros-jazzy-rosbridge-server` 2.7.1):** the `send_action_goal` / `action_feedback` / `action_result` / `cancel_action_goal` ops work against `/joint_trajectory_controller/follow_joint_trajectory` (`control_msgs/action/FollowJointTrajectory`): feedback streams during execution (~20 Hz), a completed goal returns `status: 4` (SUCCEEDED), and a cancel sent mid-motion returns `status: 5` (CANCELED) 0.06 s later. The dashboard uses actions directly; no service shim is needed. The spike used the raw protocol from Python; P3-T04 confirms the same ops through the pinned roslibjs `Action` class.
 >
@@ -116,6 +118,7 @@ uint8 GRIPPER_CLOSE=3
 std_msgs/Header header          # frame_id: robot base frame
 geometry_msgs/Vector3 linear    # normalized [-1, 1] per axis; scaled by node param max_linear_speed (m/s)
 float64 wrist_roll              # normalized [-1, 1]; scaled by max_angular_speed (rad/s)
+float64 shoulder_pan            # normalized [-1, 1]; yaws the target about the base z axis at max_angular_speed
 uint8 gripper                   # GRIPPER_* command (edge-triggered)
 ```
 

@@ -36,3 +36,10 @@ def integrate_target(
     """Move the target by a normalized [-1, 1] velocity command for `dt`, then clamp it."""
     v = np.clip(np.asarray(linear, dtype=float), -1.0, 1.0) * max_speed
     return clamp_to_workspace(target + v * dt, ws)
+
+
+def yaw_about_base(position: np.ndarray, angle: float) -> np.ndarray:
+    """Rotate `position` about the base z axis by `angle` (radians); z is unchanged."""
+    c, s = np.cos(angle), np.sin(angle)
+    x, y, z = np.asarray(position, dtype=float)
+    return np.array([c * x - s * y, s * x + c * y, z])

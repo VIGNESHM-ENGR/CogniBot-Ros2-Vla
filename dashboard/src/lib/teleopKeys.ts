@@ -40,6 +40,7 @@ export interface TeleopCommandMsg {
   header: { frame_id: string };
   linear: { x: number; y: number; z: number };
   wrist_roll: number;
+  shoulder_pan: number;
   gripper: number;
 }
 
@@ -59,7 +60,8 @@ export function commandFor(state: JogState, frameId: string): TeleopCommandMsg |
       y: axis(state.held, "y+", "y-"),
       z: axis(state.held, "z+", "z-"),
     },
-    wrist_roll: 0,
+    wrist_roll: axis(state.held, "roll+", "roll-"),
+    shoulder_pan: axis(state.held, "pan+", "pan-"),
     gripper: state.gripperToggle ? GRIPPER_TOGGLE : GRIPPER_NONE,
   };
 }
