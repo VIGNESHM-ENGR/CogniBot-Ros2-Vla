@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | owner test (P4) | Stacking: grounding while holding, tool tilt for reach, label-based fetch/place | fix |
 | 2026-09-14 | P4-T01…T05, P4-T07 | VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab | feat |
 | 2026-09-14 | P5-T06, P5-T08, P2-T06 (part 2), owner test | Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys | feat |
 | 2026-09-14 | P5-T05 (part), P5-T08 (part), owner request | Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target | feat |
@@ -86,6 +87,36 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · owner test (P4) · Stacking: grounding while holding, tool tilt for reach, label-based fetch/place
+
+**Context:** the owner tried the Agent tab beyond the scripted task: "pick up the red cube, place it on top of the green cube" failed with "out of reach", then a double stack (red on blue on green) failed repeatedly with the model claiming success.
+**Outcome:** ✅ single stack and double stack 3/3 (red at z = 0.062), original task still 1/1; `make test` 49/49, `cognibot_vlm` 15/15.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Green cube grounded at z = 0.031 right after the red cube was lifted | After `fetch_object` the gripper (with the cube) hovers over the workspace; the highest surface inside the green cube's box was the held cube | `clear_view()`: the arm returns home before any grounding inside a task (skipped when already there) | later traces: z = 0.013 |
+| 2 | `place_object` "out of reach" at z ≈ 0.10–0.12 | Real kinematics: keeping the gripper vertical at z = 0.10, r = 0.276 needs the wrist pivot 0.31 m from the shoulder; upper arm + forearm are 0.25 m. Vertical fails by 55–80 mm; a 30° lean away from the base solves 0 mm | `solve_top_down_ik(tilt)` and `TILTS = (0°, 30°, 45°)` tried in order in `solve_from_seeds`; shared `REACH_TOLERANCE` | test `test_double_stack_height_needs_a_lean`; hover halving prototype removed as redundant |
+| 3 | Double stack: red placed at the blue cube's **old** position after blue had moved | The 4B model reuses the first coordinates it saw; a prompt rule and even a tool result stating the new position ("The blue cube now rests at …") did not change that (it took the new `top` but the old x, y) | Take coordinates away from the model: `fetch_object(label)` / `place_object(label)` ground the label themselves right before acting; `get_object_coordinates` remains for questions | 3/3 double stacks; 1/1 regression |
+| 4 | Grounded centre was the top face | Camera sees the top; FetchObject wants the centre | centre z = top/2 (objects rest on the table), `top` reported for stacking | red on green at z = 0.037 |
+
+### Decisions
+#### D1: who owns coordinates
+```mermaid
+flowchart TD
+  Q{Model passes x,y,z to fetch/place?} --> A[Yes, plus prompt rules about staleness]
+  Q --> B[Yes, plus tool results that restate new positions]
+  Q --> C[No: tools take labels and ground internally]
+  A --> A1[✗ ignored by the 4B model]
+  B --> B1[✗ partially honoured: new top, old x,y]
+  C --> C1[✓ nothing can go stale; one fewer step per object]
+```
+- **Revisit if:** a task needs free-space placement ("put it 10 cm to the left") — add a `place_at(x, y)` tool then, or a larger model.
+
+### Open questions / follow-ups
+- [ ] `pick_place_server` still reports "fetched" without checking the gripper; success is judged from object poses in tests only.
+- [ ] Double stack takes ≈ 48 s, half of it the two home retreats before grounding; a wrist-camera check could skip some.
 
 ## 2026-09-14 · P4-T01…T05, P4-T07 · VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab
 
