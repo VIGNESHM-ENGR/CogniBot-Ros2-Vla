@@ -7,6 +7,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ## [Unreleased]
 
 ### Added
+- `start.sh`: start a profile (`core|vlm|vla|full`), open the dashboard, follow the agent logs; Ctrl-C stops all containers.
 - VLM agent (P4): `llm` service serving Qwen3-VL-4B through llama-swap (`make vlm`; GPU, hybrid and CPU profiles, pinned image digest and model revision, `download_model.sh`), `cognibot_vlm` grounding (bbox → top-face 3D point with depth and TF), tool schemas, tool-call loop and `vlm_agent` node (`RunAgentTask` action, `/cognibot/agent/events`, `/cognibot/agent/detections`, `/cognibot/vlm/get_object_coordinates`).
 - Dashboard Agent tab: instruction field, Run / Cancel, live step trace and a detection overlay on the front camera.
 - Stacking: the agent can put a cube on another cube and a third on top ("stack the cubes"); `fetch_object`/`place_object` take object descriptions and ground them themselves, grounding reports the top-surface height, and the scripted IK leans the tool when a vertical approach is out of reach.

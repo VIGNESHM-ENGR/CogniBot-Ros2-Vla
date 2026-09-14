@@ -55,6 +55,8 @@ make test         # all workspace tests in the core image (needs the NVIDIA GPU;
 
 `make sim` starts the simulation, MoveIt, the browser bridge and the dashboard on http://127.0.0.1:8000; `make down` stops everything.
 
+**One-shot:** `./start.sh` (or `./start.sh core|vlm|vla`) brings a profile up, opens the dashboard and follows the agent logs; **Ctrl-C stops every container** and prints the GPU state.
+
 ### What you can do in the dashboard
 
 | Tab | Keys | What happens |
