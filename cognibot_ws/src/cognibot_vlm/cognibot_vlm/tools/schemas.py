@@ -35,8 +35,9 @@ TOOLS: list[dict] = [
     _tool(
         "get_object_coordinates",
         "Find an object in the front camera image and return the 3D position of its centre in "
-        "the robot base frame (metres; objects are assumed to rest on the table). Call this "
-        "before fetching or placing on something.",
+        "the robot base frame (metres; objects are assumed to rest on the table) and `top`, "
+        "the height of its top surface. Only for answering questions about where things are; "
+        "fetch_object and place_object look for their object themselves.",
         {"label": {"type": "string", "description": "object description, e.g. 'red cube'"}},
         ["label"],
     ),
@@ -48,15 +49,21 @@ TOOLS: list[dict] = [
     ),
     _tool(
         "fetch_object",
-        "Pick up the object at a point: approach from above, grasp, lift.",
-        POINT,
-        ["x", "y", "z"],
+        "Look for the object in the camera, then pick it up: approach from above, grasp, lift.",
+        {"label": {"type": "string", "description": "object description, e.g. 'red cube'"}},
+        ["label"],
     ),
     _tool(
         "place_object",
-        "Lower the held object onto a point and release it.",
-        POINT,
-        ["x", "y", "z"],
+        "Look for the destination in the camera, then lower the held object onto it and "
+        "release: onto the top of another object (stacking) or the centre of a marked area.",
+        {
+            "label": {
+                "type": "string",
+                "description": "destination, e.g. 'blue cube' or 'black rectangle'",
+            }
+        },
+        ["label"],
     ),
     _tool("move_home", "Move the arm to its home pose.", {}, []),
     _tool(

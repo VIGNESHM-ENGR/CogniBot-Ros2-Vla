@@ -78,3 +78,17 @@ def test_scripted_grasp_lifts_the_cube(scene):
             gripper = w.gripper
             drive(list(q) + [gripper], 0.8)
     assert data.xpos[cube_id][2] > 0.05
+
+
+def test_double_stack_height_needs_a_lean(scene):
+    """Placing on two cubes (surface 0.05 m) near the base: vertical is 55 mm short at the drop
+    approach, the 30° lean reaches it."""
+    from cognibot_motion.pick_place_ik import solve_from_seeds
+
+    cfg, model = scene
+    joints = list(cfg.arm_joints)
+    target = np.array([0.276, -0.03, 0.10])
+    _, vertical = solve_top_down_ik(model, joints, cfg.ee_site, target, np.array(cfg.home_pose))
+    _, leaned = solve_from_seeds(model, joints, cfg.ee_site, target, [np.array(cfg.home_pose)])
+    assert vertical > 0.03
+    assert leaned < 0.002

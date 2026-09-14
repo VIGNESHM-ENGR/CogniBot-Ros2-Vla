@@ -25,6 +25,9 @@ DROP_CLEARANCE = 0.012  # object centre above the surface when released
 # Solutions stay this far inside the joint limits: a controller settling exactly on a limit can
 # overshoot by ~1e-4 rad, which MoveIt then rejects as an invalid start state.
 LIMIT_MARGIN = 0.01
+# Tool-axis leans tried in order by solve_from_seeds, and the position error that counts as reached.
+TILTS = (0.0, np.radians(30.0), np.radians(45.0))
+REACH_TOLERANCE = 0.03
 
 
 @dataclass(frozen=True)
@@ -43,8 +46,15 @@ def solve_top_down_ik(
     target: np.ndarray,
     seed: np.ndarray,
     iters: int = 300,
+    tilt: float = 0.0,
 ) -> tuple[np.ndarray, float]:
-    """Return (joint positions, position error in m) for the site reaching `target`."""
+    """Return (joint positions, position error in m) for the site reaching `target`.
+
+    `tilt` (radians) leans the tool axis away from the base, from vertical: the arm cannot hold
+    the gripper vertical above ~0.07 m at the far side of the workspace (upper arm + forearm
+    are 0.25 m; a vertical tool puts the wrist pivot 0.3 m out), but reaching over with a
+    30° lean solves stacking heights exactly.
+    """
     data = mujoco.MjData(model)
     qadr = [model.jnt_qposadr[model.joint(j).id] for j in joints]
     dadr = [model.jnt_dofadr[model.joint(j).id] for j in joints]
@@ -53,7 +63,9 @@ def solve_top_down_ik(
     sid = model.site(site).id
     q = np.array(seed, dtype=float)
     jacp, jacr = np.zeros((3, model.nv)), np.zeros((3, model.nv))
-    down = np.array([0.0, 0.0, -1.0])
+    radial = np.array([target[0], target[1], 0.0])
+    radial = radial / max(float(np.linalg.norm(radial)), 1e-9)
+    down = np.array([0.0, 0.0, -np.cos(tilt)]) + radial * np.sin(tilt)
     for _ in range(iters):
         data.qpos[qadr] = q
         mujoco.mj_kinematics(model, data)
@@ -84,7 +96,8 @@ def solve_from_seeds(
 
     The descent can stall against a joint limit when the seed faces away from the target, so
     each seed is also retried with the base joint turned to the target's azimuth (either sign,
-    as the base joint's sense depends on the model).
+    as the base joint's sense depends on the model). Tool tilts from `TILTS` are tried in order
+    until one lands within `REACH_TOLERANCE`.
     """
     azimuth = float(np.arctan2(target[1], target[0]))
     turned = []
@@ -94,11 +107,15 @@ def solve_from_seeds(
             q[0] = sign * azimuth
             turned.append(q)
     best: tuple[np.ndarray, float] | None = None
-    for seed in [*seeds, *turned]:
-        q, err = solve_top_down_ik(model, joints, site, target, seed)
-        if best is None or err < best[1]:
-            best = (q, err)
-        if err < 1e-3:
+    # Vertical first; lean the tool over only when vertical cannot get within reach.
+    for tilt in TILTS:
+        for seed in [*seeds, *turned]:
+            q, err = solve_top_down_ik(model, joints, site, target, seed, tilt=tilt)
+            if best is None or err < best[1]:
+                best = (q, err)
+            if err < 1e-3:
+                return best
+        if best[1] <= REACH_TOLERANCE:
             break
     assert best is not None
     return best

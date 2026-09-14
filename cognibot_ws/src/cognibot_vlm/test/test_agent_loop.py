@@ -38,8 +38,8 @@ def test_pick_and_place_sequence_runs_each_tool_and_finishes():
             AssistantTurn(
                 "Looking for the cube.", (call(1, "get_object_coordinates", label="red cube"),)
             ),
-            AssistantTurn("", (call(2, "fetch_object", x=0.27, y=-0.02, z=0.01),)),
-            AssistantTurn("", (call(3, "place_object", x=0.3, y=0.2, z=0.0),)),
+            AssistantTurn("", (call(2, "fetch_object", label="red cube"),)),
+            AssistantTurn("", (call(3, "place_object", label="black rectangle"),)),
             AssistantTurn("Placed the red cube on the target."),
         ]
     )
@@ -69,7 +69,7 @@ def test_invalid_tool_call_is_repaired_once_then_ends():
     chat = ScriptedChat(
         [
             AssistantTurn("", (ToolCall("c1", "fetch_object", "{not json"),)),
-            AssistantTurn("", (call(2, "fetch_object", x=1, y=2),)),  # still wrong: z missing
+            AssistantTurn("", (call(2, "fetch_object", object="cube"),)),  # still wrong: no label
             AssistantTurn("never reached"),
         ]
     )

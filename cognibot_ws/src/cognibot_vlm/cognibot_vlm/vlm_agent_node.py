@@ -38,7 +38,7 @@ from rclpy.qos import (
     ReliabilityPolicy,
     qos_profile_sensor_data,
 )
-from sensor_msgs.msg import CameraInfo, Image
+from sensor_msgs.msg import CameraInfo, Image, JointState
 from tf2_ros import Buffer, TransformListener
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -160,6 +160,7 @@ class VlmAgent(Node):
         self._color: Image | None = None
         self._depth: Image | None = None
         self._info: CameraInfo | None = None
+        self._joints: JointState | None = None
         self._mode = ControlMode.IDLE
         self._busy = False
         self._task_id = ""
@@ -174,6 +175,13 @@ class VlmAgent(Node):
             CameraInfo,
             p("camera_info_topic"),
             self._on_info,
+            qos_profile_sensor_data,
+            callback_group=group,
+        )
+        self.create_subscription(
+            JointState,
+            "/joint_states",
+            self._on_joints,
             qos_profile_sensor_data,
             callback_group=group,
         )
@@ -247,6 +255,10 @@ class VlmAgent(Node):
     def _on_info(self, msg: CameraInfo) -> None:
         with self._lock:
             self._info = msg
+
+    def _on_joints(self, msg: JointState) -> None:
+        with self._lock:
+            self._joints = msg
 
     def _on_mode(self, msg: ControlMode) -> None:
         self._mode = msg.mode
@@ -360,7 +372,8 @@ class VlmAgent(Node):
         point, bbox_px = ground_top_face(box, depth, np.array(info.k), transform_matrix(transform))
         # The camera sees the top face; FetchObject wants the centre. Objects rest on the table
         # (z = 0), so the centre sits halfway between the table and the visible top.
-        point[2] = max(point[2], 0.0) / 2.0
+        top = max(float(point[2]), 0.0)
+        point[2] = top / 2.0
         detection = ObjectDetection()
         detection.header.stamp = self.get_clock().now().to_msg()
         detection.header.frame_id = self.camera_frame
@@ -379,6 +392,7 @@ class VlmAgent(Node):
             "x": round(float(point[0]), 3),
             "y": round(float(point[1]), 3),
             "z": round(float(point[2]), 3),
+            "top": round(top, 3),
             "bbox_xyxy": list(bbox_px),
             "label": detection.label,
             "image_size": [int(rgb.shape[1]), int(rgb.shape[0])],
@@ -454,6 +468,27 @@ class VlmAgent(Node):
         goal.target.point.x, goal.target.point.y, goal.target.point.z = x, y, z
         return goal
 
+    def clear_view(self) -> None:
+        """Park the arm at home before grounding: after a fetch it hovers over the workspace and
+        the held object becomes the highest surface in any nearby box."""
+        with self._lock:
+            joints = (
+                dict(zip(self._joints.name, self._joints.position, strict=False))
+                if self._joints
+                else {}
+            )
+        current = np.array([joints.get(j, 0.0) for j in self.cfg.arm_joints])
+        if np.max(np.abs(current - np.array(self.cfg.home_pose))) < 0.15:
+            return
+        self.ensure_mode(ControlMode.MOTION)
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory.joint_names = list(self.cfg.arm_joints)
+        point = JointTrajectoryPoint(positions=list(self.cfg.home_pose))
+        point.time_from_start = Duration(sec=3)
+        goal.trajectory.points = [point]
+        self.run_action(self._trajectory, goal, 20.0, "clear view")
+        time.sleep(0.5)  # let the camera publish a frame without the arm
+
     def reachable(self, x: float, y: float, z: float) -> tuple[bool, str]:
         ws = self.cfg.reach.workspace_sphere
         r = float(np.linalg.norm(np.array([x, y, z]) - np.array(ws.center)))
@@ -470,27 +505,30 @@ class _Tools:
     def run(self, name: str, arguments: dict[str, Any]) -> str:
         n = self.node
         if name == "get_object_coordinates":
+            n.clear_view()
             return json.dumps(n.locate(arguments["label"]))
         if name == "check_reachability":
             ok, why = n.reachable(arguments["x"], arguments["y"], arguments["z"])
             return json.dumps({"reachable": ok, "detail": why})
         if name in ("fetch_object", "place_object"):
+            # Ground the label now, with the arm out of the view: coordinates never pass
+            # through the model, so nothing can go stale between steps.
+            n.clear_view()
+            found = n.locate(arguments["label"])
             n.ensure_mode(ControlMode.MOTION)
-            client, action = (
-                (n._fetch, FetchObject) if name == "fetch_object" else (n._place, PlaceObject)
-            )
-            goal = n.point_goal(action.Goal(), arguments["x"], arguments["y"], arguments["z"])
-            result = n.run_action(client, goal, 90.0, name)
-            return result.message if result.success else f"error: {result.message}"
+            if name == "fetch_object":
+                goal = n.point_goal(FetchObject.Goal(), found["x"], found["y"], found["z"])
+                result = n.run_action(n._fetch, goal, 90.0, name)
+            else:
+                goal = n.point_goal(PlaceObject.Goal(), found["x"], found["y"], found["top"])
+                result = n.run_action(n._place, goal, 90.0, name)
+            if not result.success:
+                return f"error: {result.message}"
+            where = f"{found['label']} at x={found['x']:.3f} y={found['y']:.3f}"
+            return f"{result.message} ({where}, top {found['top']:.3f})"
         if name == "move_home":
-            n.ensure_mode(ControlMode.MOTION)
-            goal = FollowJointTrajectory.Goal()
-            goal.trajectory.joint_names = list(n.cfg.arm_joints)
-            point = JointTrajectoryPoint(positions=list(n.cfg.home_pose))
-            point.time_from_start = Duration(sec=3)
-            goal.trajectory.points = [point]
-            result = n.run_action(n._trajectory, goal, 20.0, name)
-            return "at home" if result.error_code == 0 else f"error: {result.error_string}"
+            n.clear_view()
+            return "at home"
         if name == "set_gripper":
             n.ensure_mode(ControlMode.MOTION)
             goal = ParallelGripperCommand.Goal()

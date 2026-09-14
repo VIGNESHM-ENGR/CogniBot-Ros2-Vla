@@ -35,6 +35,7 @@ from std_srvs.srv import Trigger
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from cognibot_motion.pick_place_ik import (
+    REACH_TOLERANCE,
     Waypoint,
     fetch_waypoints,
     place_waypoints,
@@ -204,7 +205,7 @@ class PickPlaceServer(Node):
                 np.array(waypoint.xyz),
                 [q, np.array(self.cfg.home_pose)],
             )
-            if err > 0.03:
+            if err > REACH_TOLERANCE:
                 raise RuntimeError(f"target {np.round(waypoint.xyz, 3).tolist()} out of reach")
             self._send_arm(handle, q, waypoint.seconds)
         feedback.progress = 1.0
