@@ -7,6 +7,7 @@ from cognibot_vlm.grounding import (
     GroundingError,
     deproject,
     ground,
+    ground_top_face,
     median_depth,
     parse_boxes,
     to_pixels,
@@ -73,3 +74,39 @@ def test_ground_recovers_a_known_cube_within_a_millimetre():
     point, bbox_px = ground(box, depth, K, np.eye(4))
     assert np.linalg.norm(point - cube_cam) < 1e-3
     assert bbox_px == tuple(round(c) for c in (u - 10, v - 10, u + 10, v + 10))
+
+
+def test_top_face_centroid_ignores_the_visible_side():
+    """Oblique view of a cube: the box holds top and front face; the answer is the top centre."""
+    # Camera 0.3 m above the table at x = 0.6, looking toward -x and 45° down. Optical axes in
+    # the base frame: x right (+y), y down (+x, -z), z forward (-x, -z).
+    s2 = np.sqrt(0.5)
+    t = np.eye(4)
+    t[:3, :3] = np.array([[0.0, s2, -s2], [1.0, 0.0, 0.0], [0.0, -s2, -s2]])
+    t[:3, 3] = [0.6, 0.0, 0.3]
+    t_cam_base = np.linalg.inv(t)
+    depth = np.full((480, 640), np.nan)
+    # Cube of 25 mm centred at (0.30, 0.00) resting on the table: top face z = 0.025,
+    # front face (x = 0.3125) from z = 0 to 0.025.
+    top = [
+        (0.3 + dx, dy, 0.025)
+        for dx in np.linspace(-0.0125, 0.0125, 30)
+        for dy in np.linspace(-0.0125, 0.0125, 30)
+    ]
+    front = [
+        (0.3125, dy, dz)
+        for dy in np.linspace(-0.0125, 0.0125, 30)
+        for dz in np.linspace(0.0, 0.025, 30)
+    ]
+    pixels = []
+    for p in top + front:
+        c = t_cam_base[:3, :3] @ np.array(p) + t_cam_base[:3, 3]
+        u, v = K[0, 0] * c[0] / c[2] + K[0, 2], K[1, 1] * c[1] / c[2] + K[1, 2]
+        depth[int(round(v)), int(round(u))] = c[2]
+        pixels.append((u, v))
+    us, vs = zip(*pixels, strict=True)
+    box = Box("cube", (min(us) / 0.64, min(vs) / 0.48, max(us) / 0.64, max(vs) / 0.48))
+    naive, _ = ground(box, depth, K, t)
+    point, _ = ground_top_face(box, depth, K, t)
+    assert abs(naive[0] - 0.30) > 0.003  # the box centre is biased toward the camera
+    assert np.allclose(point, [0.30, 0.0, 0.025], atol=0.003)

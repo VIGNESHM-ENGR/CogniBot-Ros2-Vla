@@ -81,6 +81,8 @@ Conventions:
 | `/cognibot/move_to_named_pose` | `cognibot_interfaces/action/MoveToNamedPose` | `pick_place_server` | vlm-agent, dashboard |
 | `/cognibot/vla/execute_skill` | `cognibot_interfaces/action/ExecuteSkill` | `skill_executor_node` | vlm-agent, dashboard |
 | `/cognibot/agent/run_task` | `cognibot_interfaces/action/RunAgentTask` | `vlm_agent_node` | dashboard |
+
+> `vlm_agent` (ADR-0007) takes the latest front frame as JPEG, runs Qwen3-VL through llama-swap with the tools in `cognibot_vlm/tools/schemas.py` (`get_object_coordinates`, `check_reachability`, `fetch_object`, `place_object`, `move_home`, `set_gripper`, `run_vla_skill`), publishes every step on `/cognibot/agent/events` and grounded boxes on `/cognibot/agent/detections`, and requests MOTION (via IDLE when needed) before scripted motions. Camera topics are parameters (`config/agent.yaml`) pointing at the simulator's plugin topics; `check_reachability` uses the registry workspace sphere until `reach_query` exists. The llama-swap profile is `model_hybrid` while the arm is in VLA, `model_gpu` otherwise.
 | `/joint_trajectory_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | JTC | move_group |
 | `/gripper_controller/gripper_cmd` | `control_msgs/action/ParallelGripperCommand` | gripper controller | move_group, pick_place_server |
 

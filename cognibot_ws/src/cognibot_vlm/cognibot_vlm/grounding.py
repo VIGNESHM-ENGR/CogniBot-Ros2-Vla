@@ -118,3 +118,43 @@ def ground(
     u = (bbox_px[0] + bbox_px[2]) / 2.0
     v = (bbox_px[1] + bbox_px[3]) / 2.0
     return transform_point(deproject(u, v, z, k), t_target_camera), bbox_px
+
+
+TOP_SLAB_M = 0.004
+
+
+def ground_top_face(
+    box: Box,
+    depth: np.ndarray,
+    k: np.ndarray,
+    t_target_camera: np.ndarray,
+    scale: float = BOX_SCALE,
+    inner: float = 1.0,
+) -> tuple[np.ndarray, tuple[int, int, int, int]]:
+    """Box → (centre of the object's highest visible surface, pixel box).
+
+    An oblique camera sees the top and a side of a small object, so the 2D box centre and the
+    median depth land on the near side of the top face (measured 9 mm on a 25 mm cube). Here
+    every valid pixel of the box is deprojected into the target frame and the centroid of those
+    within `TOP_SLAB_M` of the highest point is returned (a per-axis median, so the thin strip of
+    side face inside the slab does not pull it); z is that surface's height. The whole box is
+    used because the slab, not a crop, isolates the surface: cropping would trim the far edge of
+    the top face and bias the centre toward the camera.
+    """
+    height, width = depth.shape[:2]
+    bbox_px = to_pixels(box.xyxy, width, height, scale)
+    x1, y1, x2, y2 = bbox_px
+    w, h = x2 - x1 + 1, y2 - y1 + 1
+    mx, my = int((w - w * inner) / 2), int((h - h * inner) / 2)
+    us, vs = np.meshgrid(np.arange(x1 + mx, x2 - mx + 1), np.arange(y1 + my, y2 - my + 1))
+    zs = np.asarray(depth, dtype=float)[vs, us]
+    valid = np.isfinite(zs) & (zs > 0)
+    if not valid.any():
+        raise GroundingError("no valid depth inside the box")
+    kk = np.asarray(k, dtype=float).reshape(3, 3)
+    u, v, z = us[valid].astype(float), vs[valid].astype(float), zs[valid]
+    cam = np.stack([(u - kk[0, 2]) * z / kk[0, 0], (v - kk[1, 2]) * z / kk[1, 1], z], axis=1)
+    t = np.asarray(t_target_camera, dtype=float)
+    pts = cam @ t[:3, :3].T + t[:3, 3]
+    top = pts[pts[:, 2] >= pts[:, 2].max() - TOP_SLAB_M]
+    return np.median(top, axis=0), bbox_px

@@ -1,0 +1,16 @@
+vlm_agent:
+  ros__parameters:
+    robot: so101
+    # llama-swap profiles (cognibot_ws/docker/llm/config.yaml); the hybrid one is used while a
+    # VLA policy holds the GPU (mode VLA).
+    model_gpu: qwen3-vl-4b-gpu
+    model_hybrid: qwen3-vl-4b-hybrid
+    max_steps: 12
+    temperature: 0.1
+    max_tokens: 512
+    color_topic: /mujoco_camera_plugin/front_rgbd/color
+    depth_topic: /mujoco_camera_plugin/front_rgbd/depth
+    camera_info_topic: /mujoco_camera_plugin/front_rgbd/camera_info
+    camera_frame: front_camera_optical_frame
+    base_frame: base_link
+    jpeg_quality: 85

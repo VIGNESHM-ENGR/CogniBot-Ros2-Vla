@@ -111,12 +111,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG HOST_UID=1000
 ARG HOST_GID=1000
 ARG OPENAI_VERSION=3.13.0
+ARG PILLOW_VERSION=12.3.0
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-tf2-ros python3-venv curl \
+      ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-tf2-ros ros-jazzy-control-msgs python3-venv curl \
  && rm -rf /var/lib/apt/lists/* \
  && python3 -m venv --system-site-packages /opt/venv \
- && /opt/venv/bin/pip install --no-cache-dir "openai==${OPENAI_VERSION}"
+ && /opt/venv/bin/pip install --no-cache-dir "openai==${OPENAI_VERSION}" "pillow==${PILLOW_VERSION}"
 COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
 COPY cognibot_ws/docker/entrypoint.sh /entrypoint.sh
 COPY cognibot_ws/docker/cyclonedds.xml /etc/cognibot/cyclonedds.xml
@@ -124,7 +125,11 @@ RUN (id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu || true) \
  && groupadd -o -g "${HOST_GID}" cognibot \
  && useradd -m -o -u "${HOST_UID}" -g "${HOST_GID}" -s /bin/bash cognibot \
  && mkdir -p /ws && chown cognibot:cognibot /ws
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_common /ws/src/cognibot_common
 COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_vlm /ws/src/cognibot_vlm
+# Robot registry only (no meshes): the agent reads joints, home pose and workspace from it.
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_sim/robots/so101/robot.yaml /ws/registry/robots/so101/robot.yaml
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_sim/robots/panda/robot.yaml /ws/registry/robots/panda/robot.yaml
 RUN source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
  && cd /ws && colcon build --symlink-install && chown -R cognibot:cognibot /ws
 USER cognibot

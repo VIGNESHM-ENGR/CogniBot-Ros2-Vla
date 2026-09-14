@@ -13,6 +13,7 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         ("share/" + package_name + "/launch", glob("launch/*.launch.py")),
         ("share/" + package_name + "/config", glob("config/*.yaml")),
+        ("share/" + package_name + "/prompts", glob("prompts/*.md")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -22,6 +23,6 @@ setup(
     license="Apache-2.0",
     tests_require=["pytest"],
     entry_points={
-        "console_scripts": [],
+        "console_scripts": ["vlm_agent = cognibot_vlm.vlm_agent_node:main"],
     },
 )

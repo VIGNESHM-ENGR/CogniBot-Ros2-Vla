@@ -13,6 +13,8 @@
 <exec_depend>tf2_ros</exec_depend>
 <exec_depend>cognibot_interfaces</exec_depend>
 <exec_depend>cognibot_common</exec_depend>
+<exec_depend>control_msgs</exec_depend>
+<exec_depend>trajectory_msgs</exec_depend>
 
     <test_depend>python3-pytest</test_depend>
 

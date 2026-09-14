@@ -15,6 +15,8 @@ import signal
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.request
 from collections import deque
 
 import rclpy
@@ -31,6 +33,16 @@ from sensor_msgs.msg import JointState
 RATE_WINDOW_S = 2.0
 STOP_GRACE_S = 10.0
 NO_ACTION_TIMEOUT_S = 30.0
+
+
+def unload_vlm(base_url: str, timeout_s: float = 10.0) -> str:
+    """Ask llama-swap to unload every model so the policy gets the GPU; best effort."""
+    url = base_url.rstrip("/").removesuffix("/v1") + "/api/models/unload"
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, method="POST"), timeout=timeout_s):
+            return f"VLM unloaded ({url})"
+    except (urllib.error.URLError, OSError) as exc:
+        return f"VLM unload skipped ({exc})"
 
 
 def stop_reason(
@@ -141,6 +153,8 @@ class SkillExecutor(Node):
         with self._lock:
             self._stamps.clear()
             self._commands = 0
+        if env.get("LLM_BASE_URL"):
+            self.get_logger().info(unload_vlm(env["LLM_BASE_URL"]))
         started = time.monotonic()
         proc = subprocess.Popen([self._script], env=env)
         entered_vla = False

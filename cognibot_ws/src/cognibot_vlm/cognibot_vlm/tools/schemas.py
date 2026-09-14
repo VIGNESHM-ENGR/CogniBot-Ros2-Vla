@@ -34,8 +34,9 @@ def _tool(name: str, description: str, properties: dict, required: list[str]) ->
 TOOLS: list[dict] = [
     _tool(
         "get_object_coordinates",
-        "Find an object in the front camera image and return its 3D position in the robot "
-        "base frame (metres). Call this before fetching or placing on something.",
+        "Find an object in the front camera image and return the 3D position of its centre in "
+        "the robot base frame (metres; objects are assumed to rest on the table). Call this "
+        "before fetching or placing on something.",
         {"label": {"type": "string", "description": "object description, e.g. 'red cube'"}},
         ["label"],
     ),
