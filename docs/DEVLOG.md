@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | owner request | README showcase: architecture figure, screenshots, decisions | docs |
 | 2026-09-14 | owner test (P4) | Stacking: grounding while holding, tool tilt for reach, label-based fetch/place | fix |
 | 2026-09-14 | P4-T01…T05, P4-T07 | VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab | feat |
 | 2026-09-14 | P5-T06, P5-T08, P2-T06 (part 2), owner test | Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys | feat |
@@ -87,6 +88,18 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · owner request · README showcase: architecture figure, screenshots, decisions
+
+**Context:** the README is the project's entry point for reviewers (founders, senior engineers); it still described Phase 1.
+**Outcome:** ✅ rewritten around evidence: five screenshots captured from the running stack (three-cube stack by the agent, tool trace, VLA streaming, Motion spawner, System controllers), a layered SVG architecture figure (`docs/media/architecture.svg`) with every container, node and interface, the live `ros2` graph listing, control-mode and agent sequence diagrams, an engineering-decision table linked to ADRs, the hard problems with root causes, measured results with honest limits, and a Docker quick start.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Screenshot run: agent answered "out of reach" on the double stack | The running `motion` container was built before the tool-lean commit (source is baked into the image) | Rebuilt `cognibot/core`, recreated the stack; `grep TILTS` inside the container before capturing | stack 0.012 / 0.037 / 0.062 m in the camera shot |
+| 2 | Mermaid system diagram unreadable at GitHub width | Dagre ignores subgraph `direction` once edges cross subgraphs; 40 edges fan out into a 1600 px-wide hairball | Generated SVG with fixed layers and routed edges; mermaid kept for the state and sequence diagrams, each parsed with mermaid 11.12 before commit | renders at 1600×1110, no overlaps |
+| 3 | Sequence diagram parse error | `;` inside a `Note` ends the statement in mermaid | Replaced with a comma | all diagrams render |
 
 ## 2026-09-14 · owner test (P4) · Stacking: grounding while holding, tool tilt for reach, label-based fetch/place
 
