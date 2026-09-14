@@ -90,7 +90,8 @@ services:
   # ─────────────── vlm profile ───────────────
   llm:
     <<: *gpu
-    image: ghcr.io/mostlygeek/llama-swap:unified-cuda13
+    # llama-swap unified-cuda13 (2026-09-13 build)
+    image: ghcr.io/mostlygeek/llama-swap@sha256:b7e6f0c002d690d7a501f2b9ec4b173e1b0bc02eaaaca16945a9df11aa6c467f
     profiles: [vlm, full]
     network_mode: host
     restart: unless-stopped
@@ -98,11 +99,10 @@ services:
       LLAMA_SWAP_CONFIG: /etc/llama-swap/config/config.yaml
       LLAMA_SWAP_LISTEN: 127.0.0.1:8082
       LLAMA_SWAP_WATCH_CONFIG: "false"
-      LLAMA_CACHE: /models/cache
-      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - ./llm/config.yaml:/etc/llama-swap/config/config.yaml:ro
-      - llm_models:/models
+      # Model files: cognibot_ws/docker/llm/download_model.sh (same cache as the policy server).
+      - ${HF_CACHE_DIR:-~/.cache/huggingface}:/hf_cache:ro
     mem_limit: 12g
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8082/health || exit 1"]
@@ -119,7 +119,7 @@ services:
       target: vlm
       args: *build-args
     profiles: [vlm, full]
-    command: ros2 launch cognibot_bringup vlm.launch.py robot:=${ROBOT:-so101}
+    command: ros2 launch cognibot_vlm vlm.launch.py robot:=${ROBOT:-so101} registry_dir:=/ws/registry
     environment:
       <<: *ros-env
       LLM_BASE_URL: http://127.0.0.1:8082/v1
@@ -210,6 +210,3 @@ services:
     depends_on:
       sim:
         condition: service_healthy
-
-volumes:
-  llm_models:

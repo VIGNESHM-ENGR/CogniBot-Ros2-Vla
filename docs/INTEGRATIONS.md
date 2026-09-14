@@ -12,7 +12,7 @@ CogniBot is an integration project. This file lists **every external component**
 |---|---|---|---|---|
 | `moveit/moveit2:jazzy-release` | `core` image (`sim`, `motion`, `bridge`, `twin`) | tag now → digest **TBD** | P0 / P1-T01 | Official MoveIt image on `ros:jazzy-ros-base`, with MoveIt 2 binaries (incl. `moveit_py`) preinstalled |
 | `ros:jazzy-ros-base-noble` | `interfaces` build stage, `vlm`, `vla` images | tag now → digest **TBD** | P0 | Official OSRF image, Python 3.12 |
-| `ghcr.io/mostlygeek/llama-swap:unified-cuda13` | `llm` | tag now → versioned tag **TBD** | P4-T01 | llama-swap + llama.cpp `llama-server` (CUDA) in one image; model hot-swap/TTL/unload API |
+| `ghcr.io/mostlygeek/llama-swap` (`unified-cuda13`) | `llm` | `sha256:b7e6f0c002d690d7a501f2b9ec4b173e1b0bc02eaaaca16945a9df11aa6c467f` (2026-09-13 build, 12.6 GB) | P4-T02 | llama-swap + llama.cpp `llama-server` (CUDA) in one image; model hot-swap/TTL/unload API |
 | `huggingface/lerobot-gpu:latest` | `policy-server` | digest **TBD** | P5-T01 | Official LeRobot GPU image; runs `lerobot.async_inference.policy_server` unmodified |
 | `node:22-alpine` → `nginx:1.27-alpine` | `dashboard` | tags | P3-T03 | Standard SPA build and serve |
 | `huggingface/lerobot-gpu` | `policy-server` | `sha256:7f36ab17a87911c79ad0856bdfa2bf0d9b92ce03d677a3ef41a9d91bc659ed6b` (lerobot 0.6.2, torch 2.11+cu128, 2026-09-13) | P5-T01 | Stock `policy_server`; run as the host uid with `HOME`, `HF_LEROBOT_HOME`, `TRITON_CACHE_DIR` pointed at writable paths |
@@ -88,7 +88,7 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 
 | Model | Source | Variant | Served by |
 |---|---|---|---|
-| Qwen3-VL-4B-Instruct | [`Qwen/Qwen3-VL-4B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF) | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` + `mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf` | llama-swap → llama-server |
+| Qwen3-VL-4B-Instruct | [`Qwen/Qwen3-VL-4B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF) @ `1cd86afb9a95c410a6038ab3b40d8b578c892266` | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` (2.5 GB) + `mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf` (454 MB), fetched by `cognibot_ws/docker/llm/download_model.sh` into the HF cache | llama-swap → llama-server (`-m`/`--mmproj`); measured RTX 3060 Laptop: gpu 66.6 tok/s, hybrid 7.9, cpu 4.0 generation; boxes in 0–1000 normalized coordinates |
 
 ### 6.1 Policy checkpoints (candidates for P5-T02)
 
