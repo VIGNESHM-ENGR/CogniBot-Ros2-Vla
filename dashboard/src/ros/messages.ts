@@ -64,6 +64,26 @@ export interface FreeJointStateArray {
   }[];
 }
 
+export interface ExecuteSkillGoal {
+  instruction: string;
+  checkpoint: string;
+  max_duration_s: number;
+}
+
+export interface ExecuteSkillFeedback {
+  elapsed_s: number;
+  rate_hz: number;
+  queue_size: number;
+  latency_ms: number;
+}
+
+export interface ExecuteSkillResult {
+  success: boolean;
+  message: string;
+  actions_executed: number;
+  mean_rate_hz: number;
+}
+
 export interface StageFeedback {
   stage: string;
   progress: number;

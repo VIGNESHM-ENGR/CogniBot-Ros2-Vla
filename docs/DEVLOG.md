@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | P5-T06, P5-T08, P2-T06 (part 2), owner test | Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys | feat |
 | 2026-09-14 | P5-T05 (part), P5-T08 (part), owner request | Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target | feat |
 | 2026-09-14 | P5-T01, P5-T03/T04 (part), P5-T05 (part) | SmolVLA and ACT inference streaming into the simulated arm | feat |
 | 2026-09-13 | P2-T06 (part 1), P3-T06 | mink teleop and the dashboard jog keys | feat |
@@ -84,6 +85,42 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · P5-T06, P5-T08, P2-T06 (part 2), owner test · Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys
+
+**Context:** owner test of the previous build: turning the mode key to VLA locked the console ("VLA → MOTION not allowed", only STOP got out), the VLA tab had no way to start or stop a policy, teleop lacked base pan and wrist roll keys, and Motion keys looked broken (greyed out while the console was stuck in VLA).
+**Outcome:** ✅ all four addressed and the whole operator workflow verified from the browser (Playwright, 1440×900): mode 4 → 3 lands in MOTION; TELEOP Q/E pan −80°/back, ←/→ roll +74°/back; MOTION `rest`, move to point, pick-and-place of the green and a spawned yellow cube; VLA Start policy → STREAMING · 30 Hz → Stop policy → IDLE → MOTION; Esc during a run ends it and holds the pose. `make test` 48/48 (stack down), vitest 29/29, executor tests 4/4 in the vla image.
+
+### Work log
+- `mode key`: a refused turn (`transition X → Y not allowed`) is retried as IDLE then the target, since modes.yaml allows any → IDLE and IDLE → any. The manager's table is unchanged.
+- `skill_executor` (`cognibot_vla`, console script; the `vla-client` service now runs it instead of `sleep infinity`): `ExecuteSkill` action server starting `run_robot_client.sh` as a subprocess with the container's policy env (`instruction` → `TASK`, `checkpoint` → `VLA_CHECKPOINT`); feedback = elapsed and the observed `/cognibot/joint_command` rate; stops on cancel, `max_duration_s`, client exit, the arm leaving VLA, or 30 s in VLA without a single command. Pure `stop_reason()` with pytest.
+- Dashboard VLA view: instruction field, Start/Stop policy keys; the run shows in the program line and Esc/STOP/C cancel it like any other goal.
+- Teleop: `TeleopCommand.shoulder_pan` (doc-first); `mink_teleop` yaws the target about the base z axis (`yaw_about_base`, tested) and rolls about the last arm joint's world axis; dashboard keys Q/E and ←/→ with two new jog rows.
+- `cognibot_ws/docker/.env.example` and compose defaults now describe the arena checkpoint (`STATE_DEGREES`, `camera1/camera2` keys, task text).
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Wrist roll key moved the base (or nothing), never `wrist_roll` | `mink_teleop` rolled the target about the EE site's local z, but the IK model's `gripperframe` site is oriented `quat="1 0 1 0"` (Menagerie) while the scene's is `"0 0 1 0"`: in the IK model the tool axis is the site's local x, so the local-z rotation was a yaw only `shoulder_pan` could produce (FrameTask Jacobian row 6: pan 1.0, roll 0.0) | Roll about `data.xaxis` of the last arm joint in the world frame | ← held 1 s from `rest`: wrist_roll 0.2° → 73.2°, other joints within 10° |
+| 2 | Start policy: client took VLA but 0 Hz for 95 s; server log `KeyError 'observation.images.realsense'` | The gitignored `cognibot_ws/docker/.env` left over from Phase 0 pinned `VLA_CHECKPOINT=lerobot/smolvla_base` and `LEROBOT_GPU_IMAGE=…:latest`, overriding the compose defaults; the base checkpoint expects `camera1..3` | Local `.env` rewritten from the example; `.env.example` and compose defaults aligned on the arena checkpoint; executor aborts after 30 s without actions and names the likely cause | second run STREAMING · 30 Hz; policy-server image is the pinned digest |
+| 3 | Playwright could not find "Plan and move" | The key's accessible name includes its cap ("PLAN AND MOVE Enter") | Regex matcher in the test script | workflow script passes |
+
+### Decisions
+#### D1: how the console gets out of VLA
+```mermaid
+flowchart TD
+  Q{Refused transition} --> A[Loosen modes.yaml: allow VLA → MOTION etc.]
+  Q --> B[Dashboard retries through IDLE]
+  Q --> C[Only STOP leaves VLA]
+  A --> A1[✗ the table is the safety contract shared with the agent and twin]
+  C --> C1[✗ owner found it by accident; not discoverable]
+  B --> B1[✓ same controller path as two key turns; nothing changes for other clients]
+```
+
+### Open questions / follow-ups
+- [ ] Engaging teleop from `extended` (outside the workspace shell) pulls the arm back to the shell on the first jog; clamp the initial target to the current position instead.
+- [ ] Pan and roll share `max_angular_speed` (1 rad/s); a separate, slower pan rate may feel better.
+- [ ] `/cognibot/vla/status` DiagnosticArray (planned) so the VLA tab can show runs started outside the dashboard with their instruction.
 
 ## 2026-09-14 · P5-T05 (part), P5-T08 (part), owner request · Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target
 

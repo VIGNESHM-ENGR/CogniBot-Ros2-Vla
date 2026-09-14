@@ -30,7 +30,12 @@ export const ACTIONS = {
   moveGroup: "/move_action",
   fetch: "/cognibot/fetch_object",
   place: "/cognibot/place_object",
+  executeSkill: "/cognibot/vla/execute_skill",
 } as const;
+
+/** Default language instruction for a policy run (the checkpoint comes from the vla-client env). */
+export const DEFAULT_INSTRUCTION =
+  "Pick and place each of the five cubes inside the black boundary.";
 
 /** MoveIt planning group, tip link and base frame of the upstream SO-101 config. */
 export const MOVEIT = {

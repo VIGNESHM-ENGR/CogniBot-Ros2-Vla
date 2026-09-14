@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACTIONS,
   CUBE_HALF,
+  DEFAULT_INSTRUCTION,
   DEMO,
   MOVEIT,
   ROSBRIDGE_URL,
@@ -41,6 +42,9 @@ import {
 import type {
   Clock,
   ControlModeMsg,
+  ExecuteSkillFeedback,
+  ExecuteSkillGoal,
+  ExecuteSkillResult,
   FollowJointTrajectoryFeedback,
   FollowJointTrajectoryGoal,
   FreeJointStateArray,
@@ -77,6 +81,7 @@ function Pendant() {
   const [view, setView] = useState<ViewId>("camera");
   const [source, setSource] = useState<SourceId>("free");
   const [cube, setCube] = useState<CubeColor>("green");
+  const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION);
   const [stopped, setStopped] = useState(false);
 
   const joints = useTopic<JointState>(TOPICS.jointStates, "sensor_msgs/msg/JointState", 100);
@@ -117,6 +122,10 @@ function Pendant() {
   const placeObject = useActionGoal<object, StageFeedback, ResultMessage>(
     ACTIONS.place,
     "cognibot_interfaces/action/PlaceObject",
+  );
+  const skill = useActionGoal<ExecuteSkillGoal, ExecuteSkillFeedback, ExecuteSkillResult>(
+    ACTIONS.executeSkill,
+    "cognibot_interfaces/action/ExecuteSkill",
   );
   const resetObjects = useServiceCall<object, ResultMessage>(
     SERVICES.resetObjects,
@@ -165,10 +174,22 @@ function Pendant() {
         setLocalMode(target);
         return;
       }
-      setModeService({ mode: MODES.indexOf(target), requester: "dashboard", reason }).then(
-        (r) => setModeNotice(r.success ? undefined : r.message),
-        (e: unknown) => setModeNotice(String(e)),
-      );
+      const request = (m: Mode, why: string) =>
+        setModeService({ mode: MODES.indexOf(m), requester: "dashboard", reason: why });
+      // The manager only allows a few direct transitions (modes.yaml); every mode can reach
+      // IDLE and IDLE can reach every mode, so a refused turn of the key goes through IDLE.
+      request(target, reason)
+        .then((r) =>
+          r.success || target === "IDLE" || !r.message.includes("not allowed")
+            ? r
+            : request("IDLE", `${reason} via IDLE`).then((idle) =>
+                idle.success ? request(target, `${reason} via IDLE`) : idle,
+              ),
+        )
+        .then(
+          (r) => setModeNotice(r.success ? undefined : r.message),
+          (e: unknown) => setModeNotice(String(e)),
+        );
     },
     [managerOnline, setModeService],
   );
@@ -189,7 +210,8 @@ function Pendant() {
     gripper.cancel();
     fetchObject.cancel();
     placeObject.cancel();
-  }, [trajectory, moveGroup, gripper, fetchObject, placeObject]);
+    skill.cancel();
+  }, [trajectory, moveGroup, gripper, fetchObject, placeObject, skill]);
 
   const describeResult = (r: ResultMessage) => r.message;
   /** Send a MoveGroup goal, first easing any joint parked on a limit back inside it. */
@@ -290,7 +312,9 @@ function Pendant() {
     gripper.run as GoalRun<unknown> | null,
     fetchObject.run as GoalRun<unknown> | null,
     placeObject.run as GoalRun<unknown> | null,
+    skill.run as GoalRun<unknown> | null,
   );
+  const skillFeedback = run === (skill.run as GoalRun<unknown> | null) ? skill.run?.feedback : null;
   const stageRun = [fetchObject.run, placeObject.run].find((r) => (r as unknown) === run);
   const moveGroupFeedback =
     run === (moveGroup.run as GoalRun<unknown> | null) ? moveGroup.run?.feedback : null;
@@ -302,7 +326,9 @@ function Pendant() {
         ? `${stageRun.feedback.stage.replace("_", " ")} · ${Math.round(stageRun.feedback.progress * 100)}%`
         : run.phase === "active" && moveGroupFeedback?.state
           ? moveGroupFeedback.state.toLowerCase()
-          : run.detail,
+          : run.phase === "active" && skillFeedback
+            ? `${Math.round(skillFeedback.elapsed_s)} s · ${skillFeedback.rate_hz.toFixed(0)} Hz`
+            : run.detail,
   };
   const commander =
     run?.phase === "active"
@@ -422,6 +448,19 @@ function Pendant() {
                   command={command}
                   commandRate={commandRate}
                   joints={joints}
+                  executorOnline={actions.has(ACTIONS.executeSkill)}
+                  run={skill.run}
+                  instruction={instruction}
+                  onInstruction={setInstruction}
+                  stopped={stopped}
+                  onStart={() =>
+                    skill.send(
+                      "Policy run",
+                      { instruction, checkpoint: "", max_duration_s: 0 },
+                      (r) => r.message,
+                    )
+                  }
+                  onStop={skill.cancel}
                 />
               )}
               {view === "system" && <SystemView services={services} topics={topics} gpu={gpu} />}

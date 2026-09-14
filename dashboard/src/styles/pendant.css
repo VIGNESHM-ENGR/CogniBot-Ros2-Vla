@@ -1023,6 +1023,19 @@ input {
   text-transform: uppercase;
 }
 
+.vla {
+  grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr);
+}
+
+.vla > section + section:not(.vla__side) {
+  grid-column: 1;
+}
+
+.vla__side {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .vla__status[data-tone="off"] {
   color: var(--ink-3);
 }

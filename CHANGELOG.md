@@ -28,6 +28,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `download_checkpoints.sh` fetches the SmolVLM2 backbone and writes uncompiled SmolVLA variants under `$HF_HOME/cognibot/`.
 - Checkpoint `smolvla_arena_multitask` (`Chaenn/smolvla_policy_so101_cube_multitask_sim_0824`, 295 sim episodes, degrees) and a `STATE_DEGREES` switch for checkpoints that expect joint state in degrees.
 - Dashboard VLA view: live policy stream status (mode holder, command rate, target vs actual per joint); the status strip names the streaming policy as the arm's commander.
+- `skill_executor` (`cognibot_vla`): `ExecuteSkill` action that starts and stops LeRobot's robot client; the `vla-client` service runs it, and the dashboard VLA view gets an instruction field with Start / Stop policy keys (Esc and STOP also end a run).
+- Teleop jog keys for shoulder pan (Q / E) and wrist roll (← / →); `TeleopCommand` gains `shoulder_pan`.
 - Dashboard Motion view *Spawn cube*: pick a colour (green, red, blue, yellow, white) and a floor position; Pick and place acts on the selected cube. The SO-101 scene carries the four extra cubes parked behind the robot.
 
 ### Changed
@@ -37,6 +39,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - `policy-server` mounts the host Hugging Face cache (`HF_CACHE_DIR`, default `~/.cache/huggingface`) instead of a named volume.
 - SO-101 `wrist_cam` renders at 640×480 instead of 1920×1080 (headless GPU 40% → 26%, VRAM 587 → 385 MiB).
 - The dashboard image builds from the repository root so it can bundle the simulator scene.
+- `vla-client` defaults (`.env.example`, compose) target the `smolvla_arena_multitask` checkpoint with `STATE_DEGREES=true` and `camera1`/`camera2` keys.
+- Wrist-roll teleop rolls about the tool axis; it previously acted on the base yaw because the IK model's site frame differs from the scene's.
 - SO-101 scene: the blue target disc is now a black rectangle frame named `target` on a light floor, matching the white-table/black-boundary look of community SO-101 datasets.
 
 ### Fixed
@@ -46,6 +50,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - MoveIt goals no longer fail after a motion parks a joint on its limit: the dashboard eases it back inside first, and the pick-and-place IK stays 0.01 rad inside limits.
 - Dashboard motion keys are disabled while a program runs and `move_group` respawns, so a second goal can no longer crash MoveIt.
 - Free-look view draws the arm and objects from the same sim instant; the carried cube no longer stutters.
+- Dashboard mode key: a turn the mode manager refuses (e.g. VLA → MOTION) now goes through IDLE automatically instead of leaving the console locked in the current mode.
 - Scripted pick-and-place IK also seeds from the target's azimuth, so cubes spawned away from the stock position no longer fail with "out of reach" at the place approach.
 
 ## [0.2.0] - 2026-09-13

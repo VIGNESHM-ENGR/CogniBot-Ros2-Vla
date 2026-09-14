@@ -191,6 +191,10 @@ Moulded, softly rounded forms: the housing at 28 px, wells at 12 px (mini-wells 
 
 ## Components
 
+### Jog block
+
+Five axis rows (X, Y, Z, base pan, wrist roll) of paired membrane keys with a caption per row, then a wide gripper key; caps W/S, A/D, ↑/↓, Q/E, ←/→ and G. The dead-man note under it names why the keys are dead or that release stops within 300 ms.
+
 ### Membrane key
 
 Tactile and plain. Legend left, key-cap hint right, optional LED pip first. Hover lightens the key; active and keyboard-pressed states move it down 2 px in 80 ms; dead keys drop to `key-dead` with `ink-dead` legends and a not-allowed cursor.
@@ -222,6 +226,10 @@ The Camera view shows one source full size — Free look (default), Front RGB-D 
 ### VLA view
 
 Two `system`-style columns: the Policy stream heading, an LED status line (green + "STREAMING · <requester>" while commands flow, yellow while VLA is held without commands, dim "No policy client connected" otherwise), a joint table of target / actual / Δ in tabular degrees, and a Stream table (command rate, mode holder, reason). Idle shows the same `offline` block as the Motion view with the start command.
+
+### Policy run
+
+Above the stream status: an Instruction field, Start policy (LED lit and flashing while a run is active) and Stop policy (cap C) keys, and a note that reads the run's elapsed time and rate. Offline shows the `offline` block with `make vla`.
 
 ### Spawn cube
 
