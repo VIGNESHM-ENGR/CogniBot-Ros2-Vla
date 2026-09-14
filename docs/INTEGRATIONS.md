@@ -68,11 +68,10 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | `qpsolvers[daqp]` | `core` venv | `4.13.0` | QP backend for mink |
 | [`foam`](https://github.com/CoMMALab/foam) | offline tool (`tools` stage) | `116928f71aaa7c40356d79c84d3c9ff1f4497d90` | URDF mesh → sphere approximation |
 | `lerobot[smolvla,async]` | `vla` venv | `0.6.1` (server image runs 0.6.2 from main; `async_inference` and the gRPC proto are byte-identical between the two) | `robot_client`, plugin discovery |
-| `openai` | `vlm` venv | **TBD** (P4-T02) | OpenAI-compatible client with tool calling (talks to llama-swap) |
+| `openai` | `vlm` venv | `3.13.0` | OpenAI-compatible client with tool calling (talks to llama-swap); ADR-0007 |
 | `nvidia-ml-py` | `core` venv | `13.610.43` | NVML for `gpu_monitor` |
 | `numpy` | `core` venv | `1.26.4` (= Ubuntu Noble `python3-numpy`) | Keeps apt ROS extensions (moveit_py) on the numpy ABI they were built with |
 | [`so101-nexus`](https://pypi.org/project/so101-nexus/) | `tools` stage (scene export) and `vla-eval` (LeRobot-native eval) | `0.6.0` | SO-101 MuJoCo task scenes + LeRobot EnvHub envs for checkpoint sanity evaluation |
-| [`rai`](https://github.com/RobotecAI/rai) (candidate) | `vlm` venv | `6802d4073e8caa2ab72c5509fa1eeeb659663f64` (if adopted by P4-T01) | Agent runtime with ROS 2 connectors/tools (Apache-2.0, Jazzy, py3.12) |
 
 ### 5.1 Dashboard (npm, exact versions in `dashboard/package.json` + lockfile)
 
@@ -120,7 +119,7 @@ Pin model revisions by HF commit hash in config once they're chosen.
 | `mink_teleop` | Thin ROS wrapper around mink for WASD Cartesian jogging |
 | `reach_query` | Runtime query service over a stored REACH study |
 | `pick_place_server` | Scripted fetch/place sequences on top of MoveItPy |
-| `vlm_agent_node` + tools + grounding | ROS tool bindings and bbox → 3D deprojection. The **agent loop itself comes from RAI** if P4-T01 confirms it works with an OpenAI-compatible local endpoint; otherwise a thin `openai` SDK loop |
+| `vlm_agent_node` + tools + grounding | ROS tool bindings and bbox → 3D deprojection. The agent loop is a thin `openai` SDK loop (ADR-0007: RAI rejected for its 123-package footprint) |
 | `skill_executor_node` | Exposes LeRobot `robot_client` as a ROS 2 action with VRAM handoff |
 | `twin_mirror` | Relays the real arm's joint states into the sim command path |
 | Dashboard | Project UI |

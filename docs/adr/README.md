@@ -10,5 +10,6 @@ Each ADR records one significant decision: its context, the decision itself and 
 | [0004](0004-cyclonedds-host-network.md) | CycloneDDS over host networking, localhost-only discovery | Accepted |
 | [0005](0005-llamacpp-llamaswap-qwen3vl.md) | Qwen3-VL-4B on llama.cpp behind llama-swap, with RAM offload profiles | Accepted |
 | [0006](0006-integrate-dont-invent.md) | Integrate maintained components; write only glue | Accepted |
+| [0007](0007-agent-runtime.md) | Thin `openai` tool-call loop as the VLM agent runtime (RAI not adopted) | Accepted |
 
 Template: copy `0000-template.md`.
