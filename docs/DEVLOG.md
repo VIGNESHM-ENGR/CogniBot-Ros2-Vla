@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-14 | P4-T01…T05, P4-T07 | VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab | feat |
 | 2026-09-14 | P5-T06, P5-T08, P2-T06 (part 2), owner test | Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys | feat |
 | 2026-09-14 | P5-T05 (part), P5-T08 (part), owner request | Arena-trained SmolVLA checkpoint, VLA status view, cube spawner and frame target | feat |
 | 2026-09-14 | P5-T01, P5-T03/T04 (part), P5-T05 (part) | SmolVLA and ACT inference streaming into the simulated arm | feat |
@@ -85,6 +86,46 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-14 · P4-T01…T05, P4-T07 · VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab
+
+**Context:** the owner chose the VLM agent as the next build. The `llm` compose service, the `vlm` image stage and an empty `cognibot_vlm` package existed from Phase 0; nothing behind them.
+**Outcome:** ✅ "Pick up the green cube and place it inside the black rectangle." runs end to end from the dashboard: locate → fetch → locate → place, 4/4 in simulation (two green runs, one with different wording, one spawned red cube with the green one untouched). Commits: `edf22c3` (ADR-0007), `6348def` (grounding), `6f28f6e` (tools + loop), then the service/node/dashboard commits of this entry.
+
+### Measurements (RTX 3060 Laptop 6 GB, simulation running)
+| Profile | Turn with image + tool schema | Prompt | Generation | Grounding answer |
+|---|---|---|---|---|
+| `qwen3-vl-4b-gpu` (-ngl 99) | 3.0 s | 1212 tok/s | 66.6 tok/s | 0.9 s |
+| `qwen3-vl-4b-hybrid` (-ngl 16) | 6.2 s | 377 tok/s | 7.9 tok/s | 7.0 s |
+| `qwen3-vl-4b-cpu` | 15.2 s | 64 tok/s | 4.0 tok/s | 15.4 s |
+
+All three returned `get_object_coordinates({"label": "green cube"})` for the same prompt; `POST /api/models/unload` returned VRAM to the simulator's 598 MiB. A full agent task takes ≈ 25 s (four model turns ≈ 0.5–1.3 s each, two scripted motions ≈ 6.5 s each). Grounding error on the cube: 1 mm (top-face method) vs 9 mm (box centre + median depth). Loaded stack: ≈ 4.5 GB VRAM, 79 °C.
+
+### Work log
+- ADR-0007: thin `openai` loop instead of RAI (123 packages dry-run vs 16).
+- `llm`: llama-swap image pinned by digest; model files pre-downloaded by `download_model.sh` (pinned revision) into the HF cache mounted at `/hf_cache`, referenced with `-m`/`--mmproj`.
+- `cognibot_vlm`: `grounding.py` (parse → pixels → depth → deproject → base frame, plus `ground_top_face`), `tools/schemas.py` (seven flat tools + validator), `agent_loop.py` (12 steps, one repair retry, cancel), `vlm_agent_node.py` (`RunAgentTask`, `GetObjectCoordinates`, events, detections, MOTION via IDLE, hybrid profile while in VLA), `prompts/`, `config/agent.yaml`, `launch/vlm.launch.py`; the vlm image adds pillow, `cognibot_common` and the registry YAMLs (`/ws/registry`).
+- Dashboard: `AgentView` (task field, Run/Cancel, trace, camera with SVG bbox overlay); the Agent placeholder view is gone.
+- `skill_executor` unloads the VLM before a policy run.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | First `llm` request: HTTP 500 after 5 min, "health check timed out" | `llama-server -hf` downloads 3 GB inside llama-swap's 5-minute `healthCheckTimeout`; the server is killed mid-download | Pre-download with the HF CLI (pinned revision), explicit `-m`/`--mmproj` | 3.0 s first turn after the change |
+| 2 | `vlm_agent` died: "Could not locate 'cognibot_sim'" | The registry lives in `cognibot_sim/robots/*/robot.yaml`; the vlm image has no sim package | Copy only the two YAMLs to `/ws/registry`; `registry_dir` parameter → `load_robot(sim_share_dir=…)` | node starts |
+| 3 | Agent reported success, cube never moved (first run) | Grounding returned the top face (z = 0.022); `FetchObject` grasps at the given z, 1 cm too high | Centre z = top/2 for objects on the table (documented in the tool description) | grasp height 0.011 |
+| 4 | Still no lift; direct `FetchObject` at the grounded point fails, at the true point lifts | 2D box centre + median depth is biased 9 mm toward the camera by the visible side face of the cube | `ground_top_face`: deproject the box, keep the highest 4 mm slab, per-axis median (whole box, no crop) | 1 mm error; 4/4 tasks succeed; synthetic oblique-camera test |
+| 5 | `pick_place_server` says "fetched" with nothing in the gripper | The scripted server does not verify the grasp | Not changed; success is judged from object poses in tests | open follow-up |
+
+### Decisions
+#### D1: box coordinate convention
+- Verified empirically: `[280, 588, 347, 679]` for a 640×480 frame → 0–1000 normalized (588 > 480). `BOX_SCALE = 1000`.
+
+### Open questions / follow-ups
+- [ ] Grasp verification in `pick_place_server` (gripper opening after close, or object pose delta) so the agent gets an honest result.
+- [ ] Launch test with a stub LLM server (P4-T05 acceptance); the loop is unit-tested with fakes today.
+- [ ] P4-T06 evaluation scripts and numbers (30 randomized scenes).
+- [ ] `/cognibot/vla/status` topic and the P4 event history for runs started outside the dashboard.
 
 ## 2026-09-14 · P5-T06, P5-T08, P2-T06 (part 2), owner test · Skill executor with dashboard Start/Stop, mode-key unlock, pan/roll jog keys
 

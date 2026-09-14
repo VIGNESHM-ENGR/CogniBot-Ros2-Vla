@@ -12,6 +12,8 @@ export const TOPICS = {
   teleop: "/cognibot/teleop/cmd",
   teleopTarget: "/cognibot/teleop/ee_target",
   mode: "/cognibot/mode",
+  agentEvents: "/cognibot/agent/events",
+  agentDetections: "/cognibot/agent/detections",
   frontCamera: "/mujoco_camera_plugin/front_rgbd/color",
   objectPoses: "/object_poses/free_joint_states",
   wristCamera: "/mujoco_camera_plugin/wrist_cam/color",
@@ -31,7 +33,12 @@ export const ACTIONS = {
   fetch: "/cognibot/fetch_object",
   place: "/cognibot/place_object",
   executeSkill: "/cognibot/vla/execute_skill",
+  runAgentTask: "/cognibot/agent/run_task",
 } as const;
+
+/** Source size of the front camera (bbox pixels from the agent refer to it). */
+export const FRONT_CAMERA_SIZE = { width: 640, height: 480 };
+export const DEFAULT_QUERY = "Pick up the green cube and place it inside the black rectangle.";
 
 /** Default language instruction for a policy run (the checkpoint comes from the vla-client env). */
 export const DEFAULT_INSTRUCTION =

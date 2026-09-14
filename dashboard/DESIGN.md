@@ -235,9 +235,13 @@ Above the stream status: an Instruction field, Start policy (LED lit and flashin
 
 Five colour swatches as a radio group (18 px chip with an inset hairline, name below, safety-yellow ring on the checked one), x/y fields, a fixed "floor" z, and a full-width Spawn key; the pick-and-place note names the selected cube.
 
-### Not-running view
+### Agent view
 
-One Display heading, a yellow LED status line naming the missing service, a short description of what the view will do, and the exact start command.
+Split like Motion: the Task section (Instruction field, Run task with a flashing LED while active, Cancel with cap C, a status note) above a Trace list of the model's steps — step number, kind or tool name (safety yellow for tool calls, fault for errors), compact `key=value` arguments and results, and the model or tool time — with the front camera on the right. Grounded detections draw a safety-yellow rectangle and label on the frame through an SVG that shares the image's contain box.
+
+### Offline block
+
+Every view that depends on a service shows the same `offline` block when it is absent: a legend-style name of the missing service and the exact `make` command that starts it.
 
 ## Do's and Don'ts
 

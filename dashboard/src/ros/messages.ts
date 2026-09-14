@@ -84,6 +84,39 @@ export interface ExecuteSkillResult {
   mean_rate_hz: number;
 }
 
+export interface AgentEventMsg {
+  header: Header;
+  task_id: string;
+  step: number;
+  /** 0 thought, 1 tool call, 2 tool result, 3 info, 4 error, 5 done */
+  type: number;
+  tool_name: string;
+  content: string;
+  duration_s: number;
+}
+
+export interface ObjectDetectionMsg {
+  header: Header;
+  label: string;
+  confidence: number;
+  bbox_xyxy: number[];
+  position: { header: Header; point: { x: number; y: number; z: number } };
+  has_position: boolean;
+}
+
+export interface RunAgentTaskGoal {
+  query: string;
+}
+
+export interface RunAgentTaskFeedback {
+  event: AgentEventMsg;
+}
+
+export interface RunAgentTaskResult {
+  success: boolean;
+  summary: string;
+}
+
 export interface StageFeedback {
   stage: string;
   progress: number;

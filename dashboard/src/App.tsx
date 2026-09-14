@@ -3,6 +3,7 @@ import {
   ACTIONS,
   CUBE_HALF,
   DEFAULT_INSTRUCTION,
+  DEFAULT_QUERY,
   DEMO,
   MOVEIT,
   ROSBRIDGE_URL,
@@ -36,10 +37,12 @@ import {
   useGraph,
   useServiceCall,
   useTopic,
+  useTopicCallback,
   useTopicRate,
   type GoalRun,
 } from "./ros/hooks";
 import type {
+  AgentEventMsg,
   Clock,
   ControlModeMsg,
   ExecuteSkillFeedback,
@@ -50,7 +53,11 @@ import type {
   FreeJointStateArray,
   GpuStatus,
   JointState,
+  ObjectDetectionMsg,
   ResultMessage,
+  RunAgentTaskFeedback,
+  RunAgentTaskGoal,
+  RunAgentTaskResult,
   SetControlModeResponse,
   SetFreeJointStateRequest,
   StageFeedback,
@@ -59,10 +66,10 @@ import type {
 import { RosProvider, useRos } from "./ros/RosProvider";
 import { CameraView } from "./views/CameraView";
 import { MotionView } from "./views/MotionView";
-import { NotRunning } from "./views/NotRunning";
 import { SystemView } from "./views/SystemView";
 import { VlaView } from "./views/VlaView";
 import { useKeyboardTeleop } from "./teleop/useKeyboardTeleop";
+import { AgentView } from "./views/AgentView";
 
 interface MoveGroupFeedback {
   state: string;
@@ -82,6 +89,22 @@ function Pendant() {
   const [source, setSource] = useState<SourceId>("free");
   const [cube, setCube] = useState<CubeColor>("green");
   const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION);
+  const [query, setQuery] = useState(DEFAULT_QUERY);
+  const [agentEvents, setAgentEvents] = useState<AgentEventMsg[]>([]);
+  useTopicCallback<AgentEventMsg>(
+    TOPICS.agentEvents,
+    "cognibot_interfaces/msg/AgentEvent",
+    useCallback(
+      (e: AgentEventMsg) =>
+        // A new task id starts a fresh trace.
+        setAgentEvents((list) => (list[0]?.task_id === e.task_id ? [...list, e] : [e])),
+      [],
+    ),
+  );
+  const detection = useTopic<ObjectDetectionMsg>(
+    TOPICS.agentDetections,
+    "cognibot_interfaces/msg/ObjectDetection",
+  );
   const [stopped, setStopped] = useState(false);
 
   const joints = useTopic<JointState>(TOPICS.jointStates, "sensor_msgs/msg/JointState", 100);
@@ -126,6 +149,10 @@ function Pendant() {
   const skill = useActionGoal<ExecuteSkillGoal, ExecuteSkillFeedback, ExecuteSkillResult>(
     ACTIONS.executeSkill,
     "cognibot_interfaces/action/ExecuteSkill",
+  );
+  const agent = useActionGoal<RunAgentTaskGoal, RunAgentTaskFeedback, RunAgentTaskResult>(
+    ACTIONS.runAgentTask,
+    "cognibot_interfaces/action/RunAgentTask",
   );
   const resetObjects = useServiceCall<object, ResultMessage>(
     SERVICES.resetObjects,
@@ -211,7 +238,8 @@ function Pendant() {
     fetchObject.cancel();
     placeObject.cancel();
     skill.cancel();
-  }, [trajectory, moveGroup, gripper, fetchObject, placeObject, skill]);
+    agent.cancel();
+  }, [trajectory, moveGroup, gripper, fetchObject, placeObject, skill, agent]);
 
   const describeResult = (r: ResultMessage) => r.message;
   /** Send a MoveGroup goal, first easing any joint parked on a limit back inside it. */
@@ -313,7 +341,9 @@ function Pendant() {
     fetchObject.run as GoalRun<unknown> | null,
     placeObject.run as GoalRun<unknown> | null,
     skill.run as GoalRun<unknown> | null,
+    agent.run as GoalRun<unknown> | null,
   );
+  const agentFeedback = run === (agent.run as GoalRun<unknown> | null) ? agent.run?.feedback : null;
   const skillFeedback = run === (skill.run as GoalRun<unknown> | null) ? skill.run?.feedback : null;
   const stageRun = [fetchObject.run, placeObject.run].find((r) => (r as unknown) === run);
   const moveGroupFeedback =
@@ -328,7 +358,9 @@ function Pendant() {
           ? moveGroupFeedback.state.toLowerCase()
           : run.phase === "active" && skillFeedback
             ? `${Math.round(skillFeedback.elapsed_s)} s · ${skillFeedback.rate_hz.toFixed(0)} Hz`
-            : run.detail,
+            : run.phase === "active" && agentFeedback
+              ? `step ${agentFeedback.event.step} · ${agentFeedback.event.tool_name || "thinking"}`
+              : run.detail,
   };
   const commander =
     run?.phase === "active"
@@ -435,11 +467,16 @@ function Pendant() {
                 />
               )}
               {view === "agent" && (
-                <NotRunning title="Language agent" missing="vlm-agent" start="make vlm">
-                  Type a task such as “pick the green cube and put it on the blue target”. Qwen3-VL
-                  grounds it in the front camera and calls motion and VLA tools; each tool call will
-                  appear here as it runs.
-                </NotRunning>
+                <AgentView
+                  agentOnline={actions.has(ACTIONS.runAgentTask)}
+                  run={agent.run}
+                  query={query}
+                  onQuery={setQuery}
+                  onRun={() => agent.send("Agent task", { query }, (r) => r.summary)}
+                  onCancel={agent.cancel}
+                  events={agentEvents}
+                  detection={detection}
+                />
               )}
               {view === "vla" && (
                 <VlaView
