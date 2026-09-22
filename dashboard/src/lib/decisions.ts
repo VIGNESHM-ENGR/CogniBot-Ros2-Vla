@@ -47,6 +47,40 @@ export function currentTask(decisions: DecisionMsg[]): DecisionMsg[] {
   return latest === undefined ? [] : decisions.filter((d) => d.task_id === latest);
 }
 
+/** Guard questions answer yes/no; only `unsafe` can refuse a run (cognibot_laya decide.BLOCKING). */
+const GUARD = new Set(["unsafe", "out_of_scope", "needs_human"]);
+const BLOCKING = new Set(["unsafe"]);
+
+export interface Verdict {
+  word: "acted" | "escalated" | "clear" | "blocked" | "advisory";
+  /** LED state: lit green, lit yellow, or off. */
+  tone: "on" | "yellow" | "off";
+}
+
+/**
+ * What the node did with a decision, in the words the row shows.
+ *
+ * A choice either cleared the confidence gate (acted) or did not (escalated). A guard question is
+ * a flag: `unsafe` above the threshold blocks the run; the other two are published but advisory,
+ * because measured on this scene they swing with the object list rather than with the request.
+ */
+export function verdict(
+  decision: DecisionMsg,
+  minConfidence: number,
+  guardThreshold: number,
+): Verdict {
+  if (GUARD.has(decision.question_id)) {
+    const raised = (decision.probabilities[decision.options.indexOf("true")] ?? 0) > guardThreshold;
+    if (!raised) return { word: "clear", tone: "off" };
+    return BLOCKING.has(decision.question_id)
+      ? { word: "blocked", tone: "yellow" }
+      : { word: "advisory", tone: "yellow" };
+  }
+  return gated(decision, minConfidence)
+    ? { word: "escalated", tone: "yellow" }
+    : { word: "acted", tone: "on" };
+}
+
 /**
  * Whether a decision cleared the confidence gate.
  *

@@ -104,6 +104,21 @@ def test_guard_blocks_on_a_flag_above_the_threshold():
     assert "unsafe" in reason
 
 
+def test_only_the_unsafe_flag_blocks():
+    # Measured: out_of_scope and needs_human swing with the object list, so they are advisory.
+    allowed, reason = guard_verdict(
+        {
+            "answers": {
+                "out_of_scope": {"type": "noul", "noul": 0.85, "confidence": 0.85, "action": {}},
+                "needs_human": {"type": "noul", "noul": 0.70, "confidence": 0.70, "action": {}},
+                "unsafe": {"type": "noul", "noul": 0.01, "confidence": 0.99, "action": {}},
+            }
+        },
+        0.6,
+    )
+    assert allowed and reason == ""
+
+
 def test_guard_allows_a_clean_request():
     allowed, reason = guard_verdict(
         {"answers": {"unsafe": {"type": "noul", "noul": 0.02, "confidence": 0.98, "action": {}}}}

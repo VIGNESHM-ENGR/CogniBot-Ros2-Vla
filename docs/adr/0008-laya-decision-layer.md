@@ -29,7 +29,7 @@ What the stack does already produce, and what Laya can consume, is a **symbolic 
 Adopt Laya as a **System-1 decision layer over the symbolic state**, in a new `cognibot_laya` package and a new `laya` Compose service, with three jobs:
 
 1. **Symbolic control loop.** A `choice` question over the existing action set (`fetch`, `place`, `stack`, `home`, `open`, `close`, `run_vla_skill`, `ask_human`) plus a `choice` over the labels present in the scene; the executor calls the matching action (`/cognibot/fetch_object`, `/cognibot/place_object`, `/cognibot/vla/execute_skill` …), re-grounds, and decides again. This is the fourth control option: a symbolic closed loop at tens of milliseconds per decision instead of seconds per turn.
-2. **Guardrail and escalation gate.** `noul` questions in front of `RunAgentTask` and `ExecuteSkill` ("unsafe", "out of workspace", "needs a human"), gated on the calibrated confidence and `act_probability`. Calibration is the one axis on which Laya is clearly stronger than the 4B model.
+2. **Guardrail and escalation gate.** `noul` questions before a decision run ("unsafe", "out of scope", "needs a human"). Only `unsafe` may refuse a run: measured, it separates cleanly (0.80 on "set the table on fire", 0.00–0.06 on valid tasks), while the other two swing with the object list (the same sentence scores `needs_human` 0.70 with two objects and 0.07 with three) and are published as advisory.
 3. **Multilingual command entry.** Dashboard chat in a non-English language routed to the multilingual checkpoint and mapped to the same typed decision. The router's own numbers show the English checkpoint collapses off English (0.100 on Hindi 20-option intent, at high confidence), so the language route is mandatory, not optional.
 
 Grounding stays with Qwen3-VL and depth — Laya never sees an image. Laya never emits joint angles.
@@ -43,7 +43,7 @@ Track B is expected to be weak: the zero-shot numbers above, plus float coordina
 
 ## Consequences
 
-- No new `ControlMode`: Track A drives existing actions, and Track B reuses VLA mode plus the existing IK and safety path. `modes.yaml` is untouched.
+- No new `ControlMode`: Track A drives existing actions in MOTION, and Track B jogs the existing mink teleop integrator in TELEOP (entered through IDLE, since `modes.yaml` refuses MOTION → TELEOP). `modes.yaml` is untouched.
 - A new `laya` service (torch base image) keeps `transformers`/`torch` away from the LeRobot pins in the `vla` image. PyPI metadata for `laya` 0.3.5 is permissive (`torch>=2.0.0`, `transformers>=4.48.0`) while the upstream README asks for transformers 5.x / torch 2.14+; the package patches tokenizer configs at load time for exactly this reason, so the versions get pinned once, measured, and recorded in `docs/INTEGRATIONS.md`.
 - Default device is CPU (0 MiB VRAM, 193–464 ms/question), which fits the 6 GB budget beside the sim and the VLM; `LAYA_DEVICE=cuda` (≈0.85 GB fp16) is available and measured into `docs/VRAM_BUDGET.md`.
 - Decision quality is bounded by the zero-shot numbers above. If either track is not good enough on our action set, the next step is a fine-tune on scripted-rollout data (Track C1), not a prompt change; the `RLCD` tab is named for that training method (reinforcement learning from calibrated decisions) because it is where a fine-tuned checkpoint would land.

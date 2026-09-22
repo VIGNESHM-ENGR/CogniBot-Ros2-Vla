@@ -1,4 +1,4 @@
-import { currentTask, gated, rankOptions, TRACKS, type TrackId } from "../lib/decisions";
+import { currentTask, rankOptions, TRACKS, verdict, type TrackId } from "../lib/decisions";
 import type { GoalRun } from "../ros/hooks";
 import type { AgentEventMsg, DecisionMsg, RunDecisionTaskFeedback } from "../ros/messages";
 
@@ -11,6 +11,7 @@ interface Props {
   track: TrackId;
   onTrack: (track: TrackId) => void;
   minConfidence: number;
+  guardThreshold: number;
   decisions: DecisionMsg[];
   events: AgentEventMsg[];
   stopped: boolean;
@@ -27,7 +28,7 @@ const pct = (p: number) => `${Math.round(p * 100)}%`;
  * and an unsure one look different at a glance — the reason for using a calibrated model.
  */
 export function RlcdView(props: Props) {
-  const { online, run, decisions, events, minConfidence, track } = props;
+  const { online, run, decisions, events, minConfidence, guardThreshold, track } = props;
   const running = run?.phase === "active";
   const rows = currentTask(decisions);
   const escalation = events.find((e) => e.type === 4);
@@ -113,23 +114,24 @@ export function RlcdView(props: Props) {
           ) : (
             <ol className="rlcd__list">
               {rows.map((d, i) => {
-                const blocked = gated(d, minConfidence);
+                const v = verdict(d, minConfidence, guardThreshold);
+                const flagged = v.tone === "yellow";
                 return (
                   <li
                     key={`${d.task_id}-${i}`}
                     className="rlcd__row"
-                    data-blocked={blocked || undefined}
+                    data-blocked={flagged || undefined}
                   >
                     <span className="rlcd__step mono">{d.step}</span>
                     <span className="rlcd__question legend">{d.question_id}</span>
                     <span className="rlcd__confidence">
                       <span
                         className="led"
-                        data-on={!blocked}
-                        data-tone={blocked ? "yellow" : undefined}
+                        data-on={v.tone !== "off"}
+                        data-tone={flagged ? "yellow" : undefined}
                       />
                       <span className="mono">{pct(d.confidence)}</span>
-                      <span className="rlcd__gatelabel">{blocked ? "escalated" : "acted"}</span>
+                      <span className="rlcd__gatelabel">{v.word}</span>
                     </span>
                     <ul className="rlcd__options">
                       {rankOptions(d).map((option) => (

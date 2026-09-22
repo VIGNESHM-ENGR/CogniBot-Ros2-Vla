@@ -7,7 +7,7 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ## [Unreleased]
 
 ### Added
-- RLCD decision layer (P8, ADR-0008): `laya` service running Laya, a 421M text decision model, with a pinned checkpoint download; `cognibot_laya` serialises the scene as JSON and answers typed questions with calibrated confidence. Two selectable tracks — **Skills** (a skill and an object per step, run by the existing fetch/place/home actions) and **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter) — plus a guard that blocks unsafe or out-of-scope tasks before the arm moves.
+- RLCD decision layer (P8, ADR-0008): `laya` service running Laya, a 421M text decision model, with a pinned checkpoint download; `cognibot_laya` serialises the scene as JSON and answers typed questions with calibrated confidence. Two selectable tracks — **Skills** (a skill and an object per step, run by the existing fetch/place/home actions) and **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter) — plus a guard that refuses unsafe tasks before the arm moves (its out-of-scope and needs-a-person flags are shown as advisory). Non-English tasks are routed to the multilingual checkpoint.
 - Dashboard RLCD screen (`F5`, System moves to `F6`): track selector, task field, run/stop, and a decision trace showing every option the model scored with its probability, the calibrated confidence and whether the answer acted or escalated.
 - `make rlcd` and the `rlcd` compose profile; `/cognibot/rlcd/run_task`, `/cognibot/rlcd/decisions` and `/cognibot/rlcd/decide`.
 - `start.sh`: start a profile (`core|vlm|vla|full`), open the dashboard, follow the agent logs; Ctrl-C stops all containers.

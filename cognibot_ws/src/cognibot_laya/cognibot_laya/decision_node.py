@@ -212,10 +212,10 @@ class DecisionNode(Node):
             f"on {self.get_parameter('device').value}"
         )
 
-    def _predict(self, state: dict, questions: dict) -> dict:
+    def _predict(self, state: dict, questions: dict, route_text: str = "") -> dict:
         if self.model is None:
             raise RuntimeError(self._model_error or "the decision model is still loading")
-        return self.model.predict(state, questions)
+        return self.model.predict(state, questions, route_text)
 
     # ───────────── inputs ─────────────
 
@@ -312,10 +312,12 @@ class DecisionNode(Node):
             feedback.step = self._step
             handle.publish_feedback(feedback)
 
-    def _decide(self, handle, state: dict, questions: dict) -> tuple[dict, float]:
+    def _decide(
+        self, handle, state: dict, questions: dict, route_text: str = ""
+    ) -> tuple[dict, float]:
         """One forward pass, published decision by decision."""
         started = time.perf_counter()
-        payload = self._predict(state, questions)
+        payload = self._predict(state, questions, route_text)
         latency = getattr(self.model, "last_latency_ms", (time.perf_counter() - started) * 1000.0)
         model = routed_model(payload) or str(self.get_parameter("model").value)
         for answer in read_answers(payload).values():
@@ -419,7 +421,7 @@ class DecisionNode(Node):
                 gripper_open=self._gripper_open,
                 last_result=last_result,
             )
-            payload, latency = self._decide(handle, state, skill_questions(labels))
+            payload, latency = self._decide(handle, state, skill_questions(labels), task)
             decisions += 1
             action, _answers = skill_action(payload, labels, min_confidence)
             self._event(handle, AgentEvent.TOOL_CALL, action.describe(), "laya", latency / 1000.0)
@@ -471,7 +473,7 @@ class DecisionNode(Node):
             raise RuntimeError("no objects in the scene yet")
         labels = [o.label for o in objects]
         state = skill_state(task, objects, gripper=self.gripper_pose(), held=self._held)
-        payload, _latency = self._decide(handle, state, skill_questions(labels))
+        payload, _latency = self._decide(handle, state, skill_questions(labels), task)
         action, answers = skill_action(payload, labels, min_confidence)
         label = action.label if isinstance(action, SkillAction) else ""
         if not label:
@@ -509,6 +511,10 @@ class DecisionNode(Node):
     ) -> tuple[bool, str, int]:
         target = self._pick_target(handle, task, min_confidence)
         self._event(handle, AgentEvent.INFO, f"target: {target.label}", "laya")
+        # mink_teleop requests TELEOP on its first command, but modes.yaml refuses MOTION → TELEOP
+        # (a Track A run leaves the arm in MOTION), and a refused request drops every jog silently.
+        # Enter TELEOP here, through IDLE when needed, before the first primitive.
+        self.ensure_mode(ControlMode.TELEOP)
         tolerance = float(self.get_parameter("tolerance_m").value)
         decisions = 1
         for step in range(int(self.get_parameter("max_primitive_steps").value)):
@@ -531,7 +537,7 @@ class DecisionNode(Node):
             )
             if state["within_tolerance"] and not self._gripper_open:
                 return True, f"reached {target.label}", decisions
-            payload, latency = self._decide(handle, state, primitive_questions())
+            payload, latency = self._decide(handle, state, primitive_questions(), task)
             decisions += 1
             action, _answers = primitive_action(payload, min_confidence)
             self._event(handle, AgentEvent.TOOL_CALL, action.describe(), "laya", latency / 1000.0)
@@ -603,6 +609,7 @@ class DecisionNode(Node):
             handle,
             guard_state(task, MODE_NAMES.get(self._mode, "?"), self.scene()),
             guard_questions(),
+            task,
         )
         return guard_verdict(payload, float(self.get_parameter("guard_threshold").value))
 

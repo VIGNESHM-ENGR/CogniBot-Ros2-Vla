@@ -12,7 +12,7 @@ from typing import Any, Protocol
 
 
 class DecisionModel(Protocol):
-    def predict(self, state: dict, questions: dict) -> dict[str, Any]: ...
+    def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]: ...
 
 
 class LayaModel:
@@ -45,9 +45,18 @@ class LayaModel:
         self._router = Router(models=models, device=device, preload=preload, max_loaded=max_loaded)
         self.last_latency_ms = 0.0
 
-    def predict(self, state: dict, questions: dict) -> dict[str, Any]:
+    def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]:
+        """Answer every question in one pass, routing on `route_text` when it is given.
+
+        Routing has to see the operator's sentence, not the serialised state: the state is mostly
+        English keys and object labels, so a Hindi or Tamil task inside it still looks Latin to the
+        script detector and lands on the English checkpoint, which collapses off English.
+        """
         started = time.perf_counter()
-        payload = self._router.predict(state, questions, model=self.model)
+        model = self.model
+        if model is None and route_text:
+            model = self._router.route(route_text, questions)["model"]
+        payload = self._router.predict(state, questions, model=model)
         self.last_latency_ms = (time.perf_counter() - started) * 1000.0
         return payload
 

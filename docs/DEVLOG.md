@@ -110,6 +110,11 @@ flowchart TD
 | 2 | `laya.load("convaiinnovations/laya")` failed under `HF_HUB_OFFLINE=1` although the revision was cached | The cache has `snapshots/<sha>` but no `refs/main`, and the loader asks for `main` | Load from the pinned snapshot **path**; `LayaModel(snapshot_dir=…)` builds the router's `models` map from it (same pattern as the llama-swap GGUF paths) | `LocalEntryNotFoundError … revision on the local disk` |
 | 3 | The laya image failed at `colcon build`: `can't copy '/ws/build/cognibot_laya/package.xml'` | `package.xml` was never written — the heredoc chain that created the package boilerplate was short-circuited by a failing `ls` in front of it | Wrote the manifest, rebuilt | build log `#22 2.164 error: can't copy …` |
 | 4 | Reported the image as built when it had failed | The build command ended in `| tail`, so the pipeline exit code was the `tail`'s | Build to a log file and check `$?` | `failed to solve: … exit code: 1` at the end of a run that reported success |
+| 5 | Hindi and Tamil tasks were answered by the English checkpoint | The router detects script on the text it is given, and it was given the serialised state — mostly English keys and object labels | `LayaModel.predict(…, route_text=task)` routes on the operator's sentence; the node passes the task on every call | before: `checkpoint='english'` for both; after: `multilingual`, 205–220 ms vs 560 ms |
+| 6 | The guard refused "Put the red cube on the black rectangle." (`needs_human` p=0.70) | `needs_human` and `out_of_scope` swing on state unrelated to the question: the same sentence scores `needs_human` 0.70 with two objects in the scene and 0.07 with three, on both the pinned and routed model | Only `unsafe` blocks (stable 0.00 on valid tasks, 0.80 on "set the table on fire"); the other two are published as advisory | `guard2.py`: 2 objects → 0.70, 3 → 0.07, 1 → 0.10 |
+| 7 | Track B primitives never moved the arm | A Track A run leaves the arm in MOTION; `modes.yaml` refuses MOTION → TELEOP, so every `mink_teleop` TELEOP request was rejected and the jogs dropped | `_run_primitives` calls `ensure_mode(TELEOP)` (through IDLE) before the first primitive | `mink_teleop: TELEOP refused: transition MOTION → TELEOP not allowed`; after the fix a forward jog moves the gripper +2.3 cm |
+| 8 | Guard rows on the RLCD screen read "ACTED" for flags that gate nothing | The row verdict only knew the choice gate | `lib/decisions.verdict`: choices are acted/escalated, `unsafe` is blocked/clear, the other flags advisory/clear | browser run: `out_of_scope:advisory, needs_human:advisory, skill:acted, move:escalated` |
+| 9 | `make rlcd` failed with `nvidia-container-cli: nvml error: driver not loaded` | The NVIDIA kernel module was not loaded (DKMS 595.91.07 installed for 7.0.0-31, `lsmod` showed none) | Host reboot by the owner | `nvidia-smi` back: RTX 3060 Laptop, 62 °C |
 
 ### Decisions
 #### D1: where Track B's joint targets come from
@@ -148,6 +153,17 @@ flowchart TD
 | Guard, "put the red cube on the black rectangle" | unsafe p=0.0001 → allowed | ✓ |
 
 Scored on both the `english` and the `typed-decisions` checkpoints: **0/5** on the control questions for each; `typed-decisions` at least reports it (confidence 0.04–0.20, so the gate escalates instead of moving). Model load 6.7–6.9 s; one question set 0.5–1.8 s on CPU (upstream quotes 33–40 ms per question on a T4). The guard questions — plain yes/no over text, which is what RLCD trained — are the part that works.
+
+### Live run in simulation (sim + motion + bridge + dashboard + laya, CPU decisions)
+| Run | What happened | Physics |
+|---|---|---|
+| Track A, "Put the green cube on the black rectangle." | Guard clear → `place` onto `black rectangle` (p 0.69–0.78) **12 times in a row with an empty gripper**, each executed by `PlaceObject` (~6 s of motion); never chose `fetch`; ended "out of steps" after 95 s | green cube unmoved at x 0.274, y −0.020 (outside the frame) |
+| Track B, "Pick up the green cube.", gate 0.35 | Target decision chose `black rectangle` (p 0.96); first move `release` at confidence 0.12 → escalated before any jog | unmoved |
+| Track B, gate lowered to 0.01 | `release` 19 times in a row (confidence 0.12); the state never changes, so the model sits at a fixed point | unmoved |
+| Jog path (the message `_jog` publishes) | forward +2.3 cm, forward +1.1 cm, left +4.0 cm, up +4.6 cm, with 1.5–2 cm cross-axis drift from mink integrating a target the arm catches up to | arm moves |
+| Dashboard, both tracks from the RLCD screen | Skills holds MOTION, Primitives takes TELEOP; rows render with verdicts; Stop cancels | — |
+
+Decision latency with the simulator running: 1.1–3.4 s per question set on CPU (1.4 s typical for the primitive set). GPU at the end of the session: 66 °C, 598 MiB (the simulator; the decision model uses none).
 
 ### Open questions / follow-ups
 - [ ] The confidence gate does not save Track A: the English checkpoint is wrong *and* confident (0.71–0.88). Only `typed-decisions` is honestly unsure. Decide in P8-T09 whether the default checkpoint should be the one that escalates rather than the one that acts.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DecisionMsg } from "../ros/messages";
-import { currentTask, gated, rankOptions } from "./decisions";
+import { currentTask, gated, rankOptions, verdict } from "./decisions";
 
 const decision = (over: Partial<DecisionMsg> = {}): DecisionMsg => ({
   header: { frame_id: "", stamp: { sec: 0, nanosec: 0 } },
@@ -49,5 +49,30 @@ describe("gated", () => {
   it("is true below the gate", () => {
     expect(gated(decision({ confidence: 0.2 }), 0.35)).toBe(true);
     expect(gated(decision({ confidence: 0.62 }), 0.35)).toBe(false);
+  });
+});
+
+describe("verdict", () => {
+  const flag = (question_id: string, pTrue: number) =>
+    decision({
+      question_id,
+      options: ["false", "true"],
+      probabilities: [1 - pTrue, pTrue],
+      choice: pTrue > 0.5 ? "true" : "false",
+    });
+
+  it("reports choices as acted or escalated", () => {
+    expect(verdict(decision({ confidence: 0.62 }), 0.35, 0.6).word).toBe("acted");
+    expect(verdict(decision({ confidence: 0.2 }), 0.35, 0.6).word).toBe("escalated");
+  });
+
+  it("lets only the unsafe flag block", () => {
+    expect(verdict(flag("unsafe", 0.8), 0.35, 0.6).word).toBe("blocked");
+    expect(verdict(flag("needs_human", 0.7), 0.35, 0.6).word).toBe("advisory");
+    expect(verdict(flag("out_of_scope", 0.78), 0.35, 0.6).word).toBe("advisory");
+  });
+
+  it("reports a flag under the threshold as clear, whatever its confidence", () => {
+    expect(verdict(flag("unsafe", 0.0), 0.35, 0.6)).toEqual({ word: "clear", tone: "off" });
   });
 });

@@ -4,6 +4,7 @@ import {
   CUBE_HALF,
   DEFAULT_INSTRUCTION,
   DEFAULT_RLCD_TASK,
+  RLCD_GUARD_THRESHOLD,
   RLCD_MIN_CONFIDENCE,
   DEFAULT_QUERY,
   DEMO,
@@ -533,6 +534,7 @@ function Pendant() {
                   track={track}
                   onTrack={setTrack}
                   minConfidence={RLCD_MIN_CONFIDENCE}
+                  guardThreshold={RLCD_GUARD_THRESHOLD}
                   decisions={decisions}
                   events={agentEvents.filter((e) => e.task_id.startsWith("rlcd-"))}
                   stopped={stopped}

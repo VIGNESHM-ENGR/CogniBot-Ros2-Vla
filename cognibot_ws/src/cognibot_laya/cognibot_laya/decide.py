@@ -15,6 +15,15 @@ from cognibot_laya.questions import NONE_LABEL, PRIMITIVES, SKILLS
 # Skills that need an object; the others ignore the `object` answer.
 NEEDS_OBJECT = {"fetch", "place"}
 
+# Guard questions that block a task, with the reason a refusal reports.
+#
+# Only `unsafe` blocks. Measured on the pick-and-place scene it separates (0.80 on "set the table
+# on fire", 0.00–0.06 on every task the arm can do) and it does not move when the scene does.
+# `out_of_scope` and `needs_human` are asked and published, but they swing on state that has
+# nothing to do with the question: the same sentence scores `needs_human` 0.70 with two objects in
+# the scene and 0.07 with three. A flag that unstable must not be able to refuse an operator.
+BLOCKING = {"unsafe": "the request looks unsafe"}
+
 
 @dataclass(frozen=True)
 class SkillAction:
@@ -147,14 +156,9 @@ def primitive_action(
 
 
 def guard_verdict(payload: dict[str, Any], threshold: float = 0.5) -> tuple[bool, str]:
-    """(allowed, reason) from the guard questions; any flag above `threshold` blocks the run."""
+    """(allowed, reason) from the guard questions; a `BLOCKING` flag above `threshold` refuses."""
     answers = read_answers(payload)
-    flags = {
-        "unsafe": "the request looks unsafe",
-        "out_of_scope": "the request is outside what this arm does",
-        "needs_human": "the request is too vague to carry out",
-    }
-    for qid, reason in flags.items():
+    for qid, reason in BLOCKING.items():
         answer = answers.get(qid)
         if answer is None:
             continue
