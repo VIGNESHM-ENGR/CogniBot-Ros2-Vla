@@ -12,7 +12,8 @@ describe("commandForKey", () => {
   });
   it("maps digits to mode detents and F-keys to views", () => {
     expect(commandForKey("Digit2", false)).toEqual({ kind: "mode", mode: "TELEOP" });
-    expect(commandForKey("F5", false)).toEqual({ kind: "view", view: "system" });
+    expect(commandForKey("F5", false)).toEqual({ kind: "view", view: "rlcd" });
+    expect(commandForKey("F6", false)).toEqual({ kind: "view", view: "system" });
     expect(commandForKey("Digit9", false)).toBeNull();
   });
   it("maps jog keys", () => {

@@ -70,6 +70,9 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | `lerobot[smolvla,async]` | `vla` venv | `0.6.1` (server image runs 0.6.2 from main; `async_inference` and the gRPC proto are byte-identical between the two) | `robot_client`, plugin discovery |
 | `openai` | `vlm` venv | `3.13.0` | OpenAI-compatible client with tool calling (talks to llama-swap); ADR-0007 |
 | `nvidia-ml-py` | `core` venv | `13.610.43` | NVML for `gpu_monitor` |
+| [`laya`](https://github.com/NandhaKishorM/laya) | `laya` venv | `0.3.5` | RLCD decision layer: typed decisions with calibrated confidence (ADR-0008) |
+| `torch` (CPU wheel) | `laya` venv | `2.9.1+cpu` | Runs the 421M decision encoder without touching the 6 GB GPU budget |
+| `transformers`, `tokenizers`, `safetensors`, `huggingface_hub` | `laya` venv | `5.17.0`, `0.23.2`, `0.8.0`, `1.32.0` | ModernBERT / mmBERT backbones and the local checkpoint load |
 | `numpy` | `core` venv | `1.26.4` (= Ubuntu Noble `python3-numpy`) | Keeps apt ROS extensions (moveit_py) on the numpy ABI they were built with |
 | [`so101-nexus`](https://pypi.org/project/so101-nexus/) | `tools` stage (scene export) and `vla-eval` (LeRobot-native eval) | `0.6.0` | SO-101 MuJoCo task scenes + LeRobot EnvHub envs for checkpoint sanity evaluation |
 
@@ -88,6 +91,7 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 
 | Model | Source | Variant | Served by |
 |---|---|---|---|
+| Laya decision model | [convaiinnovations/laya](https://huggingface.co/convaiinnovations/laya) rev `1c5edc17a7acd8701df6fc341c0d179f1c62c982` (Apache-2.0) | english (ModernBERT-large, 421M), multilingual (mmBERT-base, 322M), typed-decisions (421M) — one repo, two subfolders | `laya` container, CPU by default (`cognibot_ws/docker/laya/download_checkpoints.sh`) |
 | Qwen3-VL-4B-Instruct | [`Qwen/Qwen3-VL-4B-Instruct-GGUF`](https://huggingface.co/Qwen/Qwen3-VL-4B-Instruct-GGUF) @ `1cd86afb9a95c410a6038ab3b40d8b578c892266` | `Qwen3VL-4B-Instruct-Q4_K_M.gguf` (2.5 GB) + `mmproj-Qwen3VL-4B-Instruct-Q8_0.gguf` (454 MB), fetched by `cognibot_ws/docker/llm/download_model.sh` into the HF cache | llama-swap → llama-server (`-m`/`--mmproj`); measured RTX 3060 Laptop: gpu 66.6 tok/s, hybrid 7.9, cpu 4.0 generation; boxes in 0–1000 normalized coordinates |
 
 ### 6.1 Policy checkpoints (candidates for P5-T02)

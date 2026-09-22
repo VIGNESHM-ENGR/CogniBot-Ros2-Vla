@@ -1,0 +1,14 @@
+uint8 TRACK_SKILLS=0        # decide which skill and object, execute with the scripted actions
+uint8 TRACK_PRIMITIVES=1    # decide one motion primitive per step, jog through the teleop IK
+
+string task
+uint8 track
+float32 max_duration_s      # 0 = node default
+float32 min_confidence      # 0 = node default; below it a decision escalates instead of moving
+---
+bool success
+string summary
+uint32 decisions
+---
+uint32 step
+cognibot_interfaces/Decision decision

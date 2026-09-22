@@ -1,0 +1,26 @@
+laya_decision:
+  ros__parameters:
+    robot: so101
+    # Decision model (ADR-0008). `auto` routes by script and language: the English checkpoint
+    # collapses off English (0.100 on Hindi 20-option intent, at high confidence).
+    model: auto
+    device: cpu           # cpu ≈ 0.2–0.5 s per decision, 0 MiB VRAM; cuda ≈ 0.85 GB fp16
+    preload: true
+    max_loaded: 2
+    # Pinned snapshot inside the mounted HF cache (docker/laya/download_checkpoints.sh).
+    snapshot_dir: /hf_cache/hub/models--convaiinnovations--laya/snapshots/1c5edc17a7acd8701df6fc341c0d179f1c62c982
+    # Below this calibrated confidence the loop escalates instead of moving the arm.
+    min_confidence: 0.35
+    guard_enabled: true
+    guard_threshold: 0.6
+    max_steps: 12
+    max_primitive_steps: 60
+    max_duration_s: 180.0
+    # Track B: one primitive jogs the teleop integrator for this long (0.1 m/s → ~2.5 cm).
+    step_duration_s: 0.25
+    tolerance_m: 0.03
+    object_topic: /object_poses/free_joint_states
+    cube_half_height: 0.0125
+    # The cube spawner parks unused bodies at x = -0.55; they are not part of the scene.
+    min_object_x: 0.0
+    static_objects: ["target|black rectangle|0.307|0.197|0.002"]

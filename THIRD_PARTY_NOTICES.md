@@ -24,6 +24,9 @@ Only works that are **copied into or derived within this repository** (models, m
 | llama-swap | Benson Wong (mostlygeek) | MIT | Container image |
 | Qwen3-VL-4B-Instruct (GGUF) | Alibaba Qwen team | Apache-2.0 | Model weights downloaded at runtime |
 | SmolVLA base and community checkpoints | Hugging Face / checkpoint authors | Apache-2.0 (verify per checkpoint) | Model weights downloaded at runtime |
+| laya (SDK and router) | Convai Innovations / Nandha Kishor | Apache-2.0 | pip package |
+| Laya decision checkpoints (english, multilingual, typed-decisions) | Convai Innovations | Apache-2.0 | Model weights downloaded at build/run time |
+| ModernBERT, mmBERT (backbones inside those checkpoints) | Answer.AI / LightOn; JHU CLSP | Apache-2.0 / MIT | Weights inside the Laya checkpoints |
 | CycloneDDS | Eclipse Foundation | EPL-2.0 / EDL-1.0 | apt binary |
 | MuJoCo JavaScript bindings (`@mujoco/mujoco`) | Google DeepMind | Apache-2.0 | npm package bundled into the dashboard (free-look view) |
 | three.js | three.js authors | MIT | npm package bundled into the dashboard |

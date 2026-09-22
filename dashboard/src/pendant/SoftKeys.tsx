@@ -1,4 +1,4 @@
-import { Camera, Cpu, MessagesSquare, Move3d, Waypoints } from "lucide-react";
+import { Camera, Cpu, MessagesSquare, Move3d, Split, Waypoints } from "lucide-react";
 import { VIEWS, type ViewId } from "../lib/modes";
 
 const ICONS: Record<ViewId, typeof Camera> = {
@@ -6,10 +6,11 @@ const ICONS: Record<ViewId, typeof Camera> = {
   motion: Move3d,
   agent: MessagesSquare,
   vla: Waypoints,
+  rlcd: Split,
   system: Cpu,
 };
 
-/** Physical soft keys under the screen, F1–F5. */
+/** Physical soft keys under the screen, F1–F6. */
 export function SoftKeys({ view, onView }: { view: ViewId; onView: (v: ViewId) => void }) {
   return (
     <nav className="softkeys" aria-label="Screen views">

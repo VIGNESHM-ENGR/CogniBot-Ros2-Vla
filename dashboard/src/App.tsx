@@ -3,6 +3,8 @@ import {
   ACTIONS,
   CUBE_HALF,
   DEFAULT_INSTRUCTION,
+  DEFAULT_RLCD_TASK,
+  RLCD_MIN_CONFIDENCE,
   DEFAULT_QUERY,
   DEMO,
   MOVEIT,
@@ -12,6 +14,7 @@ import {
   cubeBody,
   type CubeColor,
 } from "./config";
+import { type TrackId } from "./lib/decisions";
 import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
@@ -43,6 +46,7 @@ import {
 } from "./ros/hooks";
 import type {
   AgentEventMsg,
+  DecisionMsg,
   Clock,
   ControlModeMsg,
   ExecuteSkillFeedback,
@@ -57,6 +61,9 @@ import type {
   ResultMessage,
   RunAgentTaskFeedback,
   RunAgentTaskGoal,
+  RunDecisionTaskFeedback,
+  RunDecisionTaskGoal,
+  RunDecisionTaskResult,
   RunAgentTaskResult,
   SetControlModeResponse,
   SetFreeJointStateRequest,
@@ -67,6 +74,7 @@ import { RosProvider, useRos } from "./ros/RosProvider";
 import { CameraView } from "./views/CameraView";
 import { MotionView } from "./views/MotionView";
 import { SystemView } from "./views/SystemView";
+import { RlcdView } from "./views/RlcdView";
 import { VlaView } from "./views/VlaView";
 import { useKeyboardTeleop } from "./teleop/useKeyboardTeleop";
 import { AgentView } from "./views/AgentView";
@@ -90,6 +98,18 @@ function Pendant() {
   const [cube, setCube] = useState<CubeColor>("green");
   const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION);
   const [query, setQuery] = useState(DEFAULT_QUERY);
+  const [rlcdTask, setRlcdTask] = useState(DEFAULT_RLCD_TASK);
+  const [track, setTrack] = useState<TrackId>(0);
+  const [decisions, setDecisions] = useState<DecisionMsg[]>([]);
+  useTopicCallback<DecisionMsg>(
+    TOPICS.rlcdDecisions,
+    "cognibot_interfaces/msg/Decision",
+    useCallback(
+      (d: DecisionMsg) =>
+        setDecisions((list) => (list[0]?.task_id === d.task_id ? [...list, d] : [d])),
+      [],
+    ),
+  );
   const [agentEvents, setAgentEvents] = useState<AgentEventMsg[]>([]);
   useTopicCallback<AgentEventMsg>(
     TOPICS.agentEvents,
@@ -153,6 +173,10 @@ function Pendant() {
   const agent = useActionGoal<RunAgentTaskGoal, RunAgentTaskFeedback, RunAgentTaskResult>(
     ACTIONS.runAgentTask,
     "cognibot_interfaces/action/RunAgentTask",
+  );
+  const rlcd = useActionGoal<RunDecisionTaskGoal, RunDecisionTaskFeedback, RunDecisionTaskResult>(
+    ACTIONS.runDecisionTask,
+    "cognibot_interfaces/action/RunDecisionTask",
   );
   const resetObjects = useServiceCall<object, ResultMessage>(
     SERVICES.resetObjects,
@@ -498,6 +522,28 @@ function Pendant() {
                     )
                   }
                   onStop={skill.cancel}
+                />
+              )}
+              {view === "rlcd" && (
+                <RlcdView
+                  online={actions.has(ACTIONS.runDecisionTask)}
+                  run={rlcd.run}
+                  task={rlcdTask}
+                  onTask={setRlcdTask}
+                  track={track}
+                  onTrack={setTrack}
+                  minConfidence={RLCD_MIN_CONFIDENCE}
+                  decisions={decisions}
+                  events={agentEvents.filter((e) => e.task_id.startsWith("rlcd-"))}
+                  stopped={stopped}
+                  onStart={() =>
+                    rlcd.send(
+                      "Decision run",
+                      { task: rlcdTask, track, max_duration_s: 0, min_confidence: 0 },
+                      (r) => r.summary,
+                    )
+                  }
+                  onStop={rlcd.cancel}
                 />
               )}
               {view === "system" && <SystemView services={services} topics={topics} gpu={gpu} />}

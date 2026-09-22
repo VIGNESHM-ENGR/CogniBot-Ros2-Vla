@@ -199,9 +199,9 @@ Five axis rows (X, Y, Z, base pan, wrist roll) of paired membrane keys with a ca
 
 Tactile and plain. Legend left, key-cap hint right, optional LED pip first. Hover lightens the key; active and keyboard-pressed states move it down 2 px in 80 ms; dead keys drop to `key-dead` with `ink-dead` legends and a not-allowed cursor.
 
-### Soft keys (F1–F5)
+### Soft keys (F1–F6)
 
-Five equal keys under the screen with a 16 px line icon, legend and F-key cap. The current view gets a lighter key and a 3 px safety-yellow lower edge.
+Six equal keys under the screen with a 16 px line icon, legend and F-key cap. The current view gets a lighter key and a 3 px safety-yellow lower edge. The row grew from five to six when the RLCD view was added after VLA; System moved from `F5` to `F6`.
 
 ### Mode key switch
 
@@ -238,6 +238,12 @@ Five colour swatches as a radio group (18 px chip with an inset hairline, name b
 ### Agent view
 
 Split like Motion: the Task section (Instruction field, Run task with a flashing LED while active, Cancel with cap C, a status note) above a Trace list of the model's steps — step number, kind or tool name (safety yellow for tool calls, fault for errors), compact `key=value` arguments and results, and the model or tool time — with the front camera on the right. Grounded detections draw a safety-yellow rectangle and label on the frame through an SVG that shares the image's contain box.
+
+### RLCD view
+
+Two columns, the wider one first: the decision run (a two-key Track selector — Skills / Primitives, each with an LED, the pressed one carrying the safety-yellow lower edge that marks the current soft key — a Task field, Run decisions with a flashing LED, Stop with cap C) above the decision list, with a Model table and the step trace on the right.
+
+Each decision row shows the step number, the question id, the calibrated confidence with an LED and the word ACTED or ESCALATED, and beneath it the four highest-scoring options as name, bar and percentage. The chosen option's bar is LED green, every other option sits on a screen rule, and a row that fell under the confidence gate turns its chosen bar safety yellow and takes a 2 px yellow inset edge. This is the one place in the console where a model's uncertainty is the content, so the distribution is drawn rather than summarised: a confident wrong answer and an unsure one must not look alike.
 
 ### Offline block
 

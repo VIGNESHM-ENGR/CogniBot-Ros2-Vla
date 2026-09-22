@@ -60,6 +60,17 @@ Conventions:
 | `/cognibot/agent/detections` | `cognibot_interfaces/ObjectDetection` | `vlm_agent_node` | dashboard, RViz (overlay) |
 | `/cognibot/vla/status` | `diagnostic_msgs/DiagnosticArray` | `skill_executor_node` (planned; the dashboard currently derives stream status from `/cognibot/mode` and `/cognibot/joint_command`) | dashboard |
 | `/cognibot/gpu` | `cognibot_interfaces/GpuStatus` | `gpu_monitor` | dashboard |
+| `/cognibot/rlcd/decisions` | `cognibot_interfaces/Decision` | `laya_decision` | dashboard (RLCD view) |
+
+> `laya_decision` (ADR-0008) is the RLCD decision layer: it serialises the scene as JSON and asks a
+> 421M text model typed questions. **Track A (skills)** decides a skill plus an object and runs the
+> existing `FetchObject` / `PlaceObject` / `MoveToNamedPose` / `ExecuteSkill` servers in MOTION.
+> **Track B (primitives)** decides one motion primitive per step and publishes `TeleopCommand` on
+> `/cognibot/teleop/cmd` at 30 Hz, so `mink_teleop` does the IK and the arm runs in TELEOP: the
+> model never emits joint angles. Both publish every answer with its option distribution on
+> `/cognibot/rlcd/decisions` and their steps on `/cognibot/agent/events` (task ids start `rlcd-`).
+> Object poses come from `/object_poses/free_joint_states` (simulation ground truth; the robot base
+> is the world origin), not from the camera — Laya has no vision encoder.
 
 ## 2. Services
 
@@ -68,6 +79,7 @@ Conventions:
 | `/cognibot/set_mode` | `cognibot_interfaces/srv/SetControlMode` | `mode_manager` | dashboard, pick_place_server, skill_executor, twin |
 | `/cognibot/check_reachability` | `cognibot_interfaces/srv/CheckReachability` | `reach_query` | vlm-agent, dashboard |
 | `/cognibot/vlm/get_object_coordinates` | `cognibot_interfaces/srv/GetObjectCoordinates` | `vlm_agent_node` | dashboard (debug), eval scripts |
+| `/cognibot/rlcd/decide` | `cognibot_interfaces/srv/Decide` | `laya_decision` | eval scripts, debugging (one state + question set → the raw model payload) |
 | `/cognibot/sim/reset_objects` | `std_srvs/srv/Trigger` | `pick_place_server` | dashboard (simulation only: moves free bodies back to their MJCF spawn pose) |
 | `/mujoco_ros2_control_node/set_free_joint_state` | `mujoco_ros2_control_msgs/srv/SetFreeJointState` | mujoco_ros2_control (upstream) | dashboard *Spawn cube* (simulation only: teleports a parked `<colour>_cube` body onto the floor) |
 | `/controller_manager/switch_controller` | `controller_manager_msgs/srv/SwitchController` | controller_manager | `mode_manager` only |
@@ -81,6 +93,7 @@ Conventions:
 | `/cognibot/move_to_named_pose` | `cognibot_interfaces/action/MoveToNamedPose` | `pick_place_server` | vlm-agent, dashboard |
 | `/cognibot/vla/execute_skill` | `cognibot_interfaces/action/ExecuteSkill` | `skill_executor_node` | vlm-agent, dashboard |
 | `/cognibot/agent/run_task` | `cognibot_interfaces/action/RunAgentTask` | `vlm_agent_node` | dashboard |
+| `/cognibot/rlcd/run_task` | `cognibot_interfaces/action/RunDecisionTask` | `laya_decision` | dashboard (RLCD view) |
 
 > `vlm_agent` (ADR-0007) takes the latest front frame as JPEG, runs Qwen3-VL through llama-swap with the tools in `cognibot_vlm/tools/schemas.py` (`get_object_coordinates(label)`, `check_reachability(x, y, z)`, `fetch_object(label)`, `place_object(label)`, `move_home`, `set_gripper(state)`, `run_vla_skill(instruction)`), publishes every step on `/cognibot/agent/events` and grounded boxes on `/cognibot/agent/detections`, and requests MOTION (via IDLE when needed) before scripted motions. `fetch_object`/`place_object` park the arm at home, ground their label themselves (top-face centroid; centre = top/2 for fetching, `top` as the surface for placing) and act — coordinates never pass through the model, which a 4B model would otherwise reuse after an object has moved. Camera topics are parameters (`config/agent.yaml`) pointing at the simulator's plugin topics; `check_reachability` uses the registry workspace sphere until `reach_query` exists. The llama-swap profile is `model_hybrid` while the arm is in VLA, `model_gpu` otherwise.
 | `/joint_trajectory_controller/follow_joint_trajectory` | `control_msgs/action/FollowJointTrajectory` | JTC | move_group |
@@ -152,6 +165,21 @@ geometry_msgs/PointStamped position     # in robot base frame when has_position
 bool has_position
 ```
 
+### msg/Decision.msg
+```
+std_msgs/Header header
+string task_id
+uint32 step
+string question_id      # skill | object | move | unsafe | out_of_scope | needs_human
+string[] options
+float32[] probabilities # parallel to options, sums to 1 within the question
+string choice
+float32 confidence      # calibrated, 0..1
+float32 act_probability # act vs escalate head, 0..1
+string model            # checkpoint that answered: english | multilingual | typed-decisions
+float32 latency_ms
+```
+
 ### msg/GpuStatus.msg
 ```
 std_msgs/Header header
@@ -185,6 +213,18 @@ string source           # "reach_study" | "workspace_sphere"
 string message
 ```
 
+### srv/Decide.srv
+```
+string state_json
+string questions_json
+string model            # empty = route by script and language
+---
+bool success
+string answers_json     # the model payload: answers, probabilities, confidences, routing
+float32 latency_ms
+string message
+```
+
 ### srv/GetObjectCoordinates.srv
 ```
 string label            # natural language, e.g. "green cube"
@@ -193,6 +233,24 @@ string camera           # registry camera key; empty = "front"
 bool success
 cognibot_interfaces/ObjectDetection detection
 string message
+```
+
+### action/RunDecisionTask.action
+```
+uint8 TRACK_SKILLS=0        # decide which skill and object, execute with the scripted actions
+uint8 TRACK_PRIMITIVES=1    # decide one motion primitive per step, jog through the teleop IK
+
+string task
+uint8 track
+float32 max_duration_s      # 0 = node default
+float32 min_confidence      # 0 = node default; below it a decision escalates instead of moving
+---
+bool success
+string summary
+uint32 decisions
+---
+uint32 step
+cognibot_interfaces/Decision decision
 ```
 
 ### action/FetchObject.action

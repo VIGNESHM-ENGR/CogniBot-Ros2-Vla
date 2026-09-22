@@ -12,7 +12,7 @@ export const MODE_HELP: Record<Mode, string> = {
   TWIN: "Mirror a real SO-101 into the simulation.",
 };
 
-export type ViewId = "camera" | "motion" | "agent" | "vla" | "system";
+export type ViewId = "camera" | "motion" | "agent" | "vla" | "rlcd" | "system";
 
 export const SOURCES = ["free", "front", "wrist"] as const;
 export type SourceId = (typeof SOURCES)[number];
@@ -24,7 +24,8 @@ export const VIEWS: { id: ViewId; key: string; label: string }[] = [
   { id: "motion", key: "F2", label: "Motion" },
   { id: "agent", key: "F3", label: "Agent" },
   { id: "vla", key: "F4", label: "VLA" },
-  { id: "system", key: "F5", label: "System" },
+  { id: "rlcd", key: "F5", label: "RLCD" },
+  { id: "system", key: "F6", label: "System" },
 ];
 
 export type JogKey =

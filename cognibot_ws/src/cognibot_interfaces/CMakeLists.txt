@@ -10,10 +10,12 @@ find_package(geometry_msgs REQUIRED)
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/AgentEvent.msg"
   "msg/ControlMode.msg"
+  "msg/Decision.msg"
   "msg/GpuStatus.msg"
   "msg/ObjectDetection.msg"
   "msg/TeleopCommand.msg"
   "srv/CheckReachability.srv"
+  "srv/Decide.srv"
   "srv/GetObjectCoordinates.srv"
   "srv/SetControlMode.srv"
   "action/ExecuteSkill.action"
@@ -21,6 +23,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "action/MoveToNamedPose.action"
   "action/PlaceObject.action"
   "action/RunAgentTask.action"
+  "action/RunDecisionTask.action"
   DEPENDENCIES builtin_interfaces std_msgs geometry_msgs
 )
 

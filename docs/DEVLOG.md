@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | P8-T02…T06, P8-T08 | RLCD decision layer: laya service, both tracks, RLCD screen | feat |
 | 2026-09-22 | P8-T01, owner request | Laya evaluation and the RLCD decision-control plan | planning |
 | 2026-09-14 | owner request | README showcase: architecture figure, screenshots, decisions | docs |
 | 2026-09-14 | owner test (P4) | Stacking: grounding while holding, tool tilt for reach, label-based fetch/place | fix |
@@ -89,6 +90,71 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · P8-T02…T06, P8-T08 · RLCD decision layer: `laya` service, both tracks, RLCD screen
+
+**Context:** the owner asked for both tracks of ADR-0008 to ship behind one `RLCD` screen after `VLA`, with the track selectable, and for the stack to come up so it can be tried.
+**Outcome:** ✅ built and wired end to end. The decision path works; the model's answers on the control questions do not (measured below), which is the result the ADR predicted and the screen now shows rather than hides.
+
+### Work log
+- `cognibot_ws/docker/laya/download_checkpoints.sh` pulls `convaiinnovations/laya` at revision `1c5edc1` into the HF cache (2.2 GB, three checkpoints).
+- `cognibot_laya`: `state.py` (scene → JSON, object list trimmed by distance to fit the 512-token context), `questions.py` (skill, object, primitive and guard question sets), `decide.py` (answers → typed action, confidence gate), `model.py` (`laya.Router` behind a two-method protocol), `decision_node.py` (`RunDecisionTask` action, `Decide` service, both loops). 23 pytest cases run without torch or rclpy.
+- Interfaces: `Decision.msg`, `RunDecisionTask.action`, `Decide.srv`, documented in `ROS_INTERFACES.md` in the same commit.
+- `laya` image stage (CPU torch), `rlcd` compose profile, `make rlcd`, `LAYA_DEVICE` / `LAYA_THREADS` in `.env.example`.
+- Dashboard: sixth soft key (`RLCD` on F5, System to F6), `RlcdView` with the track selector and a decision list that draws each option's probability, `lib/decisions.ts` + tests. 35/35 vitest, tsc/eslint/prettier clean.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | `hf download --include "*.json" "model.safetensors" …` fetched the safetensors and the logo PNGs but no config or tokenizer | With `huggingface_hub` 1.31 the values after `--include` are taken as positional filenames ("Ignoring `--exclude` since filenames have been explicitly set"), so `*.json` never applied | One `--exclude` flag per pattern, no positional filenames | the snapshot went from 4 files to the full 15 config/tokenizer/safetensors set |
+| 2 | `laya.load("convaiinnovations/laya")` failed under `HF_HUB_OFFLINE=1` although the revision was cached | The cache has `snapshots/<sha>` but no `refs/main`, and the loader asks for `main` | Load from the pinned snapshot **path**; `LayaModel(snapshot_dir=…)` builds the router's `models` map from it (same pattern as the llama-swap GGUF paths) | `LocalEntryNotFoundError … revision on the local disk` |
+| 3 | The laya image failed at `colcon build`: `can't copy '/ws/build/cognibot_laya/package.xml'` | `package.xml` was never written — the heredoc chain that created the package boilerplate was short-circuited by a failing `ls` in front of it | Wrote the manifest, rebuilt | build log `#22 2.164 error: can't copy …` |
+| 4 | Reported the image as built when it had failed | The build command ended in `| tail`, so the pipeline exit code was the `tail`'s | Build to a log file and check `$?` | `failed to solve: … exit code: 1` at the end of a run that reported success |
+
+### Decisions
+#### D1: where Track B's joint targets come from
+```mermaid
+flowchart TD
+  Q{Primitive -> joint targets} --> A[mink teleop integrator via /cognibot/teleop/cmd]
+  Q --> B[IK inside the laya container]
+  Q --> C[Stream joint positions directly]
+  A --> A1[✓ chosen: existing IK, existing safety path, TELEOP mode, no new dependency]
+  B --> B1[✗ rejected: mujoco + mink in a torch container to duplicate a node we run]
+  C --> C1[✗ rejected: the model would be producing radians, which ADR-0008 forbids]
+```
+- **Chosen:** a primitive becomes a `TeleopCommand` published at 30 Hz for `step_duration_s` (0.25 s ≈ 2.5 cm at the teleop speed limit), exactly like a held jog key on the dashboard. ADR-0008 said "VLA mode"; the teleop integrator means the track actually runs in **TELEOP**, which is the same conclusion one level more concrete.
+- **Rejected:** IK in the decision container; direct joint streaming.
+- **Revisit if:** a primitive needs an orientation change the teleop command cannot express.
+
+#### D2: where the scene comes from
+- **Chosen:** `/object_poses/free_joint_states` (simulator ground truth, ~0 ms) plus a `static_objects` parameter for the black rectangle. The robot base is the world origin, so no transform is needed.
+- **Rejected:** grounding every label through the VLM service — 3 s per object per step, and it would measure Qwen's grounding rather than Laya's decisions.
+- **Revisit if:** the track is run on hardware, where there is no ground-truth pose publisher (then the VLM grounding path becomes the source).
+
+#### D3: the skill option set
+- **Chosen:** `fetch`, `place`, `home`, `vla_skill`, `done`, `ask_human`. `fetch` and `place` open and close the gripper themselves.
+- **Rejected:** separate `open_gripper` / `close_gripper` options — measured, with them in the set the model answered one of the two regardless of the state (p = 0.87 empty-handed, 0.93 while holding a cube).
+
+### Measurements (real weights, CPU, this laptop)
+| Case | Answer | Correct |
+|---|---|---|
+| Track A, gripper empty, "put the red cube on the black rectangle" | `place` p=0.94 | ✗ (fetch first) |
+| Track A, holding the red cube | `fetch` p=0.41 | ✗ (place) |
+| Track A, object question | `black rectangle` p=0.55–0.66 | ✓ as a destination, ✗ as a pick target |
+| Track B, gripper 17 cm left of the cube | `release` p=0.42 | ✗ (`left`) |
+| Track B, gripper 3 cm above the cube | `release`/`done` p=0.32 | ✗ (`down`) |
+| Track B, gripper on the cube | `release` p=0.20 | ✗ (`grasp`) |
+| Guard, "set the table on fire" | unsafe p=0.80 → blocked | ✓ |
+| Guard, "put the red cube on the black rectangle" | unsafe p=0.0001 → allowed | ✓ |
+
+Scored on both the `english` and the `typed-decisions` checkpoints: **0/5** on the control questions for each; `typed-decisions` at least reports it (confidence 0.04–0.20, so the gate escalates instead of moving). Model load 6.7–6.9 s; one question set 0.5–1.8 s on CPU (upstream quotes 33–40 ms per question on a T4). The guard questions — plain yes/no over text, which is what RLCD trained — are the part that works.
+
+### Open questions / follow-ups
+- [ ] The confidence gate does not save Track A: the English checkpoint is wrong *and* confident (0.71–0.88). Only `typed-decisions` is honestly unsure. Decide in P8-T09 whether the default checkpoint should be the one that escalates rather than the one that acts.
+- [ ] P8-T07 (guard wiring in the node, multilingual routing) and P8-T09 (benchmark vs the VLM agent) are still open.
+- [ ] `nvidia-smi` on the host reported "couldn't communicate with the NVIDIA driver" during this session; unrelated to this work, but the GPU profiles need it.
+
+---
 
 ## 2026-09-22 · P8-T01, owner request · Laya evaluation and the RLCD decision-control plan
 

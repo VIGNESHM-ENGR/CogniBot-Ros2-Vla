@@ -117,6 +117,40 @@ export interface RunAgentTaskResult {
   summary: string;
 }
 
+/** One typed decision from the RLCD layer: the options it scored and what it chose. */
+export interface DecisionMsg {
+  header: Header;
+  task_id: string;
+  step: number;
+  question_id: string;
+  options: string[];
+  probabilities: number[];
+  choice: string;
+  confidence: number;
+  act_probability: number;
+  model: string;
+  latency_ms: number;
+}
+
+export interface RunDecisionTaskGoal {
+  task: string;
+  /** 0 skills, 1 primitives */
+  track: number;
+  max_duration_s: number;
+  min_confidence: number;
+}
+
+export interface RunDecisionTaskFeedback {
+  step: number;
+  decision: DecisionMsg;
+}
+
+export interface RunDecisionTaskResult {
+  success: boolean;
+  summary: string;
+  decisions: number;
+}
+
 export interface StageFeedback {
   stage: string;
   progress: number;

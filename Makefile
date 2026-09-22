@@ -1,7 +1,7 @@
 # CogniBot-ROS2-VLA developer commands. Run `make help`.
 COMPOSE     := docker compose -f cognibot_ws/docker/docker-compose.yml
 COMPOSE_DEV := $(COMPOSE) -f cognibot_ws/docker/compose.dev.yaml
-PROFILES    := vlm vla twin full
+PROFILES    := vlm vla rlcd twin full
 
 .DEFAULT_GOAL := help
 .PHONY: help env deps build build-all config sim sim-dev dashboard demo moveit skill test vlm vla full twin down logs ps shell-sim
@@ -69,6 +69,9 @@ skill: ## Stream a policy to the arm for SKILL_SECONDS (default 60): make skill 
 
 full: ## Everything except the twin
 	$(COMPOSE) --profile full up -d
+
+rlcd: ## Core + RLCD decision layer. Download the checkpoints first: cognibot_ws/docker/laya/download_checkpoints.sh
+	$(COMPOSE) --profile rlcd up -d
 
 twin: ## Core + digital twin connector (mock hardware by default)
 	$(COMPOSE) --profile twin up -d

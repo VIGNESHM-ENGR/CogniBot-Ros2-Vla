@@ -14,6 +14,7 @@ export const TOPICS = {
   mode: "/cognibot/mode",
   agentEvents: "/cognibot/agent/events",
   agentDetections: "/cognibot/agent/detections",
+  rlcdDecisions: "/cognibot/rlcd/decisions",
   frontCamera: "/mujoco_camera_plugin/front_rgbd/color",
   objectPoses: "/object_poses/free_joint_states",
   wristCamera: "/mujoco_camera_plugin/wrist_cam/color",
@@ -34,6 +35,7 @@ export const ACTIONS = {
   place: "/cognibot/place_object",
   executeSkill: "/cognibot/vla/execute_skill",
   runAgentTask: "/cognibot/agent/run_task",
+  runDecisionTask: "/cognibot/rlcd/run_task",
 } as const;
 
 /** Source size of the front camera (bbox pixels from the agent refer to it). */
@@ -43,6 +45,12 @@ export const DEFAULT_QUERY = "Pick up the green cube and place it inside the bla
 /** Default language instruction for a policy run (the checkpoint comes from the vla-client env). */
 export const DEFAULT_INSTRUCTION =
   "Pick and place each of the five cubes inside the black boundary.";
+
+/** Default task for a decision run (RLCD view); both tracks read the same sentence. */
+export const DEFAULT_RLCD_TASK = "Put the red cube on the black rectangle.";
+
+/** Mirrors `min_confidence` in cognibot_laya/config/rlcd.yaml: the gate the node applies. */
+export const RLCD_MIN_CONFIDENCE = 0.35;
 
 /** MoveIt planning group, tip link and base frame of the upstream SO-101 config. */
 export const MOVEIT = {

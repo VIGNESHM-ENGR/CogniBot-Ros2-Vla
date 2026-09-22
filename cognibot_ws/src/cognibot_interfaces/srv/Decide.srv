@@ -1,0 +1,10 @@
+# One-shot access to the decision model, for evaluation and debugging; the control loops call the
+# model in-process.
+string state_json
+string questions_json
+string model            # empty = route by script and language
+---
+bool success
+string answers_json     # the model payload: answers, confidences, routing
+float32 latency_ms
+string message

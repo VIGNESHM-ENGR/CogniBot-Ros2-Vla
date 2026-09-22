@@ -5,6 +5,7 @@
 #   tools      → offline asset tooling (scene export; foam added in P2-T03)
 #   vlm        → VLM agent node (CPU; talks to llama-swap)
 #   vla        → LeRobot robot_client + ROS plugins (CPU; talks to policy_server)
+#   laya       → RLCD decision layer (CPU torch; reads the checkpoints from the HF cache)
 # Pins: docs/INTEGRATIONS.md. Digests are resolved in P1-T01.
 
 ARG ROS_BASE_IMAGE=ros:jazzy-ros-base-noble@sha256:386d06ec6d4188f731bae5678e07b4cb64a4e4d4152090c0bd1f881dcf7706f5
@@ -165,6 +166,54 @@ COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_vla /ws/src/cognibot_vla
 # Not editable: the venv is used through PYTHONPATH, which skips .pth editable finders.
 RUN /opt/venv/bin/pip install --no-cache-dir --no-deps /ws/src/cognibot_vla/lerobot_plugins/lerobot_robot_cognibot \
  && source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
+ && cd /ws && colcon build --symlink-install && chown -R cognibot:cognibot /ws
+ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages:${PYTHONPATH}"
+USER cognibot
+WORKDIR /ws
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["bash"]
+
+# ───────────────────────────── laya ───────────────────────────────────
+FROM ${ROS_BASE_IMAGE} AS laya
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+ARG HOST_UID=1000
+ARG HOST_GID=1000
+# Resolved on 2026-09-22 against laya 0.3.5; the upstream README asks for torch 2.14 / transformers
+# 5.x, the package metadata only for torch>=2.0 / transformers>=4.48. These are the versions the
+# decision smoke test ran on. Pins: docs/INTEGRATIONS.md §5.
+ARG LAYA_VERSION=0.3.5
+ARG TORCH_VERSION=2.9.1
+ARG TRANSFORMERS_VERSION=5.17.0
+ARG TOKENIZERS_VERSION=0.23.2
+ARG SAFETENSORS_VERSION=0.8.0
+ARG HF_HUB_VERSION=1.32.0
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-tf2-ros ros-jazzy-control-msgs \
+      ros-jazzy-mujoco-ros2-control-msgs python3-venv curl \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3 -m venv --system-site-packages /opt/venv \
+ && /opt/venv/bin/pip install --no-cache-dir "torch==${TORCH_VERSION}" --index-url "${TORCH_INDEX}" \
+ && /opt/venv/bin/pip install --no-cache-dir \
+      "laya==${LAYA_VERSION}" \
+      "transformers==${TRANSFORMERS_VERSION}" \
+      "tokenizers==${TOKENIZERS_VERSION}" \
+      "safetensors==${SAFETENSORS_VERSION}" \
+      "huggingface_hub==${HF_HUB_VERSION}"
+COPY --from=interfaces /opt/cognibot/underlay /opt/cognibot/underlay
+COPY cognibot_ws/docker/entrypoint.sh /entrypoint.sh
+COPY cognibot_ws/docker/cyclonedds.xml /etc/cognibot/cyclonedds.xml
+RUN (id -u ubuntu >/dev/null 2>&1 && userdel -r ubuntu || true) \
+ && groupadd -o -g "${HOST_GID}" cognibot \
+ && useradd -m -o -u "${HOST_UID}" -g "${HOST_GID}" -s /bin/bash cognibot \
+ && mkdir -p /ws && chown cognibot:cognibot /ws
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_common /ws/src/cognibot_common
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_laya /ws/src/cognibot_laya
+# Robot registry only (no meshes): joints, home pose, frames and the workspace shell.
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_sim/robots/so101/robot.yaml /ws/registry/robots/so101/robot.yaml
+COPY --chown=cognibot:cognibot cognibot_ws/src/cognibot_sim/robots/panda/robot.yaml /ws/registry/robots/panda/robot.yaml
+RUN source /opt/ros/jazzy/setup.bash && source /opt/cognibot/underlay/setup.bash \
  && cd /ws && colcon build --symlink-install && chown -R cognibot:cognibot /ws
 ENV PYTHONPATH="/opt/venv/lib/python3.12/site-packages:${PYTHONPATH}"
 USER cognibot

@@ -681,7 +681,7 @@ input {
 
 .softkeys {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
 }
 
@@ -1182,4 +1182,150 @@ input {
   background: rgba(10, 13, 14, 0.82);
   color: var(--ink-3);
   font-size: 11px;
+}
+
+/* ───────────── rlcd ───────────── */
+
+.rlcd {
+  grid-template-columns: minmax(0, 1.55fr) minmax(280px, 1fr);
+}
+
+.rlcd__side {
+  border-right: 0;
+}
+
+.rlcd__tracks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+}
+
+.rlcd__tracks legend {
+  margin-bottom: 6px;
+  padding: 0;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.rlcd__tracks .key[aria-pressed="true"] {
+  background: #3d4347;
+  box-shadow:
+    inset 0 1px 0 var(--key-highlight),
+    inset 0 -2px 0 var(--yellow),
+    0 2px 0 var(--key-shadow),
+    0 3px 6px rgb(0 0 0 / 45%);
+}
+
+.rlcd__list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rlcd__row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 4px 8px;
+  padding: 7px 8px;
+  border-radius: 4px;
+  background: var(--well);
+}
+
+.rlcd__row[data-blocked] {
+  box-shadow: inset 2px 0 0 var(--yellow);
+}
+
+.rlcd__step {
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.rlcd__question {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+
+.rlcd__confidence {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.rlcd__gatelabel {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.rlcd__options {
+  display: grid;
+  grid-column: 2 / -1;
+  gap: 3px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rlcd__option {
+  display: grid;
+  grid-template-columns: minmax(74px, 22%) minmax(0, 1fr) 40px;
+  gap: 8px;
+  align-items: center;
+  color: var(--ink-3);
+  font-size: 12px;
+}
+
+.rlcd__option[data-chosen] {
+  color: var(--ink);
+}
+
+.rlcd__optionname {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rlcd__bar {
+  block-size: 6px;
+  border-radius: 2px;
+  background: var(--screen-rule);
+}
+
+.rlcd__barfill {
+  display: block;
+  block-size: 100%;
+  border-radius: 2px;
+  background: var(--screen-rule-strong);
+}
+
+.rlcd__option[data-chosen] .rlcd__barfill {
+  background: var(--led-on);
+}
+
+.rlcd__row[data-blocked] .rlcd__option[data-chosen] .rlcd__barfill {
+  background: var(--yellow);
+}
+
+.rlcd__prob {
+  color: var(--ink-3);
+  text-align: right;
+}
+
+.rlcd__escalation {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 8px 0 0;
+  padding: 7px 8px;
+  border-radius: 4px;
+  background: var(--well);
+  color: var(--yellow);
+  font-size: 12px;
 }
