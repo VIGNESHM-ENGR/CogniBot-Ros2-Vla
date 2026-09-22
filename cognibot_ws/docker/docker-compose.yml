@@ -198,7 +198,7 @@ services:
 
   # ─────────────── rlcd profile ───────────────
   laya:
-    <<: *ros
+    <<: [*ros, *gpu]
     image: cognibot/laya:${COGNIBOT_VERSION:-dev}
     build:
       context: ../..
@@ -206,7 +206,7 @@ services:
       target: laya
       args: *build-args
     profiles: [rlcd, full]
-    command: ros2 launch cognibot_laya rlcd.launch.py robot:=${ROBOT:-so101} registry_dir:=/ws/registry device:=${LAYA_DEVICE:-cpu}
+    command: ros2 launch cognibot_laya rlcd.launch.py robot:=${ROBOT:-so101} registry_dir:=/ws/registry device:=${LAYA_DEVICE:-cuda}
     environment:
       <<: *ros-env
       HOME: /tmp
@@ -214,8 +214,9 @@ services:
       # The checkpoints are pre-downloaded (docker/laya/download_checkpoints.sh) and read from the
       # pinned snapshot path in config/rlcd.yaml; nothing here talks to the hub.
       HF_HUB_OFFLINE: "1"
-      # Decision latency is CPU-bound; leave the GPU to the simulator and the VLM.
-      OMP_NUM_THREADS: ${LAYA_THREADS:-6}
+      # GPU by default: 33 ms per decision against 793 ms on the CPU (measured, same answers),
+      # and ~0.85 GB of VRAM for the one checkpoint kept loaded. LAYA_DEVICE=cpu still works.
+      OMP_NUM_THREADS: ${LAYA_THREADS:-4}
     volumes:
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/hf_cache:ro
     mem_limit: 6g

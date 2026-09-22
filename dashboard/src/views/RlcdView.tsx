@@ -96,7 +96,7 @@ export function RlcdView(props: Props) {
                       ? "Stopped: release the stop (R) before a decision run."
                       : minConfidence > 0
                         ? `The model reads the scene as JSON and answers one question set per step. Answers under ${pct(minConfidence)} confidence escalate instead of moving the arm.`
-                        : "The model reads where the target is, in words, and picks one 2 cm motion per step. No confidence gate: the run stops if the gripper stops closing in."}
+                        : "The arm parks with the tool down, then the model reads the stage, the cube, gripper and target positions and where to go in words, and picks one motion per step. A missed grasp or a dropped cube is detected from the cube's pose and retried; the run stops if the gripper stops closing in."}
               </p>
             </form>
           ) : (

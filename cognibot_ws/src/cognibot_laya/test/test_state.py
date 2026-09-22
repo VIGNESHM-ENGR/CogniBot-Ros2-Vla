@@ -3,10 +3,8 @@ from cognibot_laya.state import (
     Pose,
     SceneObject,
     estimate_tokens,
-    grasp_point,
     guard_state,
     labels_in_task,
-    primitive_state,
     skill_state,
     worded_gap,
 )
@@ -37,21 +35,9 @@ def test_skill_state_stays_inside_the_token_budget():
     assert state["objects"], "the budget must not empty the scene"
 
 
-def test_primitive_state_words_the_gap_largest_first():
-    state = primitive_state(
-        "pick up the red cube",
-        Pose(0.28, 0.02, 0.14),
-        SceneObject("red cube", 0.31, 0.19, 0.012, 0.025),
-    )
-    assert state["target_is"] == "17 cm left, 13 cm down, 3 cm forward"
-    assert state["within_reach"] is False
-    assert "joints_deg" not in state and "gap_cm" not in state  # numbers pulled answers off
-
-
-def test_primitive_state_reports_arrival_inside_tolerance():
-    target = SceneObject("red cube", 0.30, 0.10, 0.05, 0.06)
-    state = primitive_state("go", Pose(0.295, 0.10, 0.055), target, tolerance_m=0.02)
-    assert state["within_reach"] is True
+def test_worded_gap_puts_the_largest_part_first_and_the_rest_in_brackets():
+    gap = worded_gap(Pose(0.28, 0.02, 0.14), SceneObject("red cube", 0.31, 0.19, 0.012, 0.025))
+    assert gap == "17 cm left (then 13 cm down, 3 cm forward)"
 
 
 def test_worded_gap_ignores_millimetres_and_names_arrival():
@@ -73,8 +59,3 @@ def test_guard_state_lists_what_is_visible():
     state = guard_state("set the table on fire", "IDLE", [cube("red cube", 0.3, 0.1)])
     assert state["objects_visible"] == ["red cube"]
     assert state["control_mode"] == "IDLE"
-
-
-def test_grasp_point_shifts_toward_the_base_like_the_scripted_fetch():
-    aim = grasp_point(SceneObject("green cube", 0.3, 0.4, 0.012, 0.025), 0.02)
-    assert (round(aim.x, 3), round(aim.y, 3), aim.z) == (0.288, 0.384, 0.012)

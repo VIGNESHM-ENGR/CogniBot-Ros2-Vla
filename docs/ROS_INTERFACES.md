@@ -65,9 +65,13 @@ Conventions:
 > `laya_decision` (ADR-0008) is the RLCD decision layer: it serialises the scene as JSON and asks a
 > 421M text model typed questions. **Track A (skills)** decides a skill plus an object and runs the
 > existing `FetchObject` / `PlaceObject` / `MoveToNamedPose` / `ExecuteSkill` servers in MOTION.
-> **Track B (primitives)** decides one motion primitive per step and publishes `TeleopCommand` on
-> `/cognibot/teleop/cmd` at 30 Hz, so `mink_teleop` does the IK and the arm runs in TELEOP: the
-> model never emits joint angles. Both publish every answer with its option distribution on
+> **Track B (primitives)** first parks the arm in a tool-down `ready_pose` (MOTION) and opens the
+> gripper through `/gripper_controller/gripper_cmd`, then enters TELEOP (through IDLE) and asks the
+> model for one motion per step; each becomes `TeleopCommand` on `/cognibot/teleop/cmd` at 30 Hz,
+> ended by an explicit zero command (the 300 ms dead-man would otherwise extend every jog), so
+> `mink_teleop` does the IK and the model never emits joint angles. The stage, the cube's state
+> (on the table, in the gripper, grasp missed, slipped, in the target area) and the forced
+> grasp/release/done come from the object poses (`cognibot_laya.pickplace`). Both publish every answer with its option distribution on
 > `/cognibot/rlcd/decisions` and their steps on `/cognibot/agent/events` (task ids start `rlcd-`).
 > Object poses come from `/object_poses/free_joint_states` (simulation ground truth; the robot base
 > is the world origin), not from the camera — Laya has no vision encoder.

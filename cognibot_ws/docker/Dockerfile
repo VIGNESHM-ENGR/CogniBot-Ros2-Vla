@@ -5,7 +5,7 @@
 #   tools      → offline asset tooling (scene export; foam added in P2-T03)
 #   vlm        → VLM agent node (CPU; talks to llama-swap)
 #   vla        → LeRobot robot_client + ROS plugins (CPU; talks to policy_server)
-#   laya       → RLCD decision layer (CPU torch; reads the checkpoints from the HF cache)
+#   laya       → RLCD decision layer (CUDA torch; reads the checkpoints from the HF cache)
 # Pins: docs/INTEGRATIONS.md. Digests are resolved in P1-T01.
 
 ARG ROS_BASE_IMAGE=ros:jazzy-ros-base-noble@sha256:386d06ec6d4188f731bae5678e07b4cb64a4e4d4152090c0bd1f881dcf7706f5
@@ -187,7 +187,8 @@ ARG TRANSFORMERS_VERSION=5.17.0
 ARG TOKENIZERS_VERSION=0.23.2
 ARG SAFETENSORS_VERSION=0.8.0
 ARG HF_HUB_VERSION=1.32.0
-ARG TORCH_INDEX=https://download.pytorch.org/whl/cpu
+# CUDA wheel: a decision takes 33 ms on the RTX 3060 against 793 ms on the CPU wheel (P8 devlog).
+ARG TORCH_INDEX=https://download.pytorch.org/whl/cu128
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       ros-jazzy-rmw-cyclonedds-cpp ros-jazzy-tf2-ros ros-jazzy-control-msgs \

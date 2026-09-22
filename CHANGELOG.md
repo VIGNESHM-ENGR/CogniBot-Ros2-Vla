@@ -9,6 +9,10 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ### Changed
 - Dashboard layout: the camera viewport stays on screen at all times and **F1** cycles it (Free look → Front → Wrist; V still works). **F2–F6** load the Motion, Agent, VLA, RLCD and System controls into a panel under the stop button, so the robot is watched while it is operated. Joints and GPU moved to the left grip; the on-screen jog keys were removed (keyboard jog is unchanged, and the TELEOP help lists the keys). The agent's detection box is drawn on the viewport's front feed.
 
+### Changed
+- RLCD **Track B is now a full pick-and-place**: the arm parks with the tool pointing down, then the model picks one motion per step through the stages (above the cube, onto it, lift, carry, lower, retreat) while the node reads the cube's state from physics — a missed grasp or a dropped cube is detected and retried. The model sees the cube, gripper and target-area positions. Placed the cube in the black rectangle 8/8 times in simulation.
+- The `laya` service runs on the GPU by default: 33 ms per decision instead of ~0.8 s on the CPU (`LAYA_DEVICE=cpu` still available).
+
 ### Fixed
 - RLCD decisions: each track offers only the options that can run in the current state, Track B reads the target's direction as words ("15 cm left, 2 cm up"), objects named in the task are bound directly, Track B runs without a confidence gate behind a stall watchdog, and Track A stops after a repeated action that changed nothing. Measured: Track B motion choices 0/6 → 5/6, Track A steps 5.3 s → 1.1 s.
 

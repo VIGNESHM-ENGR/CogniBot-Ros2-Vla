@@ -71,7 +71,7 @@ Models are **downloaded by a pinned fetch script** (`cognibot_sim/scripts/fetch_
 | `openai` | `vlm` venv | `3.13.0` | OpenAI-compatible client with tool calling (talks to llama-swap); ADR-0007 |
 | `nvidia-ml-py` | `core` venv | `13.610.43` | NVML for `gpu_monitor` |
 | [`laya`](https://github.com/NandhaKishorM/laya) | `laya` venv | `0.3.5` | RLCD decision layer: typed decisions with calibrated confidence (ADR-0008) |
-| `torch` (CPU wheel) | `laya` venv | `2.9.1+cpu` | Runs the 421M decision encoder without touching the 6 GB GPU budget |
+| `torch` (CUDA wheel) | `laya` venv | `2.9.1+cu128` | Runs the 421M decision encoder on the GPU: 33 ms/decision vs 793 ms on the CPU wheel |
 | `transformers`, `tokenizers`, `safetensors`, `huggingface_hub` | `laya` venv | `5.17.0`, `0.23.2`, `0.8.0`, `1.32.0` | ModernBERT / mmBERT backbones and the local checkpoint load |
 | `numpy` | `core` venv | `1.26.4` (= Ubuntu Noble `python3-numpy`) | Keeps apt ROS extensions (moveit_py) on the numpy ABI they were built with |
 | [`so101-nexus`](https://pypi.org/project/so101-nexus/) | `tools` stage (scene export) and `vla-eval` (LeRobot-native eval) | `0.6.0` | SO-101 MuJoCo task scenes + LeRobot EnvHub envs for checkpoint sanity evaluation |

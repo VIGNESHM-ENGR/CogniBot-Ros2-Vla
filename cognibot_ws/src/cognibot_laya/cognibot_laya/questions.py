@@ -54,29 +54,16 @@ def legal_skills(holding: bool) -> dict[str, str]:
     return {k: v for k, v in SKILLS.items() if k != blocked}
 
 
-def legal_primitives(
-    within_reach: bool, gripper_open: bool, blocked: frozenset[str] = frozenset()
-) -> dict[str, str]:
-    """Primitives that can do something from here.
+def legal_motions(blocked: frozenset[str] = frozenset()) -> dict[str, str]:
+    """The six motions, minus any that just failed to move the gripper.
 
-    - Out of reach with an open gripper: the six motions. With every primitive offered the model
-      answered `release` from 15 cm away 19 times running.
-    - Within reach with an open gripper: `grasp` or `done` only. A jog is 2.5 cm and the reach
-      tolerance 3 cm, so inside it a motion can only carry the gripper past the target; offered
-      motions there, the model moved back or down instead of grasping.
-    - Gripper closed: the motions (to carry what it holds), `release` and `done`.
-
-    `blocked` are motions that just failed to move the gripper (a joint limit or the reach of a
-    fixed tool orientation): on the live arm the model asked for `down` thirteen times at a wrist
-    limit. They are left out until a motion succeeds again.
+    Track B asks the model only for motions. Grasp, release and done are executed when the stage
+    reaches its point (`pickplace.plan_stage`): there a motion is a no-op or moves away, and the
+    model, offered both, chose `down` over `grasp`/`release` at the aim 0 of 6 times correctly.
+    `blocked` motions (a joint limit, contact) are left out until one succeeds again.
     """
-    if gripper_open and within_reach:
-        keys = ["grasp", "done"]
-    elif gripper_open:
-        keys = list(MOTIONS)
-    else:
-        keys = [*MOTIONS, "release", "done"]
-    return {k: PRIMITIVES[k] for k in keys if k not in blocked} or {"done": PRIMITIVES["done"]}
+    keys = [k for k in MOTIONS if k not in blocked] or list(MOTIONS)
+    return {k: PRIMITIVES[k] for k in keys}
 
 
 def skill_questions(labels: list[str], holding: bool = False) -> dict:
@@ -109,15 +96,15 @@ def skill_questions(labels: list[str], holding: bool = False) -> dict:
 
 
 def primitive_questions(options: dict[str, str] | None = None) -> dict:
-    """Track B: one motion primitive, read from `target_is` (see `state.worded_gap`)."""
+    """Track B: one motion, read from `go_to` (see `state.worded_gap`) for the current `stage`."""
     return {
         "move": {
             "type": "choice",
             "instructions": (
-                "`target_is` says where the target is from the gripper, largest distance first. "
-                "Which motion moves the gripper that way? Grasp only when `within_reach` is true."
+                "`go_to` says where the gripper must move for `stage`, largest distance first. "
+                "Which motion moves it that way?"
             ),
-            "criteria": dict(options if options is not None else PRIMITIVES),
+            "criteria": dict(options if options is not None else legal_motions()),
         }
     }
 

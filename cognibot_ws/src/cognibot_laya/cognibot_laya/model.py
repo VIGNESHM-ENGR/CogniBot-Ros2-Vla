@@ -21,9 +21,9 @@ class LayaModel:
     def __init__(
         self,
         model: str = "auto",
-        device: str = "cpu",
+        device: str = "cuda",
         preload: bool = True,
-        max_loaded: int = 2,
+        max_loaded: int = 1,
         snapshot_dir: str = "",
     ) -> None:
         from laya import Router  # torch import: keep it out of module import time
@@ -42,7 +42,12 @@ class LayaModel:
             if snapshot_dir
             else None
         )
-        self._router = Router(models=models, device=device, preload=preload, max_loaded=max_loaded)
+        # `Router(preload=True)` builds all three checkpoints and raises `max_loaded` to fit them
+        # (~2.3 GB of VRAM on the GPU). Preload only the English one every English task uses; the
+        # others load on first use and share the `max_loaded` budget.
+        self._router = Router(models=models, device=device, preload=False, max_loaded=max_loaded)
+        if preload:
+            self._router.preload(["english"])
         self.last_latency_ms = 0.0
 
     def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]:

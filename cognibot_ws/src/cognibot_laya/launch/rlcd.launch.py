@@ -16,7 +16,7 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("robot", default_value="so101"),
             DeclareLaunchArgument("use_sim_time", default_value="true"),
             DeclareLaunchArgument("registry_dir", default_value=""),
-            DeclareLaunchArgument("device", default_value="cpu"),
+            DeclareLaunchArgument("device", default_value="cuda"),
             Node(
                 package="cognibot_laya",
                 executable="laya_decision",

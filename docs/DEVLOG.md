@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request (P8) | Track B as a full pick-and-place; decisions on the GPU | feat |
 | 2026-09-22 | owner request | Pendant layout: fixed viewport, controls beside the stop | feat |
 | 2026-09-22 | owner request (P8) | RLCD model performance: legal-action masks, worded gaps, task binding, per-track gates | fix |
 | 2026-09-22 | P8-T02…T06, P8-T08 | RLCD decision layer: laya service, both tracks, RLCD screen | feat |
@@ -92,6 +93,54 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request (P8) · Track B as a full pick-and-place; decisions on the GPU
+
+**Context:** the owner asked why decisions were not near the ~38 ms Laya advertises, and for Track B to see the cube's state, the cube, gripper and target-area positions, to know when a grasp missed or the cube fell, and to be refined until it does the task.
+**Outcome:** ✅ Track B placed the cube in the black rectangle **8/8** times on the live simulator — three repeats from the default scene, two other start positions, the red cube, a cube knocked out of the gripper mid-carry, and a grasp that closed on nothing — in 18–24 s and 20–32 decisions each. Decisions take **33 ms on the GPU** (43–44 ms median live) instead of ~0.8 s.
+
+### Work log
+- Latency: built a CUDA variant of the `laya` stage (`TORCH_INDEX` cu128) and scored the same Track B question set on both devices in a lone container. The service now defaults to CUDA, with a GPU reservation, `max_loaded: 1` and the English checkpoint preloaded.
+- Replayed `mink_teleop`'s IK offline (same MJCF, costs and limits) in the motion image to separate kinematics from contact.
+- `cognibot_laya/pickplace.py`: stages, cube state, grasp/drop aims, the model's state (stage, worded direction, cube/gripper/target positions and states) and the jog servo; 10 new tests (38 in the package after the old primitive tests were replaced).
+- Node: tool-down ready pose and a gripper open before teleop, a motion-only model question, forced grasp/release/done at their points, an explicit teleop stop after each jog, stall and blocked-motion guards per stage.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Decisions 0.5–1.8 s, not ~38 ms | The image carried the CPU torch wheel; upstream's 33–40 ms is per question on a T4 GPU | CUDA wheel, GPU reservation, device `cuda` by default | same questions: 33 ms on cuda vs 793 ms on cpu, 26 vs 27/29 good answers |
+| 2 | `Router(preload=True)` would hold three checkpoints | `preload()` builds every configured checkpoint and raises `max_loaded` to fit them | Construct without preload and preload only `english` | laya process 1.8 GB on the GPU with one checkpoint |
+| 3 | Track B stalled 4.3 cm above the cube | Not the IK (offline replay of the same path reaches z 0.022): at the zero and home poses the tool points forward (90° from vertical) and teleop holds that orientation, and the model descended while 2 cm off to the side, landing a jaw on the cube | Park in a tool-down `ready_pose` (solved with `solve_from_seeds`), then approach above the grasp point before descending (stages) | offline replay from the ready pose: 0.2 cm at the cube, 1.8 cm at the target, tool vertical |
+| 4 | Every jog overshot: a 1.85 cm `right` moved 4.8 cm | `mink_teleop` keeps integrating the last velocity until its 300 ms dead-man expires | Publish a zero `TeleopCommand` at the end of each jog | trace: the same jog lands at y −0.021 after the fix |
+| 5 | Blocked at z 0.025 — the cube's top face | The gripper was closed (0.0002 rad; open 1.2): `mink_teleop` adopts the measured gripper position on engage, so a teleop release sent before engaging was dropped | Open through `/gripper_controller/gripper_cmd` in MOTION before entering TELEOP | next run grasped and placed |
+| 6 | At the grasp and release points the model chose `down` | Offered motions and the action at the aim, it picked a motion 0/6 times correctly | At a stage's point the action is the only legal primitive and runs without a model call, logged as "(only legal move)" | 8/8 live runs |
+
+### Measurements
+Offline, the stage states (29 motion decisions, english, positions shown to the model): direction phrasing "largest first, the rest in brackets" **27/29**, flat list 26/29, largest part alone 19/29; with positions 23/26 on motion stages vs 22/26 without, so positions stay visible.
+
+| Live run | Result |
+|---|---|
+| Default scene ×3 | placed at (0.295, 0.190), (0.294, 0.192), (0.294, 0.190); 18–20 s |
+| Green cube at (0.22, 0.06) · at (0.30, −0.08) | placed; 30 and 24 decisions |
+| Red cube, task names the red cube | placed; recovered from one blocked `down` |
+| Cube knocked out of the gripper mid-carry | "slipped out of the gripper" → opened → re-approached → placed |
+| Cube pulled away as the jaws closed | "not grasped: the gripper closed on nothing" → opened → re-approached → placed |
+
+Motion choices per run (default scene): `right` ×1, `down` ×2, `up` ×1, `left` ×8 with `forward` ×2 and `up` ×1 on the carry, `down` ×2, `up` ×2. GPU during the runs: 60–69 °C, 3.3 GB total with the simulator.
+
+### Decisions
+#### D1: what the model decides in Track B
+- **Model:** every motion (direction) — 20–32 decisions per run.
+- **Code:** the stage and its aim point, the cube's state, when grasp/release/done run (only at their points), how far a motion travels (the servo stops at the aim along the chosen axis), and the ready pose.
+- **Why:** the model reads words well and physics not at all; every code-side element is either measured from the simulator or a physical fact about the gripper.
+- **Revisit if:** Track B moves to hardware, where no ground-truth pose publisher exists — the cube pose then comes from the VLM grounding.
+
+### Open questions / follow-ups
+- [ ] Track A still fails its empty-gripper decision zero-shot (previous entry).
+- [ ] The keyboard jog in the dashboard has the same dead-man overshoot (up to 3 cm after key release); a zero command on key-up would fix it (dashboard, not this task).
+- [ ] P8-T09: run Track B 10× from fixed poses with other colours and stacking targets.
+
+---
 
 ## 2026-09-22 · owner request (P8) · RLCD model performance: legal-action masks, worded gaps, task binding, per-track gates
 

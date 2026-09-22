@@ -12,7 +12,7 @@ export const TRACKS = [
     id: 1,
     label: "Primitives",
     legend: "Primitive per step",
-    help: "One decision picks a 2 cm motion; the teleop IK turns it into joint targets through the safety filter.",
+    help: "Pick and place by motions: the model picks one move per step toward the current stage (above the cube, onto it, lift, carry, lower). Grasp, release and drop checks come from the cube's pose.",
   },
 ] as const;
 

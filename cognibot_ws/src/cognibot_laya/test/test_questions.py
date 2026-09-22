@@ -4,7 +4,7 @@ from cognibot_laya.questions import (
     NONE_LABEL,
     PRIMITIVES,
     guard_questions,
-    legal_primitives,
+    legal_motions,
     legal_skills,
     primitive_questions,
     questions_fit,
@@ -25,13 +25,10 @@ def test_an_empty_gripper_cannot_place_and_a_full_one_cannot_fetch():
     assert "done" in legal_skills(True) and "done" in legal_skills(False)
 
 
-def test_grasp_and_release_are_offered_only_when_they_can_happen():
-    far = legal_primitives(within_reach=False, gripper_open=True)
-    assert list(far) == MOTIONS
-    near = legal_primitives(within_reach=True, gripper_open=True)
-    assert list(near) == ["grasp", "done"]  # a 2.5 cm jog inside a 3 cm reach only overshoots
-    closed = legal_primitives(within_reach=False, gripper_open=False)
-    assert "release" in closed and "grasp" not in closed
+def test_track_b_offers_only_motions_minus_the_blocked_ones():
+    assert list(legal_motions()) == MOTIONS
+    assert "down" not in legal_motions(frozenset({"down"}))
+    assert list(legal_motions(frozenset(MOTIONS))) == MOTIONS  # never an empty option set
 
 
 def test_skill_questions_cap_the_label_list():
@@ -40,10 +37,9 @@ def test_skill_questions_cap_the_label_list():
     assert NONE_LABEL in questions["object"]["criteria"]
 
 
-def test_primitive_questions_offer_every_primitive_unless_masked():
-    assert set(primitive_questions()["move"]["criteria"]) == set(PRIMITIVES)
-    masked = legal_primitives(within_reach=False, gripper_open=True)
-    assert set(primitive_questions(masked)["move"]["criteria"]) == set(MOTIONS)
+def test_primitive_questions_offer_the_motions():
+    assert set(primitive_questions()["move"]["criteria"]) == set(MOTIONS)
+    assert set(MOTIONS) < set(PRIMITIVES)
 
 
 def test_every_question_set_fits_the_marker_budget():
@@ -56,9 +52,3 @@ def test_every_question_set_fits_the_marker_budget():
 def test_an_overlong_option_set_is_rejected():
     bad = {"q": {"type": "choice", "criteria": {f"o{i}": "x" * 200 for i in range(12)}}}
     assert not questions_fit(bad)
-
-
-def test_a_blocked_motion_is_not_offered_again():
-    options = legal_primitives(False, True, frozenset({"down"}))
-    assert "down" not in options and "left" in options
-    assert list(legal_primitives(True, True, frozenset({"grasp", "done"}))) == ["done"]

@@ -26,7 +26,7 @@ from cognibot_interfaces.action import (
 )
 from cognibot_interfaces.msg import AgentEvent, ControlMode, Decision, TeleopCommand
 from cognibot_interfaces.srv import Decide, SetControlMode
-from control_msgs.action import FollowJointTrajectory
+from control_msgs.action import FollowJointTrajectory, ParallelGripperCommand
 from geometry_msgs.msg import PointStamped
 from mujoco_ros2_control_msgs.msg import FreeJointStateArray
 from rcl_interfaces.msg import ParameterDescriptor
@@ -49,19 +49,26 @@ from cognibot_laya.decide import (
     routed_model,
     skill_action,
 )
+from cognibot_laya.pickplace import (
+    IN_GRIPPER,
+    Area,
+    Geometry,
+    jog_distance,
+    plan_stage,
+    stage_state,
+    within,
+)
 from cognibot_laya.questions import (
     guard_questions,
-    legal_primitives,
+    legal_motions,
     primitive_questions,
     skill_questions,
 )
 from cognibot_laya.state import (
     Pose,
     SceneObject,
-    grasp_point,
     guard_state,
     labels_in_task,
-    primitive_state,
     skill_state,
 )
 
@@ -95,9 +102,9 @@ class DecisionNode(Node):
         self.declare_parameter(
             "model", "auto", d("auto | english | multilingual | typed-decisions")
         )
-        self.declare_parameter("device", "cpu", d("cpu | cuda"))
-        self.declare_parameter("preload", True, d("load the checkpoints at start-up"))
-        self.declare_parameter("max_loaded", 2, d("checkpoints kept in memory"))
+        self.declare_parameter("device", "cuda", d("cuda | cpu"))
+        self.declare_parameter("preload", True, d("load the English checkpoint at start-up"))
+        self.declare_parameter("max_loaded", 1, d("checkpoints kept in memory"))
         self.declare_parameter(
             "snapshot_dir", "", d("local checkpoint snapshot; empty = download from the hub")
         )
@@ -118,12 +125,19 @@ class DecisionNode(Node):
         )
         self.declare_parameter("max_primitive_steps", 60, d("primitive decisions per task"))
         self.declare_parameter("max_duration_s", 180.0, d("wall-clock limit per task"))
-        self.declare_parameter("step_duration_s", 0.25, d("how long one primitive jogs"))
-        self.declare_parameter("tolerance_m", 0.03, d("distance that counts as arrived (track B)"))
+        self.declare_parameter("step_m", 0.025, d("longest single motion primitive, m"))
+        self.declare_parameter("teleop_speed", 0.1, d("= mink_teleop max_linear_speed, m/s"))
+        self.declare_parameter("hover_m", 0.06, d("approach and lift height above the cube, m"))
         self.declare_parameter(
             "grasp_offset_m", 0.02, d("grasp point toward the base; = pick_place_ik.GRASP_OFFSET")
         )
         self.declare_parameter("min_jog_m", 0.005, d("a jog moving less than this is blocked"))
+        self.declare_parameter(
+            "target_half_extents", [0.080, 0.056], d("target area half size x, y, m")
+        )
+        self.declare_parameter(
+            "ready_pose", [0.0, 0.29, -0.36, 1.64, 0.0], d("tool-down pose before jogging, rad")
+        )
         self.declare_parameter("object_topic", "/object_poses/free_joint_states", d("sim poses"))
         self.declare_parameter("cube_half_height", 0.0125, d("m, for placing on top of a cube"))
         self.declare_parameter("min_object_x", 0.0, d("m, ignore bodies parked behind the base"))
@@ -190,6 +204,9 @@ class DecisionNode(Node):
             FollowJointTrajectory,
             "/joint_trajectory_controller/follow_joint_trajectory",
             callback_group=group,
+        )
+        self._gripper = ActionClient(
+            self, ParallelGripperCommand, "/gripper_controller/gripper_cmd", callback_group=group
         )
         self.create_service(Decide, "/cognibot/rlcd/decide", self._on_decide, callback_group=group)
         ActionServer(
@@ -530,11 +547,21 @@ class DecisionNode(Node):
         self._event(handle, AgentEvent.INFO, f"target: {found.label} ({source})", "laya")
         return found
 
-    def _jog(self, primitive: str) -> None:
+    def _target_area(self, task: str) -> Area:
+        """The area the task names (or the first fixed feature), with its half extents."""
+        statics = list(self.statics.values())
+        if not statics:
+            raise RuntimeError("no target area configured (static_objects)")
+        named = labels_in_task(task, [o.label for o in statics])
+        area = next((o for o in statics if named and o.label == named[-1]), statics[0])
+        hx, hy = (float(v) for v in self.get_parameter("target_half_extents").value)
+        return Area(area.label, area.x, area.y, area.z, hx, hy)
+
+    def _jog(self, primitive: str, distance: float = 0.0) -> None:
         """Publish one primitive as teleop commands; mink integrates them into joint targets."""
-        seconds = float(self.get_parameter("step_duration_s").value)
         msg = TeleopCommand()
         msg.header.frame_id = self.base_frame
+        seconds = distance / float(self.get_parameter("teleop_speed").value)
         if primitive in PRIMITIVE_AXES:
             x, y, z = PRIMITIVE_AXES[primitive]
             msg.linear.x, msg.linear.y, msg.linear.z = x, y, z
@@ -545,28 +572,68 @@ class DecisionNode(Node):
             msg.gripper = TeleopCommand.GRIPPER_OPEN
             self._gripper_open = True
         deadline = time.monotonic() + seconds
-        while time.monotonic() < deadline:  # 30 Hz, the rate the dashboard jog keys use
+        while True:  # 30 Hz, the rate the dashboard jog keys use
             msg.header.stamp = self.get_clock().now().to_msg()
             self.teleop_pub.publish(msg)
             time.sleep(1 / 30)
-            if msg.gripper:  # edge-triggered: one message is the command
+            if msg.gripper or time.monotonic() >= deadline:  # a gripper command is one message
                 break
+        if primitive in PRIMITIVE_AXES:
+            # Stop explicitly: mink_teleop keeps integrating the last velocity until its 300 ms
+            # dead-man expires, which made a 1.85 cm jog travel 4.8 cm on the live arm.
+            stop = TeleopCommand()
+            stop.header.frame_id = self.base_frame
+            stop.header.stamp = self.get_clock().now().to_msg()
+            self.teleop_pub.publish(stop)
+
+    def _go_ready(self, handle) -> None:
+        """Park the tool pointing down before jogging.
+
+        mink_teleop holds the tool orientation it engages with. At the zero and home poses the
+        tool points forward (90° from vertical), so a top-down grasp is impossible from there; from
+        this pose the unchanged teleop IK follows a whole pick-and-place within 0.2 cm at the cube
+        and 1.8 cm at the target area (offline replay of its costs and limits).
+        """
+        self.ensure_mode(ControlMode.MOTION)
+        goal = FollowJointTrajectory.Goal()
+        goal.trajectory.joint_names = list(self.cfg.arm_joints)
+        point = JointTrajectoryPoint(
+            positions=[float(v) for v in self.get_parameter("ready_pose").value]
+        )
+        point.time_from_start = Duration(sec=3)
+        goal.trajectory.points = [point]
+        self.run_action(self._trajectory, goal, 20.0, "ready pose", handle)
+        # Open the gripper here, in MOTION, through its controller. mink_teleop adopts the
+        # measured gripper position when it engages, so a teleop "release" sent before that is
+        # dropped: on the live arm a gripper left closed by a previous run then landed on the
+        # cube's top face (blocked at z = 0.025, the cube top) instead of straddling it.
+        opening = ParallelGripperCommand.Goal()
+        opening.command.name = [self.cfg.gripper.joint]
+        opening.command.position = [float(self.cfg.gripper.open)]
+        opening.command.effort = [5.0]
+        self.run_action(self._gripper, opening, 10.0, "open gripper", handle)
+        self._gripper_open = True
 
     def _run_primitives(
         self, handle, task: str, min_confidence: float, deadline: float
     ) -> tuple[bool, str, int]:
         target = self._pick_target(handle, task, min_confidence)
-        # mink_teleop requests TELEOP on its first command, but modes.yaml refuses MOTION → TELEOP
-        # (a Track A run leaves the arm in MOTION), and a refused request drops every jog silently.
-        # Enter TELEOP here, through IDLE when needed, before the first primitive.
+        area = self._target_area(task)
+        self._event(handle, AgentEvent.INFO, f"target area: {area.label}", "laya")
+        self._go_ready(handle)
+        # mink_teleop requests TELEOP on its first command, but modes.yaml refuses MOTION → TELEOP,
+        # and a refused request drops every jog silently. Enter TELEOP here, through IDLE.
         self.ensure_mode(ControlMode.TELEOP)
-        tolerance = float(self.get_parameter("tolerance_m").value)
+        g = Geometry(
+            grasp_offset=float(self.get_parameter("grasp_offset_m").value),
+            hover=float(self.get_parameter("hover_m").value),
+        )
+        step_m = float(self.get_parameter("step_m").value)
         max_stall = int(self.get_parameter("max_stall_steps").value)
-        offset = float(self.get_parameter("grasp_offset_m").value)
         min_jog = float(self.get_parameter("min_jog_m").value)
         best_gap, stalled = float("inf"), 0
         blocked: set[str] = set()
-        aim = grasp_point(target, offset)
+        previous, last_cube_state, was_held = "", "", False
         decisions = 1
         for step in range(int(self.get_parameter("max_primitive_steps").value)):
             self._step = step
@@ -575,20 +642,45 @@ class DecisionNode(Node):
             if time.monotonic() > deadline:
                 return False, "out of time", decisions
             gripper = self.gripper_pose()
-            if gripper is None:
-                return False, "no gripper transform yet", decisions
-            state = primitive_state(
-                task,
-                gripper,
-                aim,
-                gripper_open=self._gripper_open,
-                held=self._held,
-                tolerance_m=tolerance,
-            )
-            if state["within_reach"] and not self._gripper_open:
-                return True, f"grasped at {target.label}", decisions
-            # Stall watchdog: the guard for this track instead of a confidence gate.
-            gap = gripper.distance_to(Pose(aim.x, aim.y, aim.z))
+            cube = next((o for o in self.scene() if o.label == target.label), None)
+            if gripper is None or cube is None:
+                return False, "lost the gripper transform or the cube pose", decisions
+            stage = plan_stage(cube, gripper, self._gripper_open, was_held, area, previous, g)
+            if stage.cube_state == IN_GRIPPER:
+                was_held = True
+            if stage.cube_state != last_cube_state:
+                self._event(handle, AgentEvent.INFO, f"{cube.label}: {stage.cube_state}", "laya")
+                last_cube_state = stage.cube_state
+            if stage.name != previous:
+                self._event(handle, AgentEvent.INFO, f"stage: {stage.name}", "laya")
+                best_gap, stalled, previous = float("inf"), 0, stage.name
+
+            if within(stage, gripper) and stage.action:
+                # The stage's point is reached: its one action is the only legal primitive (a
+                # motion there is a no-op or moves away), so it runs without asking the model.
+                self._event(
+                    handle, AgentEvent.TOOL_CALL, f"{stage.action} (only legal move)", "laya"
+                )
+                if stage.action == "done":
+                    placed = area.contains(cube)
+                    return (
+                        placed,
+                        (
+                            f"{cube.label} placed on the {area.label} at "
+                            f"({cube.x:.3f}, {cube.y:.3f}, {cube.z:.3f})"
+                            if placed
+                            else f"{cube.label} is outside the {area.label}"
+                        ),
+                        decisions,
+                    )
+                self._jog(stage.action)
+                time.sleep(1.0)  # let the jaws close or open before the next pose reading
+                if stage.action == "release":
+                    was_held = False
+                continue
+
+            # Stall watchdog: progress toward this stage's aim, reset whenever the stage changes.
+            gap = gripper.distance_to(stage.aim)
             if gap < best_gap - 0.01:
                 best_gap, stalled = gap, 0
             else:
@@ -597,39 +689,34 @@ class DecisionNode(Node):
                 why = f"; the arm could not move {', '.join(sorted(blocked))}" if blocked else ""
                 return (
                     False,
-                    f"no progress: {gap * 100:.1f} cm from {target.label} for {stalled} steps{why}",
+                    f"no progress on '{stage.name}': {gap * 100:.1f} cm off for {stalled} steps"
+                    f"{why}",
                     decisions,
                 )
-            self._event(handle, AgentEvent.INFO, f"target is {state['target_is']}", "laya")
-            options = legal_primitives(
-                state["within_reach"], self._gripper_open, frozenset(blocked)
+            state = stage_state(task, stage, cube, gripper, self._gripper_open, area)
+            payload, latency = self._decide(
+                handle, state, primitive_questions(legal_motions(frozenset(blocked))), task
             )
-            payload, latency = self._decide(handle, state, primitive_questions(options), task)
             decisions += 1
             action, _answers = primitive_action(payload, min_confidence)
-            self._event(handle, AgentEvent.TOOL_CALL, action.describe(), "laya", latency / 1000.0)
+            self._event(
+                handle,
+                AgentEvent.TOOL_CALL,
+                f"{action.describe()} · go to {state['go_to']}",
+                "laya",
+                latency / 1000.0,
+            )
             if isinstance(action, Escalate):
                 return False, action.reason, decisions
             assert isinstance(action, PrimitiveAction)
-            if action.primitive == "done":
-                gap_cm = gripper.distance_to(Pose(target.x, target.y, target.z)) * 100
-                return (
-                    gap_cm <= tolerance * 100,
-                    f"the model stopped {gap_cm:.1f} cm from {target.label}",
-                    decisions,
-                )
-            self._jog(action.primitive)
-            if action.primitive in PRIMITIVE_AXES:
-                time.sleep(0.3)  # let the arm follow the integrated target before measuring
-                moved = self.gripper_pose()
-                if moved is not None and moved.distance_to(gripper) < min_jog:
-                    blocked.add(action.primitive)
-                    self._event(handle, AgentEvent.INFO, f"{action.primitive} blocked", "laya")
-                else:
-                    blocked.clear()
-            # The target may have moved (a grasp drags it); refresh it from the scene.
-            target = next((o for o in self.scene() if o.label == target.label), target)
-            aim = grasp_point(target, offset)
+            self._jog(action.primitive, jog_distance(action.primitive, gripper, stage.aim, step_m))
+            time.sleep(0.3)  # let the arm follow the integrated target before measuring
+            moved = self.gripper_pose()
+            if moved is not None and moved.distance_to(gripper) < min_jog:
+                blocked.add(action.primitive)
+                self._event(handle, AgentEvent.INFO, f"{action.primitive} blocked", "laya")
+            else:
+                blocked.clear()
         return False, "out of steps", decisions
 
     # ───────────── task ─────────────

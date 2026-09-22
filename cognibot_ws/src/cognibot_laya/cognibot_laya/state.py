@@ -120,9 +120,9 @@ def skill_state(
 def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.005) -> str:
     """Where the target is from the gripper, in words, largest distance first.
 
-    Measured on the shipped checkpoints: given signed centimetres (`"left": 17.0`) the model chose
-    `release` or `forward` whatever the numbers were (0–1 of 6 correct); given this sentence it
-    chose the right motion 5 of 6 times. The model reads words, not arithmetic.
+    Measured on the shipped checkpoints: given only signed centimetres (`"left": 17.0`) the model
+    chose `release` or `forward` whatever the numbers were (0–1 of 6 correct); given this sentence
+    it chose the right motion 5 of 6 times. The model reads words, not arithmetic.
     """
     parts = []
     for positive, negative, delta in (
@@ -136,43 +136,12 @@ def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.005) 
             direction = positive if delta > 0 else negative
             parts.append((abs(delta), f"{cm} cm {direction}"))
     parts.sort(reverse=True)
-    return ", ".join(text for _, text in parts) or "at the gripper"
-
-
-def primitive_state(
-    task: str,
-    gripper: Pose,
-    target: SceneObject,
-    gripper_open: bool = True,
-    held: str | None = None,
-    tolerance_m: float = 0.02,
-) -> dict:
-    """Track B state: the target and where it is from the gripper, as words.
-
-    No coordinates and no joint angles: every number in the state measurably pulled the answer
-    away from the gap (see `worded_gap`).
-    """
-    return {
-        "task": task,
-        "target": target.label,
-        "target_is": worded_gap(gripper, target),
-        "within_reach": gripper.distance_to(Pose(target.x, target.y, target.z)) <= tolerance_m,
-        "gripper": "open" if gripper_open else "closed",
-        "holding": held or "nothing",
-    }
-
-
-def grasp_point(obj: SceneObject, offset_m: float) -> SceneObject:
-    """Where the gripper frame goes to grasp `obj`: its centre, shifted `offset_m` toward the base.
-
-    The gripper frame sits outboard of the jaw centre; the scripted fetch applies the same shift
-    (`cognibot_motion.pick_place_ik.GRASP_OFFSET`), so Track B aims where a grasp actually closes.
-    """
-    radial = math.hypot(obj.x, obj.y)
-    scale = max(radial - offset_m, 0.0) / radial if radial > 1e-6 else 1.0
-    return SceneObject(
-        obj.label, obj.x * scale, obj.y * scale, obj.z, obj.top, obj.reachable, obj.movable
-    )
+    if not parts:
+        return "at the gripper"
+    words = [text for _, text in parts]
+    # Measured on the stage states: "11 cm down (then 9 cm left, 2 cm back)" 27/29 good moves,
+    # a flat list 26/29, the largest part alone 19/29.
+    return words[0] if len(words) == 1 else f"{words[0]} (then {', '.join(words[1:])})"
 
 
 def labels_in_task(task: str, labels: list[str]) -> list[str]:

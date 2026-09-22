@@ -27,6 +27,7 @@ Related: [ARCHITECTURE.md §7.3](ARCHITECTURE.md#73-vla-skill-p5) · [ADR-0005](
 | SmolVLA (450M) weights | `policy-server` | bf16 | ~900 | |
 | SmolVLA activations (1 obs, 2 cameras 512², chunk 50, 10 flow steps) | `policy-server` | bf16 | ~500–800 | |
 | PyTorch CUDA context + allocator cache | `policy-server` | – | ~400 | |
+| Laya decision model (english checkpoint, 421M) + CUDA context | `laya` | fp16 | ~1830 (measured) | One checkpoint resident (`max_loaded: 1`); 33 ms/decision. `LAYA_DEVICE=cpu` → 0 |
 
 **Totals:**
 
