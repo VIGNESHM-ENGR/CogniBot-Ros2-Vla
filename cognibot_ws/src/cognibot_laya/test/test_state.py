@@ -3,9 +3,12 @@ from cognibot_laya.state import (
     Pose,
     SceneObject,
     estimate_tokens,
+    grasp_point,
     guard_state,
+    labels_in_task,
     primitive_state,
     skill_state,
+    worded_gap,
 )
 
 
@@ -34,26 +37,44 @@ def test_skill_state_stays_inside_the_token_budget():
     assert state["objects"], "the budget must not empty the scene"
 
 
-def test_primitive_state_gives_the_gap_in_centimetres():
+def test_primitive_state_words_the_gap_largest_first():
     state = primitive_state(
         "pick up the red cube",
         Pose(0.28, 0.02, 0.14),
         SceneObject("red cube", 0.31, 0.19, 0.012, 0.025),
-        {"shoulder_pan": -12.4},
     )
-    assert state["gap_cm"] == {"forward": 3.0, "left": 17.0, "up": -12.8}
-    assert state["distance_cm"] == 21.5
-    assert state["within_tolerance"] is False
-    assert state["joints_deg"]["shoulder_pan"] == -12.4
+    assert state["target_is"] == "17 cm left, 13 cm down, 3 cm forward"
+    assert state["within_reach"] is False
+    assert "joints_deg" not in state and "gap_cm" not in state  # numbers pulled answers off
 
 
 def test_primitive_state_reports_arrival_inside_tolerance():
     target = SceneObject("red cube", 0.30, 0.10, 0.05, 0.06)
-    state = primitive_state("go", Pose(0.295, 0.10, 0.055), target, {}, tolerance_m=0.02)
-    assert state["within_tolerance"] is True
+    state = primitive_state("go", Pose(0.295, 0.10, 0.055), target, tolerance_m=0.02)
+    assert state["within_reach"] is True
+
+
+def test_worded_gap_ignores_millimetres_and_names_arrival():
+    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.302, 0.1, 0.1)) == "at the gripper"
+    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.2, 0.1, 0.1)) == "10 cm back"
+
+
+def test_labels_in_task_follow_the_sentence_order():
+    labels = ["black rectangle", "green cube", "red cube"]
+    assert labels_in_task("Put the green cube on the black rectangle.", labels) == [
+        "green cube",
+        "black rectangle",
+    ]
+    assert labels_in_task("Stack them all.", labels) == []
+    assert labels_in_task("PICK UP THE RED CUBE", labels) == ["red cube"]
 
 
 def test_guard_state_lists_what_is_visible():
     state = guard_state("set the table on fire", "IDLE", [cube("red cube", 0.3, 0.1)])
     assert state["objects_visible"] == ["red cube"]
     assert state["control_mode"] == "IDLE"
+
+
+def test_grasp_point_shifts_toward_the_base_like_the_scripted_fetch():
+    aim = grasp_point(SceneObject("green cube", 0.3, 0.4, 0.012, 0.025), 0.02)
+    assert (round(aim.x, 3), round(aim.y, 3), aim.z) == (0.288, 0.384, 0.012)

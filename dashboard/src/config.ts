@@ -48,8 +48,11 @@ export const DEFAULT_INSTRUCTION =
 /** Default task for a decision run (RLCD view); both tracks read the same sentence. */
 export const DEFAULT_RLCD_TASK = "Put the green cube on the black rectangle.";
 
-/** Mirrors `min_confidence` in cognibot_laya/config/rlcd.yaml: the gate the node applies. */
-export const RLCD_MIN_CONFIDENCE = 0.35;
+/**
+ * Mirrors cognibot_laya/config/rlcd.yaml: the confidence gate per track (index = track id).
+ * Primitives run ungated (the stall watchdog guards them), skills escalate under 35%.
+ */
+export const RLCD_MIN_CONFIDENCE = [0.35, 0] as const;
 /** Mirrors `guard_threshold`: P(flag) above which the guard flag counts as raised. */
 export const RLCD_GUARD_THRESHOLD = 0.6;
 

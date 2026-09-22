@@ -103,9 +103,13 @@ def routed_model(payload: dict[str, Any]) -> str:
 
 
 def skill_action(
-    payload: dict[str, Any], labels: list[str], min_confidence: float
+    payload: dict[str, Any], labels: list[str], min_confidence: float, bound: str = ""
 ) -> tuple[Action, dict[str, Answer]]:
-    """Track A: `skill` + `object` → a `SkillAction`, or `Escalate`."""
+    """Track A: `skill` + `object` → a `SkillAction`, or `Escalate`.
+
+    `bound` is the object the task itself names (`state.labels_in_task`); when it is set the
+    object question was not asked and the skill applies to it.
+    """
     answers = read_answers(payload)
     skill = answers.get("skill")
     if skill is None:
@@ -120,6 +124,8 @@ def skill_action(
         return Escalate("the model asked for a person", skill.confidence), answers
     if skill.choice not in NEEDS_OBJECT:
         return SkillAction(skill.choice, "", skill.confidence), answers
+    if bound:
+        return SkillAction(skill.choice, bound, skill.confidence), answers
 
     chosen = answers.get("object")
     if chosen is None or chosen.choice in ("", NONE_LABEL):

@@ -559,7 +559,7 @@ function Pendant() {
                   onTask={setRlcdTask}
                   track={track}
                   onTrack={setTrack}
-                  minConfidence={RLCD_MIN_CONFIDENCE}
+                  minConfidence={RLCD_MIN_CONFIDENCE[track]}
                   guardThreshold={RLCD_GUARD_THRESHOLD}
                   decisions={decisions}
                   events={agentEvents.filter((e) => e.task_id.startsWith("rlcd-"))}

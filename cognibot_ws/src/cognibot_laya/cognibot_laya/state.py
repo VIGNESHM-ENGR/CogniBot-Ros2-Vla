@@ -28,6 +28,8 @@ class SceneObject:
     z: float
     top: float
     reachable: bool = True
+    # False for fixed scene features (the black rectangle): a destination, never fetched.
+    movable: bool = True
 
     def as_dict(self) -> dict:
         return {
@@ -115,36 +117,74 @@ def skill_state(
     return fit_budget(build, objects, gripper, max_objects)
 
 
+def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.005) -> str:
+    """Where the target is from the gripper, in words, largest distance first.
+
+    Measured on the shipped checkpoints: given signed centimetres (`"left": 17.0`) the model chose
+    `release` or `forward` whatever the numbers were (0–1 of 6 correct); given this sentence it
+    chose the right motion 5 of 6 times. The model reads words, not arithmetic.
+    """
+    parts = []
+    for positive, negative, delta in (
+        ("forward", "back", target.x - gripper.x),
+        ("left", "right", target.y - gripper.y),
+        ("up", "down", target.z - gripper.z),
+    ):
+        cm = round(abs(delta) * 100)
+        # A part that rounds to "0 cm back" reads as an instruction to move back: drop it.
+        if abs(delta) >= min_m and cm > 0:
+            direction = positive if delta > 0 else negative
+            parts.append((abs(delta), f"{cm} cm {direction}"))
+    parts.sort(reverse=True)
+    return ", ".join(text for _, text in parts) or "at the gripper"
+
+
 def primitive_state(
     task: str,
     gripper: Pose,
     target: SceneObject,
-    joints_deg: dict[str, float],
     gripper_open: bool = True,
     held: str | None = None,
     tolerance_m: float = 0.02,
 ) -> dict:
-    """Track B state: where the gripper is, where the target is, and the gap between them.
+    """Track B state: the target and where it is from the gripper, as words.
 
-    The delta is given explicitly because asking a text encoder to subtract two coordinate triples
-    is asking for the failure mode the benchmark already predicts.
+    No coordinates and no joint angles: every number in the state measurably pulled the answer
+    away from the gap (see `worded_gap`).
     """
-    dx, dy, dz = target.x - gripper.x, target.y - gripper.y, target.z - gripper.z
     return {
         "task": task,
-        "gripper_position": gripper.as_dict(),
-        "target": target.as_dict(),
-        "gap_cm": {
-            "forward": round(dx * 100, 1),
-            "left": round(dy * 100, 1),
-            "up": round(dz * 100, 1),
-        },
-        "distance_cm": round(math.dist((0, 0, 0), (dx, dy, dz)) * 100, 1),
-        "within_tolerance": math.dist((0, 0, 0), (dx, dy, dz)) <= tolerance_m,
+        "target": target.label,
+        "target_is": worded_gap(gripper, target),
+        "within_reach": gripper.distance_to(Pose(target.x, target.y, target.z)) <= tolerance_m,
         "gripper": "open" if gripper_open else "closed",
         "holding": held or "nothing",
-        "joints_deg": {name: round(value, 1) for name, value in joints_deg.items()},
     }
+
+
+def grasp_point(obj: SceneObject, offset_m: float) -> SceneObject:
+    """Where the gripper frame goes to grasp `obj`: its centre, shifted `offset_m` toward the base.
+
+    The gripper frame sits outboard of the jaw centre; the scripted fetch applies the same shift
+    (`cognibot_motion.pick_place_ik.GRASP_OFFSET`), so Track B aims where a grasp actually closes.
+    """
+    radial = math.hypot(obj.x, obj.y)
+    scale = max(radial - offset_m, 0.0) / radial if radial > 1e-6 else 1.0
+    return SceneObject(
+        obj.label, obj.x * scale, obj.y * scale, obj.z, obj.top, obj.reachable, obj.movable
+    )
+
+
+def labels_in_task(task: str, labels: list[str]) -> list[str]:
+    """Scene labels the task names verbatim, in the order the sentence names them.
+
+    Object binding is done here, not by the model: asked which object a sentence names, the shipped
+    checkpoints picked the right one 0–3 times in 7 across four phrasings (choice over labels, a
+    lexical choice, yes/no per object). A label that appears in the task needs no model.
+    """
+    text = task.lower()
+    found = [(text.find(label.lower()), label) for label in labels if label.lower() in text]
+    return [label for _, label in sorted(found)]
 
 
 def guard_state(task: str, mode: str, objects: list[SceneObject]) -> dict:

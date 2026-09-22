@@ -35,7 +35,6 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
-from sensor_msgs.msg import JointState
 from tf2_ros import Buffer, TransformListener
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -50,8 +49,21 @@ from cognibot_laya.decide import (
     routed_model,
     skill_action,
 )
-from cognibot_laya.questions import guard_questions, primitive_questions, skill_questions
-from cognibot_laya.state import Pose, SceneObject, guard_state, primitive_state, skill_state
+from cognibot_laya.questions import (
+    guard_questions,
+    legal_primitives,
+    primitive_questions,
+    skill_questions,
+)
+from cognibot_laya.state import (
+    Pose,
+    SceneObject,
+    grasp_point,
+    guard_state,
+    labels_in_task,
+    primitive_state,
+    skill_state,
+)
 
 MODE_NAMES = {
     ControlMode.IDLE: "IDLE",
@@ -89,14 +101,29 @@ class DecisionNode(Node):
         self.declare_parameter(
             "snapshot_dir", "", d("local checkpoint snapshot; empty = download from the hub")
         )
-        self.declare_parameter("min_confidence", 0.35, d("below it a decision escalates"))
+        self.declare_parameter("min_confidence", 0.35, d("skills: below it a decision escalates"))
+        self.declare_parameter(
+            "primitive_min_confidence",
+            0.0,
+            d("primitives: gate; the stall watchdog guards instead"),
+        )
+        self.declare_parameter(
+            "max_stall_steps", 4, d("primitives without 1 cm of progress before stopping")
+        )
         self.declare_parameter("guard_enabled", True, d("run the guard questions before a task"))
         self.declare_parameter("guard_threshold", 0.6, d("P(flag) that blocks a task"))
         self.declare_parameter("max_steps", 12, d("skill decisions per task (track A)"))
+        self.declare_parameter(
+            "max_repeats", 1, d("identical actions on an unchanged scene before stopping")
+        )
         self.declare_parameter("max_primitive_steps", 60, d("primitive decisions per task"))
         self.declare_parameter("max_duration_s", 180.0, d("wall-clock limit per task"))
         self.declare_parameter("step_duration_s", 0.25, d("how long one primitive jogs"))
         self.declare_parameter("tolerance_m", 0.03, d("distance that counts as arrived (track B)"))
+        self.declare_parameter(
+            "grasp_offset_m", 0.02, d("grasp point toward the base; = pick_place_ik.GRASP_OFFSET")
+        )
+        self.declare_parameter("min_jog_m", 0.005, d("a jog moving less than this is blocked"))
         self.declare_parameter("object_topic", "/object_poses/free_joint_states", d("sim poses"))
         self.declare_parameter("cube_half_height", 0.0125, d("m, for placing on top of a cube"))
         self.declare_parameter("min_object_x", 0.0, d("m, ignore bodies parked behind the base"))
@@ -114,7 +141,6 @@ class DecisionNode(Node):
 
         self._lock = threading.Lock()
         self._objects: dict[str, tuple[float, float, float]] = {}
-        self._joints: JointState | None = None
         self._mode = ControlMode.IDLE
         self._busy = False
         self._task_id = ""
@@ -127,13 +153,6 @@ class DecisionNode(Node):
             FreeJointStateArray,
             str(p("object_topic")),
             self._on_objects,
-            qos_profile_sensor_data,
-            callback_group=group,
-        )
-        self.create_subscription(
-            JointState,
-            "/joint_states",
-            self._on_joints,
             qos_profile_sensor_data,
             callback_group=group,
         )
@@ -225,10 +244,6 @@ class DecisionNode(Node):
                 p = entry.pose.pose.position
                 self._objects[entry.name] = (p.x, p.y, p.z)
 
-    def _on_joints(self, msg: JointState) -> None:
-        with self._lock:
-            self._joints = msg
-
     def _on_mode(self, msg: ControlMode) -> None:
         self._mode = msg.mode
 
@@ -237,7 +252,7 @@ class DecisionNode(Node):
         out: dict[str, SceneObject] = {}
         for entry in entries:
             body, label, x, y, z = entry.split("|")
-            out[label] = SceneObject(label, float(x), float(y), float(z), float(z))
+            out[label] = SceneObject(label, float(x), float(y), float(z), float(z), movable=False)
         return out
 
     def scene(self) -> list[SceneObject]:
@@ -266,16 +281,6 @@ class DecisionNode(Node):
             return None
         t = tf.transform.translation
         return Pose(t.x, t.y, t.z)
-
-    def joints_deg(self) -> dict[str, float]:
-        with self._lock:
-            joints = self._joints
-        if joints is None:
-            return {}
-        values = dict(zip(joints.name, joints.position, strict=False))
-        import math
-
-        return {j: math.degrees(values.get(j, 0.0)) for j in self.cfg.arm_joints}
 
     # ───────────── publishing ─────────────
 
@@ -403,6 +408,9 @@ class DecisionNode(Node):
     ) -> tuple[bool, str, int]:
         decisions = 0
         last_result = ""
+        max_repeats = int(self.get_parameter("max_repeats").value)
+        previous: tuple = ()
+        repeats = 0
         for step in range(int(self.get_parameter("max_steps").value)):
             self._step = step
             if handle.is_cancel_requested:
@@ -412,27 +420,63 @@ class DecisionNode(Node):
             objects = self.scene()
             if not objects:
                 return False, "no objects in the scene yet", decisions
-            labels = [o.label for o in objects]
+            holding = self._held is not None
+            # Only what this gripper state can act on: movable objects to fetch, or destinations
+            # for the held one. Offered everything, the model placed from an empty gripper.
+            candidates = [o for o in objects if (o.label != self._held if holding else o.movable)]
+            labels = [o.label for o in candidates]
+            bound = self._bind_object(task, holding, labels)
             state = skill_state(
                 task,
-                objects,
+                candidates,
                 gripper=self.gripper_pose(),
                 held=self._held,
                 gripper_open=self._gripper_open,
                 last_result=last_result,
             )
-            payload, latency = self._decide(handle, state, skill_questions(labels), task)
+            questions = skill_questions(labels, holding)
+            if bound:
+                del questions["object"]
+                self._event(handle, AgentEvent.INFO, f"object: {bound} (named in the task)", "laya")
+            payload, latency = self._decide(handle, state, questions, task)
             decisions += 1
-            action, _answers = skill_action(payload, labels, min_confidence)
+            action, _answers = skill_action(payload, labels, min_confidence, bound)
             self._event(handle, AgentEvent.TOOL_CALL, action.describe(), "laya", latency / 1000.0)
             if isinstance(action, Escalate):
                 return False, action.reason, decisions
             assert isinstance(action, SkillAction)
             if action.skill == "done":
                 return True, "the model reports the task is done", decisions
+            # A fixed point: the same action on an unchanged scene decides the same way forever
+            # (twelve identical steps on the live arm). Allow a retry, then stop and say why.
+            signature = (action.skill, action.label, self._held, self._scene_signature(objects))
+            repeats = repeats + 1 if signature == previous else 0
+            previous = signature
+            if repeats > max_repeats:
+                return (
+                    False,
+                    f"no progress: {action.describe()} repeated on an unchanged scene",
+                    (decisions),
+                )
             last_result = self._run_skill(handle, action, task, objects)
             self._event(handle, AgentEvent.TOOL_RESULT, last_result, action.skill)
         return False, "out of steps", decisions
+
+    @staticmethod
+    def _bind_object(task: str, holding: bool, labels: list[str]) -> str:
+        """The object the task names for this step, or "" when the model has to choose.
+
+        Fetch takes the first candidate the sentence names ("put the *green cube* on …"); place
+        takes the last ("… on the *black rectangle*"), since the source is named before the goal.
+        """
+        named = labels_in_task(task, labels)
+        if not named:
+            return ""
+        return named[-1] if holding else named[0]
+
+    @staticmethod
+    def _scene_signature(objects: list[SceneObject]) -> tuple:
+        return tuple((o.label, round(o.x, 2), round(o.y, 2), round(o.z, 2)) for o in objects)
 
     def _run_skill(self, handle, action: SkillAction, task: str, objects: list[SceneObject]) -> str:
         found = next((o for o in objects if o.label == action.label), None)
@@ -467,21 +511,23 @@ class DecisionNode(Node):
     # ───────────── track B ─────────────
 
     def _pick_target(self, handle, task: str, min_confidence: float) -> SceneObject:
-        """One decision chooses the object the primitives will move toward."""
-        objects = self.scene()
+        """The object the primitives move toward: the one the task names, else the model's pick."""
+        objects = [o for o in self.scene() if o.movable]
         if not objects:
-            raise RuntimeError("no objects in the scene yet")
+            raise RuntimeError("no movable objects in the scene yet")
         labels = [o.label for o in objects]
-        state = skill_state(task, objects, gripper=self.gripper_pose(), held=self._held)
-        payload, _latency = self._decide(handle, state, skill_questions(labels), task)
-        action, answers = skill_action(payload, labels, min_confidence)
-        label = action.label if isinstance(action, SkillAction) else ""
-        if not label:
-            chosen = answers.get("object")
-            label = chosen.choice if chosen is not None else ""
+        named = labels_in_task(task, labels)
+        if named:
+            label, source = named[0], "named in the task"
+        else:
+            state = skill_state(task, objects, gripper=self.gripper_pose(), held=self._held)
+            payload, _latency = self._decide(handle, state, skill_questions(labels), task)
+            chosen = read_answers(payload).get("object")
+            label, source = (chosen.choice if chosen is not None else ""), "model"
         found = next((o for o in objects if o.label == label), None)
         if found is None:
-            raise RuntimeError(f"no target chosen for '{task}' (got '{label}')")
+            raise RuntimeError(f"no target for '{task}' (got '{label}')")
+        self._event(handle, AgentEvent.INFO, f"target: {found.label} ({source})", "laya")
         return found
 
     def _jog(self, primitive: str) -> None:
@@ -510,12 +556,17 @@ class DecisionNode(Node):
         self, handle, task: str, min_confidence: float, deadline: float
     ) -> tuple[bool, str, int]:
         target = self._pick_target(handle, task, min_confidence)
-        self._event(handle, AgentEvent.INFO, f"target: {target.label}", "laya")
         # mink_teleop requests TELEOP on its first command, but modes.yaml refuses MOTION → TELEOP
         # (a Track A run leaves the arm in MOTION), and a refused request drops every jog silently.
         # Enter TELEOP here, through IDLE when needed, before the first primitive.
         self.ensure_mode(ControlMode.TELEOP)
         tolerance = float(self.get_parameter("tolerance_m").value)
+        max_stall = int(self.get_parameter("max_stall_steps").value)
+        offset = float(self.get_parameter("grasp_offset_m").value)
+        min_jog = float(self.get_parameter("min_jog_m").value)
+        best_gap, stalled = float("inf"), 0
+        blocked: set[str] = set()
+        aim = grasp_point(target, offset)
         decisions = 1
         for step in range(int(self.get_parameter("max_primitive_steps").value)):
             self._step = step
@@ -529,15 +580,31 @@ class DecisionNode(Node):
             state = primitive_state(
                 task,
                 gripper,
-                target,
-                self.joints_deg(),
+                aim,
                 gripper_open=self._gripper_open,
                 held=self._held,
                 tolerance_m=tolerance,
             )
-            if state["within_tolerance"] and not self._gripper_open:
-                return True, f"reached {target.label}", decisions
-            payload, latency = self._decide(handle, state, primitive_questions(), task)
+            if state["within_reach"] and not self._gripper_open:
+                return True, f"grasped at {target.label}", decisions
+            # Stall watchdog: the guard for this track instead of a confidence gate.
+            gap = gripper.distance_to(Pose(aim.x, aim.y, aim.z))
+            if gap < best_gap - 0.01:
+                best_gap, stalled = gap, 0
+            else:
+                stalled += 1
+            if stalled > max_stall:
+                why = f"; the arm could not move {', '.join(sorted(blocked))}" if blocked else ""
+                return (
+                    False,
+                    f"no progress: {gap * 100:.1f} cm from {target.label} for {stalled} steps{why}",
+                    decisions,
+                )
+            self._event(handle, AgentEvent.INFO, f"target is {state['target_is']}", "laya")
+            options = legal_primitives(
+                state["within_reach"], self._gripper_open, frozenset(blocked)
+            )
+            payload, latency = self._decide(handle, state, primitive_questions(options), task)
             decisions += 1
             action, _answers = primitive_action(payload, min_confidence)
             self._event(handle, AgentEvent.TOOL_CALL, action.describe(), "laya", latency / 1000.0)
@@ -545,15 +612,24 @@ class DecisionNode(Node):
                 return False, action.reason, decisions
             assert isinstance(action, PrimitiveAction)
             if action.primitive == "done":
-                reached = state["distance_cm"] / 100.0 <= tolerance
+                gap_cm = gripper.distance_to(Pose(target.x, target.y, target.z)) * 100
                 return (
-                    reached,
-                    (f"the model stopped {state['distance_cm']:.1f} cm from {target.label}"),
+                    gap_cm <= tolerance * 100,
+                    f"the model stopped {gap_cm:.1f} cm from {target.label}",
                     decisions,
                 )
             self._jog(action.primitive)
+            if action.primitive in PRIMITIVE_AXES:
+                time.sleep(0.3)  # let the arm follow the integrated target before measuring
+                moved = self.gripper_pose()
+                if moved is not None and moved.distance_to(gripper) < min_jog:
+                    blocked.add(action.primitive)
+                    self._event(handle, AgentEvent.INFO, f"{action.primitive} blocked", "laya")
+                else:
+                    blocked.clear()
             # The target may have moved (a grasp drags it); refresh it from the scene.
             target = next((o for o in self.scene() if o.label == target.label), target)
+            aim = grasp_point(target, offset)
         return False, "out of steps", decisions
 
     # ───────────── task ─────────────
@@ -564,7 +640,12 @@ class DecisionNode(Node):
         self._busy = True
         self._task_id = f"rlcd-{int(time.time())}"
         self._step = 0
-        min_confidence = goal.min_confidence or float(self.get_parameter("min_confidence").value)
+        primitives = goal.track == RunDecisionTask.Goal.TRACK_PRIMITIVES
+        # Per-track gate. Measured on 24 random offsets, Track B's right moves have confidence
+        # median 0.38 but down to 0.06, and 23/24 of its moves close the gap: a 0.35 gate blocks
+        # about half the good moves. Track A's wrong `done` answers sit low, so its gate stays.
+        gate = "primitive_min_confidence" if primitives else "min_confidence"
+        min_confidence = goal.min_confidence or float(self.get_parameter(gate).value)
         limit = goal.max_duration_s or float(self.get_parameter("max_duration_s").value)
         deadline = time.monotonic() + limit
         track = "primitives" if goal.track == RunDecisionTask.Goal.TRACK_PRIMITIVES else "skills"

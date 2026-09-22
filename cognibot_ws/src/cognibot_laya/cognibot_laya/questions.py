@@ -41,12 +41,50 @@ PRIMITIVES: dict[str, str] = {
 
 NONE_LABEL = "none"
 
+MOTIONS = ["forward", "back", "left", "right", "up", "down"]
 
-def skill_questions(labels: list[str]) -> dict:
+
+def legal_skills(holding: bool) -> dict[str, str]:
+    """Skills that can run from this gripper state: fetch needs it empty, place needs it full.
+
+    Offered every skill, the model chose `place` with an empty gripper twelve steps in a row on
+    the live arm. An option that cannot run is not a choice the model should get.
+    """
+    blocked = "fetch" if holding else "place"
+    return {k: v for k, v in SKILLS.items() if k != blocked}
+
+
+def legal_primitives(
+    within_reach: bool, gripper_open: bool, blocked: frozenset[str] = frozenset()
+) -> dict[str, str]:
+    """Primitives that can do something from here.
+
+    - Out of reach with an open gripper: the six motions. With every primitive offered the model
+      answered `release` from 15 cm away 19 times running.
+    - Within reach with an open gripper: `grasp` or `done` only. A jog is 2.5 cm and the reach
+      tolerance 3 cm, so inside it a motion can only carry the gripper past the target; offered
+      motions there, the model moved back or down instead of grasping.
+    - Gripper closed: the motions (to carry what it holds), `release` and `done`.
+
+    `blocked` are motions that just failed to move the gripper (a joint limit or the reach of a
+    fixed tool orientation): on the live arm the model asked for `down` thirteen times at a wrist
+    limit. They are left out until a motion succeeds again.
+    """
+    if gripper_open and within_reach:
+        keys = ["grasp", "done"]
+    elif gripper_open:
+        keys = list(MOTIONS)
+    else:
+        keys = [*MOTIONS, "release", "done"]
+    return {k: PRIMITIVES[k] for k in keys if k not in blocked} or {"done": PRIMITIVES["done"]}
+
+
+def skill_questions(labels: list[str], holding: bool = False) -> dict:
     """Track A: which skill, and which object it applies to.
 
-    `labels` are the grounded objects in the scene; `none` is always offered so a skill that needs
-    no object (home, done) has somewhere to point.
+    `labels` are the candidates for this gripper state (movable objects to fetch, or destinations
+    for the held one); `none` is always offered so a skill that needs no object (home, done) has
+    somewhere to point. The skill options are `legal_skills(holding)`.
     """
     options = [*labels[: MAX_OPTIONS - 1], NONE_LABEL]
     return {
@@ -57,7 +95,7 @@ def skill_questions(labels: list[str]) -> dict:
                 "an object must be fetched before it can be placed, and only a held object can "
                 "be placed."
             ),
-            "criteria": dict(SKILLS),
+            "criteria": legal_skills(holding),
         },
         "object": {
             "type": "choice",
@@ -70,19 +108,16 @@ def skill_questions(labels: list[str]) -> dict:
     }
 
 
-def primitive_questions() -> dict:
-    """Track B: one motion primitive, chosen from the gap between gripper and target."""
+def primitive_questions(options: dict[str, str] | None = None) -> dict:
+    """Track B: one motion primitive, read from `target_is` (see `state.worded_gap`)."""
     return {
         "move": {
             "type": "choice",
             "instructions": (
-                "Move the gripper toward `target`. `gap_cm` is the target minus the gripper: "
-                "when forward is positive move forward, when it is negative move back; when left "
-                "is positive move left, when it is negative move right; when up is positive move "
-                "up, when it is negative move down. Take the largest gap first. Grasp only when "
-                "`within_tolerance` is true."
+                "`target_is` says where the target is from the gripper, largest distance first. "
+                "Which motion moves the gripper that way? Grasp only when `within_reach` is true."
             ),
-            "criteria": dict(PRIMITIVES),
+            "criteria": dict(options if options is not None else PRIMITIVES),
         }
     }
 

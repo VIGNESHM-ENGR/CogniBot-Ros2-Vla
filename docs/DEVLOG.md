@@ -20,6 +20,8 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request | Pendant layout: fixed viewport, controls beside the stop | feat |
+| 2026-09-22 | owner request (P8) | RLCD model performance: legal-action masks, worded gaps, task binding, per-track gates | fix |
 | 2026-09-22 | P8-T02…T06, P8-T08 | RLCD decision layer: laya service, both tracks, RLCD screen | feat |
 | 2026-09-22 | P8-T01, owner request | Laya evaluation and the RLCD decision-control plan | planning |
 | 2026-09-14 | owner request | README showcase: architecture figure, screenshots, decisions | docs |
@@ -90,6 +92,61 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request (P8) · RLCD model performance: legal-action masks, worded gaps, task binding, per-track gates
+
+**Context:** after the layout change the owner asked for the logs of both tracks to be read and the model's performance improved where the evidence allowed.
+**Outcome:** 🟡 Track B's motion decisions went from 0/6 to 5/6 (19/24 "largest gap first", 23/24 closing the gap) and it now drives the live arm toward the cube; Track A still fails its one remaining model decision (skill with an empty gripper) and now escalates instead of looping. Evaluations ran in a lone `laya` container (no simulator, 4 torch threads) after a combined sim + eval run pushed the laptop's load average to 24.7.
+
+### Work log
+- Fresh baseline on the live sim with all five cubes on the table: Track A `place` from an empty gripper (p 0.75) and `blue cube` for a task naming the green cube; Track B target `red cube` (p 0.72) for "pick up the green cube", then `release` with the gripper open; 5.3–5.8 s per skill question set.
+- Scored question-set variants against the real weights on a fixed scene set (8 Track A cases, 5 targets, 6 moves; both checkpoints), then 24 random Track B offsets for confidence.
+- Ported the winners: `legal_skills` / `legal_primitives` masks, `worded_gap` and a words-only primitive state, `labels_in_task` object binding, `grasp_point` aim, blocked-motion masking, a stall watchdog, a Track A repeat guard, per-track confidence gates (`min_confidence` 0.35 skills, `primitive_min_confidence` 0.0), and dashboard rows reading the per-track gate.
+
+### Measurements
+Variants on the fixed scene set (english / typed-decisions):
+
+| Question | Current | Best variant | What changed |
+|---|---|---|---|
+| Track B move | 0/6 · 0/6 | **5/6 · 5/6** | legal-primitive mask + the gap as a sentence, largest first |
+| Track B target | 1/5 · 1/5 | 0/5 · 3/5 | lexical question; still poor → bound from the task text |
+| Track A skill | 4/8 · 4/8 | 4/8 · 5/8 | masks; the empty-gripper case stays wrong (`done`, `vla_skill`) |
+| Track A object | 2/7 · 2/7 | 1–4/7 | four phrasings incl. yes/no per object; none reliable → bound from the task text |
+| Track A "is the task finished?" (yes/no) | — | inverted | 0.60 while still holding the cube, 0.05 once it was placed |
+
+Shipped package on the same set: Track A skill 4/8 (english) · 5/8, every `place` step right with the right destination, **1.1 s/step (was 5.3 s)**; Track B 5/6, 0.48 s/step. On 24 random offsets: 19/24 match "largest gap first", **23/24 close the gap**; confidence of right moves median 0.38 (min 0.06, max 0.86), wrong moves median 0.20 (max 0.36).
+
+Live after the changes:
+
+| Run | Result |
+|---|---|
+| Track A, "Put the green cube on the black rectangle." | step 0 `done` (p 0.36, confidence 0.06) → escalated by the gate; no false success, no loop |
+| Track B run 1 | `back` ×3, `down` ×13: gripper **24.5 → 4.3 cm** from the cube, then stopped by the watchdog at a wrist limit |
+| Track B run 2 (grasp-point aim) | `back` ×3 overshot past the aim, then `up`/`down` alternating → watchdog stop at ~22 cm |
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Track B moves were `release` whatever the gap | Illegal options offered, and the gap given as signed numbers a text encoder does not do arithmetic on | `legal_primitives` (motions only out of reach, `grasp`/`done` only within it, `release` once closed) and `worded_gap` ("15 cm left, 2 cm up") | 0/6 → 5/6 on both checkpoints |
+| 2 | Wrong object on both tracks | The model cannot bind the object a sentence names: 0–3/7 across four phrasings | `labels_in_task` binds scene labels named verbatim (fetch = first, place = last); the model is asked only when the task names none, and the step says which ("named in the task" / "model") | every `place` step correct in the package eval |
+| 3 | Track A placed from an empty gripper and looped 12 steps | Illegal skill offered; identical state → identical decision | `legal_skills` (no fetch while holding, no place while empty) and `max_repeats` (one retry on an unchanged scene, then stop with the reason) | live: escalates at step 0 instead of 12 fruitless `PlaceObject` runs |
+| 4 | Track B's right moves were blocked by the gate | 6-way calibrated confidence of right answers runs 0.06–0.86 (median 0.38); a 0.35 gate blocks about half of them | Per-track gate: primitives ungated, guarded by a stall watchdog (no 1 cm of progress in 4 steps) | live: the arm moved 20 cm toward the cube instead of stopping at step 0 |
+| 5 | Near the cube the model moved `back` instead of grasping | Half-centimetre offsets printed as "0 cm back, 0 cm down"; motions offered inside a reach radius larger than one jog | Drop parts that round to 0 cm; within reach offer only `grasp`/`done` (a 2.5 cm jog inside a 3 cm radius can only overshoot) | eval grasp case |
+| 6 | Track B stalled 4.3 cm above the cube asking for `down` | Teleop holds the tool orientation; at r ≈ 0.26 m the arm cannot bring the gripper frame lower without leaning the tool (wrist_flex at its limit), which the scripted fetch does with 30°/45° tilts | Aim at the scripted grasp point (2 cm toward the base, `grasp_offset_m`), block motions that moved the gripper < 5 mm, and name them when the watchdog stops; **the reach limit itself is in `mink_teleop`** — not changed here | wrist_flex AT LIMIT 94.4°, elbow_flex NEAR LIMIT in the pendant readout |
+
+### Decisions
+#### D1: what the model decides, and what the code decides
+- **Model:** Track B's motion direction; Track A's skill among the legal ones; the guard's `unsafe`; the object only when the task names none.
+- **Code:** which options are legal in this state, which scene object the sentence names, when a run has stopped making progress.
+- **Why:** every code-side rule is either a physical fact (an empty gripper cannot place; a jog inside the reach radius overshoots) or a measured model failure with no phrasing that fixed it (object binding, "is it finished?").
+- **Revisit if:** a fine-tuned checkpoint (Track C1) binds objects and judges completion; then the object and finished questions go back to the model.
+
+### Open questions / follow-ups
+- [ ] Track A's empty-gripper decision (`fetch` 1/4) is the remaining model failure; zero-shot phrasings are exhausted. Fine-tuning `typed-decisions` on scripted rollouts is the next step (off this laptop).
+- [ ] `mink_teleop` cannot reach grasp height at r ≈ 0.26 m with the tool held vertical; a tool lean like `solve_from_seeds`' tilts would let Track B (and keyboard jog) grasp there. Separate task in `cognibot_teleop`.
+- [ ] Track B live runs vary with the start pose (4.3 cm vs 22 cm); P8-T09 should run each track 10× from the same poses.
+
+---
 
 ## 2026-09-22 · P8-T02…T06, P8-T08 · RLCD decision layer: `laya` service, both tracks, RLCD screen
 

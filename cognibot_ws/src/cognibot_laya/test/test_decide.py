@@ -43,6 +43,11 @@ def test_skill_action_reads_skill_and_object():
     assert answers["skill"].probabilities == [0.8, 0.2]
 
 
+def test_an_object_the_task_names_is_used_without_an_object_answer():
+    result, _ = skill_action(payload(skill=choice({"fetch": 0.9})), LABELS, 0.5, "red cube")
+    assert result == SkillAction("fetch", "red cube", 0.9)
+
+
 def test_skills_without_an_object_ignore_the_object_answer():
     result, _ = skill_action(payload(skill=choice({"home": 0.9})), LABELS, 0.5)
     assert result == SkillAction("home", "", 0.9)
