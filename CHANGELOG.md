@@ -7,6 +7,8 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ## [Unreleased]
 
 ### Changed
+- Simulation scene now reproduces the SmolVLA arena the VLA checkpoint was trained in: a `side_cam` at the training camera's pose (solved from its frames), the black boundary centred in front of the robot at the dataset's size, five 3 cm cubes in a training layout, wider wrist/shoulder ranges; the VLA client sends `side_cam` as camera1, converts the gripper to the dataset's units, starts from the dataset's start pose, and its time budget counts acting time only. (The policy does not complete the task yet — see DEVLOG.)
+- GPU gauge lists which model (VLM, VLA policy, RLCD/Laya) is loaded; a banner shows while models load or unload, and each path frees the others' models before it starts.
 - Dashboard layout: the camera viewport stays on screen at all times and **F1** cycles it (Free look → Front → Wrist; V still works). **F2–F6** load the Motion, Agent, VLA, RLCD and System controls into a panel under the stop button, so the robot is watched while it is operated. Joints and GPU moved to the left grip; the on-screen jog keys were removed (keyboard jog is unchanged, and the TELEOP help lists the keys). The agent's detection box is drawn on the viewport's front feed.
 
 ### Changed

@@ -27,6 +27,12 @@ class CognibotConfig(RobotConfig):
     # bendca61/vla-mujoco-so101-cube_on_tray-leader-v1: state in radians, action in degrees.
     state_degrees: bool = False
     action_degrees: bool = False
+    # Some simulated datasets record the gripper in their own units rather than joint degrees:
+    # joint_deg = gripper_deg_per_unit * unit + gripper_deg_offset. The SmolVLA arena dataset
+    # (Chaenn/so101_cube_sim_place_0824, meta/generation.json) uses 0.6169 and 15.4, so open is
+    # 42.85 units (41.8 deg) and pinch 1.53 units (16.3 deg). 0 disables the conversion.
+    gripper_deg_per_unit: float = 0.0
+    gripper_deg_offset: float = 0.0
     # Ask mode_manager for VLA on connect and IDLE on disconnect.
     request_mode: bool = True
     set_mode_service: str = "/cognibot/set_mode"

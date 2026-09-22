@@ -1133,8 +1133,12 @@ input {
 
 .toast {
   position: absolute;
+  z-index: 2;
   left: 50%;
-  bottom: 16px;
+  top: 14px;
+  max-width: calc(100% - 180px);
+  margin: 0;
+  text-align: center;
   transform: translateX(-50%);
   padding: 6px 12px;
   border-radius: 6px;
@@ -1144,6 +1148,52 @@ input {
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+/* GPU residency rows under the VRAM bar */
+.models {
+  display: grid;
+  gap: 5px;
+  margin: 4px 0 0;
+  padding: 8px 0 0;
+  border-top: 1px solid var(--screen-rule);
+  list-style: none;
+}
+
+.models__row {
+  display: grid;
+  grid-template-columns: 8px 36px minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  font-size: 12px;
+}
+
+.models__slot {
+  color: var(--ink-3);
+  font-size: 11px;
+}
+
+.models__name {
+  overflow: hidden;
+  color: var(--ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.models__state {
+  color: var(--ink-3);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.models__row[data-state="loaded"] .models__state {
+  color: var(--ink);
+}
+
+.models__row[data-state="loading"] .models__state,
+.models__row[data-state="unloading"] .models__state {
+  color: var(--yellow);
 }
 
 @media (max-height: 959px) {

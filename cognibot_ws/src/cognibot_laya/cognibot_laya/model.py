@@ -12,6 +12,25 @@ from typing import Any, Protocol
 
 
 class DecisionModel(Protocol):
+    def unload(self) -> None:
+        """Free every checkpoint (and the CUDA cache) so another model can use the GPU."""
+        self._router.unload()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:  # pragma: no cover - torch is always present in the laya image
+            pass
+
+    def reload(self) -> None:
+        """Load the English checkpoint again after `unload` (~13 s on the GPU)."""
+        self._router.preload(["english"])
+
+    @property
+    def loaded(self) -> bool:
+        return bool(getattr(self._router, "loaded", []))
+
     def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]: ...
 
 
@@ -49,6 +68,25 @@ class LayaModel:
         if preload:
             self._router.preload(["english"])
         self.last_latency_ms = 0.0
+
+    def unload(self) -> None:
+        """Free every checkpoint (and the CUDA cache) so another model can use the GPU."""
+        self._router.unload()
+        try:
+            import torch
+
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        except ImportError:  # pragma: no cover - torch is always present in the laya image
+            pass
+
+    def reload(self) -> None:
+        """Load the English checkpoint again after `unload` (~13 s on the GPU)."""
+        self._router.preload(["english"])
+
+    @property
+    def loaded(self) -> bool:
+        return bool(getattr(self._router, "loaded", []))
 
     def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]:
         """Answer every question in one pass, routing on `route_text` when it is given.

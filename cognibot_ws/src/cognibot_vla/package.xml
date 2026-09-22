@@ -8,6 +8,9 @@
     <license>Apache-2.0</license>
 
     <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>control_msgs</exec_depend>
+  <exec_depend>trajectory_msgs</exec_depend>
 <exec_depend>cognibot_interfaces</exec_depend>
 <exec_depend>sensor_msgs</exec_depend>
 

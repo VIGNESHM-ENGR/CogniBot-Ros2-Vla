@@ -8,6 +8,7 @@
 #   CAMERA_TOPICS    {policy_key: topic, ...}            (default front/wrist simulator cameras)
 #   ACTION_DEGREES   true if the checkpoint outputs degrees (default false)
 #   STATE_DEGREES    true if it expects state in degrees (default false)
+#   GRIPPER_DEG_PER_UNIT, GRIPPER_DEG_OFFSET   gripper in dataset units: deg = a * unit + b (0 = off)
 #   ROBOT_TYPE       cognibot_so101 | cognibot_panda     (default cognibot_so101)
 #   FPS, ACTIONS_PER_CHUNK, CHUNK_SIZE_THRESHOLD, POLICY_SERVER_ADDRESS
 set -euo pipefail
@@ -19,6 +20,8 @@ exec python3 -m lerobot.async_inference.robot_client \
   --robot.camera_topics="${CAMERA_TOPICS:-$DEFAULT_CAMERAS}" \
   --robot.action_degrees="${ACTION_DEGREES:-false}" \
   --robot.state_degrees="${STATE_DEGREES:-false}" \
+  --robot.gripper_deg_per_unit="${GRIPPER_DEG_PER_UNIT:-0}" \
+  --robot.gripper_deg_offset="${GRIPPER_DEG_OFFSET:-0}" \
   --task="${TASK:-pick up the cube and place it on the target}" \
   --policy_type="${POLICY_TYPE:-act}" \
   --pretrained_name_or_path="${VLA_CHECKPOINT:-szk1ck/so101-pickplace-sim-mujoco}" \

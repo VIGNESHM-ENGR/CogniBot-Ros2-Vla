@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request (P5) | VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over | feat (in progress) |
 | 2026-09-22 | owner request | Full-stack control-path test: VLM, VLA, RLCD primitives and skills | test |
 | 2026-09-22 | owner request (P8) | Track B as a full pick-and-place; decisions on the GPU | feat |
 | 2026-09-22 | owner request | Pendant layout: fixed viewport, controls beside the stop | feat |
@@ -94,6 +95,48 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request (P5) · VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over
+
+**Context:** the owner asked to make the SmolVLA policy work ("do the camera configuration needed"), to show on the GPU gauge which model is loaded, and to warn while models load or unload when switching between VLM, VLA and RLCD.
+**Outcome:** 🟡 in progress. The simulation now reproduces the checkpoint's training arena (camera, layout, cube size, joint ranges, gripper units, start pose) and the VLA pipeline acts for its full budget at 29.4 Hz, but the policy still places 0/5 (no cube lifted in 92 s of acting). Remaining suspects are appearance (robot colour, camera look) and the wrist camera. GPU hand-over and the dashboard model rows/banner are built and unit-tested, **not yet checked live**.
+
+### What the checkpoint was trained on (evidence: files, not the card)
+- `smolvla_arena_multitask` = `Chaenn/smolvla_policy_so101_cube_multitask_sim_0824`, dataset `Chaenn/so101_cube_sim_place_0824`: MuJoCo, 295 episodes, 30 fps, cameras `side` + `wrist` 640×480. `train_config.json` rename map: **side → camera1, wrist → camera2**, camera3 empty. Image augmentation **off**.
+- `meta/generation.json` (generator `capstone_arena.generation.cli` @ `959ddee`, layout `sector`): zone inner **0.10 m (x) × 0.20 m (y), 2 cm tape**, fixed in every episode; five cubes per episode in sectors left/right near/far + center_far (colours assigned uniformly; the layout order is the **reverse** of `block_material_names`); block mass 0.018 kg; **side fovy 41.1°**, **wrist fovy 42.2°**, no distortion; start poses around (0, −103, 36, 102, 0)°; gripper in **units**: deg = 0.6169 · unit + 15.4 (open 42.85 → 41.8°, pinch 1.53 → 16.3°).
+- `meta/stats.json` + data: arm joints in degrees with **our zero and signs** (overlay of their recorded states on their frames; our FK puts the jaw within a **median 2.0 cm** of the cube at 30 grasp moments). But **wrist_flex > 95° in 32.6 % of frames** (max 109°) and shoulder_lift to −103.8° — beyond our ±95° / ±100°.
+- Their robot renders purple, about (91, 45, 120) after their camera processing; our cubes were 2.5 cm, theirs ≈ 3.0 cm (area fit through the solved camera: 2.8–3.3 cm).
+
+### Work log
+- **side camera solved by PnP** from dataset frame 0 against the known zone corners and cube positions: pos (0.6497, −0.0435, 0.4092), xyaxes (0.0510 0.9978 0.0415 −0.7269 0.0086 0.6867), fovy 41.1 — mean reprojection **3.0 px** (max 6.6); zone centre x = 0.2425. Added as `side_cam`; the VLA client sends it as `camera1`.
+- Scene (`so101_pick_and_place.xml`): zone moved to (0.2425, 0) with the dataset's size; five 3 cm cubes on the table in **dataset episode 52's layout** (green right_near, reachable by the other paths); cube colours toned toward theirs; wrist_flex range ±110°, shoulder_lift ±105° (joint + actuator; the safety filter reads these).
+- LeRobot plugin: optional gripper unit conversion (`gripper_deg_per_unit`, `gripper_deg_offset`; 0.6169 / 15.4 for this checkpoint).
+- Skill executor: parks the arm at `VLA_START_POSE` (0,−103,36,102,0°, gripper 31.4°) before the client; **max_duration counts from the first action** (loading took 17 s of 60 s); mean rate over the acting window.
+- RLCD/scripted paths follow the new layout: `static_objects` target (0.2425, 0), half extents (0.05, 0.10), cube half 0.015, drop clearance cube half + 2 mm; `pick_place_ik.DROP_CLEARANCE` 0.017.
+- GPU hand-over: new `ModelStatus` on `/cognibot/models` (vlm from llama-swap `/running`, vla from the executor, rlcd from Laya) and `/cognibot/rlcd/unload`; VLA runs free the VLM and Laya, VLM tasks free Laya, RLCD runs free the VLM and reload Laya. Dashboard: model rows in the GPU well and a yellow banner over the viewport while any model loads or unloads.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Policy moved the cube 0.2 cm in the full-stack test | camera1 was our front camera; zone, cubes and start pose differed from training | side_cam from PnP, arena layout, start pose | live side_cam frame matches the dataset's layout and viewpoint |
+| 2 | Wrist and shoulder commands clipped | our model's limits are narrower than the generator's | widen wrist_flex / shoulder_lift in the scene | 32.6 % of training frames beyond 95° wrist |
+| 3 | Gripper state 68.8 "deg" vs training 1.5–44.7 | the dataset stores gripper units | per-checkpoint linear map in the plugin | generation.json `gripper_deg_per_unit` / `_offset` |
+| 4 | A solved wrist-camera pose failed on unseen frames (camera inside our jaw) | 5-point fit relative to our FK absorbed errors | not used; wrist camera still ours (fovy 48.5) | frames 300/900 renders |
+| 5 | VLA budget eaten by loading | budget counted from the goal | count from the first action | 92 s of acting, 116 s total |
+
+### Measurements
+| Run | Result |
+|---|---|
+| VLA, arena match, red robot, raw renders, 90 s acting | 0/5 placed, no cube lifted, blue/yellow nudged 0.8–2 cm; 2693 commands, **29.4 Hz**; models vla loading → loaded; GPU 78 °C |
+| Tests | cognibot_vla 12/12 (vla image), cognibot_vlm 17/17, cognibot_laya 38/38, dashboard 40/40, ruff clean |
+
+### Next steps (in order)
+- [ ] **Robot colour**: add `purple` to `cognibot_common.mjcf_tint.ROBOT_COLORS` ≈ (0.39, 0.19, 0.52) and run the policy with `ROBOT_COLOR=purple`.
+- [ ] **Camera look** (plugin, per camera, off by default): Gaussian blur σ ≈ 1.2 (side) / 0.36 (wrist) + Reinhard colour transfer in OpenCV Lab to the dataset's statistics — side L 160.75 ± 62.19, a 128.31 ± 8.49, b 129.24 ± 9.69; wrist L 124.23 ± 72.31, a 128.99 ± 7.01, b 126.36 ± 9.59 (12 frames of episode 0). cv2 4.13 is in the vla image.
+- [ ] **Wrist camera**: fovy 42.2; re-fit the mount with more correspondences (several frames jointly) if the side-view fixes are not enough.
+- [ ] Live-check the GPU hand-over and dashboard banner (switch VLA → VLM → RLCD), then re-run the four-way full-stack check on the new layout and `make test` (camera reprojection test updated for the new green position).
+
+---
 
 ## 2026-09-22 · owner request · Full-stack control-path test: VLM, VLA, RLCD primitives and skills
 

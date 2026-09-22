@@ -12,6 +12,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/ControlMode.msg"
   "msg/Decision.msg"
   "msg/GpuStatus.msg"
+  "msg/ModelStatus.msg"
   "msg/ObjectDetection.msg"
   "msg/TeleopCommand.msg"
   "srv/CheckReachability.srv"

@@ -21,7 +21,7 @@ ORIENTATION_WEIGHT = 0.1
 # The gripperframe site sits 2 cm outboard of the jaw centre (MODIFICATIONS.md aligned it to the
 # URDF gripper_frame_link), so grasp targets are shifted 2 cm towards the base.
 GRASP_OFFSET = 0.02
-DROP_CLEARANCE = 0.012  # object centre above the surface when released
+DROP_CLEARANCE = 0.017  # object centre above the surface when released (3 cm cubes + 2 mm)
 # Solutions stay this far inside the joint limits: a controller settling exactly on a limit can
 # overshoot by ~1e-4 rad, which MoveIt then rejects as an invalid start state.
 LIMIT_MARGIN = 0.01

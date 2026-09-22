@@ -16,6 +16,22 @@ from .ros_bridge import RosBridge
 logger = logging.getLogger(__name__)
 
 
+def gripper_to_policy(value: float, config: CognibotConfig) -> float:
+    """Our gripper reading (radians, or degrees when state_degrees) -> the checkpoint's units."""
+    if config.gripper_deg_per_unit <= 0:
+        return value
+    degrees = value if config.state_degrees else math.degrees(value)
+    return (degrees - config.gripper_deg_offset) / config.gripper_deg_per_unit
+
+
+def gripper_from_policy(value: float, config: CognibotConfig) -> float:
+    """The checkpoint's gripper action -> our joint (degrees when action_degrees, else radians)."""
+    if config.gripper_deg_per_unit <= 0:
+        return value
+    degrees = config.gripper_deg_per_unit * value + config.gripper_deg_offset
+    return degrees if config.action_degrees else math.radians(degrees)
+
+
 class CognibotRobot(Robot):
     config_class = CognibotConfig
     name = "cognibot"
@@ -102,6 +118,8 @@ class CognibotRobot(Robot):
             f"{j}.pos": v * scale
             for j, v in zip(self.joints, self._bridge.joints(self.joints), strict=True)
         }
+        gripper = f"{self.config.gripper_joint}.pos"
+        obs[gripper] = gripper_to_policy(obs[gripper], self.config)
         for key in self.config.camera_topics:
             obs[key] = self._bridge.image(key)
         return obs
@@ -110,7 +128,11 @@ class CognibotRobot(Robot):
         if self._bridge is None:
             raise DeviceNotConnectedError(f"{self} is not connected")
         scale = math.pi / 180.0 if self.config.action_degrees else 1.0
-        positions = [float(action[f"{j}.pos"]) * scale for j in self.joints]
+        values = {j: float(action[f"{j}.pos"]) for j in self.joints}
+        values[self.config.gripper_joint] = gripper_from_policy(
+            values[self.config.gripper_joint], self.config
+        )
+        positions = [values[j] * scale for j in self.joints]
         self._bridge.publish_command(self.joints, positions)
         return action
 

@@ -61,6 +61,7 @@ Conventions:
 | `/cognibot/vla/status` | `diagnostic_msgs/DiagnosticArray` | `skill_executor_node` (planned; the dashboard currently derives stream status from `/cognibot/mode` and `/cognibot/joint_command`) | dashboard |
 | `/cognibot/gpu` | `cognibot_interfaces/GpuStatus` | `gpu_monitor` | dashboard |
 | `/cognibot/rlcd/decisions` | `cognibot_interfaces/Decision` | `laya_decision` | dashboard (RLCD view) |
+| `/cognibot/models` | `cognibot_interfaces/ModelStatus` (transient local; one latched message per publisher) | `vlm_agent` (Qwen3-VL, from llama-swap `/running`), `skill_executor` (LeRobot policy), `laya_decision` (Laya) | dashboard (GPU gauge, loading banner) |
 
 > `laya_decision` (ADR-0008) is the RLCD decision layer: it serialises the scene as JSON and asks a
 > 421M text model typed questions. **Track A (skills)** decides a skill plus an object and runs the
@@ -84,6 +85,7 @@ Conventions:
 | `/cognibot/check_reachability` | `cognibot_interfaces/srv/CheckReachability` | `reach_query` | vlm-agent, dashboard |
 | `/cognibot/vlm/get_object_coordinates` | `cognibot_interfaces/srv/GetObjectCoordinates` | `vlm_agent_node` | dashboard (debug), eval scripts |
 | `/cognibot/rlcd/decide` | `cognibot_interfaces/srv/Decide` | `laya_decision` | eval scripts, debugging (one state + question set → the raw model payload) |
+| `/cognibot/rlcd/unload` | `std_srvs/srv/Trigger` | `laya_decision` | `vlm_agent`, `skill_executor` (free Laya's ~1.8 GB before their model loads; Laya reloads on its next goal) |
 | `/cognibot/sim/reset_objects` | `std_srvs/srv/Trigger` | `pick_place_server` | dashboard (simulation only: moves free bodies back to their MJCF spawn pose) |
 | `/mujoco_ros2_control_node/set_free_joint_state` | `mujoco_ros2_control_msgs/srv/SetFreeJointState` | mujoco_ros2_control (upstream) | dashboard *Spawn cube* (simulation only: teleports a parked `<colour>_cube` body onto the floor) |
 | `/controller_manager/switch_controller` | `controller_manager_msgs/srv/SwitchController` | controller_manager | `mode_manager` only |
@@ -183,6 +185,25 @@ float32 act_probability # act vs escalate head, 0..1
 string model            # checkpoint that answered: english | multilingual | typed-decisions
 float32 latency_ms
 ```
+
+### msg/ModelStatus.msg
+```
+uint8 UNLOADED=0
+uint8 LOADING=1
+uint8 LOADED=2
+uint8 UNLOADING=3
+
+std_msgs/Header header
+string name          # vlm | vla | rlcd
+string model         # what is (or will be) resident
+uint8 state
+string detail        # why it changed
+```
+
+> **GPU hand-over (6 GB).** Only one of the three models is loaded for work at a time: a VLA run
+> unloads the VLM (llama-swap `POST /api/models/unload`) and Laya (`/cognibot/rlcd/unload`); a VLM
+> task unloads Laya; an RLCD run unloads the VLM and reloads Laya. The LeRobot policy server has no
+> unload call, so a loaded policy stays resident (~1.1 GB) — every combination still fits.
 
 ### msg/GpuStatus.msg
 ```

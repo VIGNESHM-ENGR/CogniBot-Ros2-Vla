@@ -14,6 +14,7 @@ export const TOPICS = {
   agentEvents: "/cognibot/agent/events",
   agentDetections: "/cognibot/agent/detections",
   rlcdDecisions: "/cognibot/rlcd/decisions",
+  models: "/cognibot/models",
   frontCamera: "/mujoco_camera_plugin/front_rgbd/color",
   objectPoses: "/object_poses/free_joint_states",
   wristCamera: "/mujoco_camera_plugin/wrist_cam/color",
@@ -76,6 +77,6 @@ export const CUBES = ["green", "red", "blue", "yellow", "white"] as const;
 export type CubeColor = (typeof CUBES)[number];
 export const cubeBody = (color: CubeColor) => `${color}_cube`;
 /** Half-size of a cube: spawning rests it on the floor. */
-export const CUBE_HALF = 0.0125;
+export const CUBE_HALF = 0.015;
 /** Where the IK pick-and-place demo drops the cube (static MuJoCo body). */
 export const DEMO = { target: "target" };

@@ -33,7 +33,7 @@ function Offline({ service, start }: { service: string; start: string }) {
 export function MotionView(props: Props) {
   const { moveitOnline, gripperOnline, pickPlaceOnline, resetOnline, groupStates, enabled } = props;
   const [point, setPoint] = useState({ x: 0.3, y: 0.0, z: 0.12 });
-  const [spawnAt, setSpawnAt] = useState({ x: 0.27, y: -0.02 });
+  const [spawnAt, setSpawnAt] = useState({ x: 0.1, y: -0.18 });
   const arm = groupStates.filter((s) => s.group === MOVEIT.arm);
   const gripper = groupStates.filter((s) => s.group === MOVEIT.gripper);
   const axes = ["x", "y", "z"] as const;

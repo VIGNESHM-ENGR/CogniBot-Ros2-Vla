@@ -13,6 +13,7 @@ import json
 import os
 import threading
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ import rclpy
 from builtin_interfaces.msg import Duration
 from cognibot_common.robot_registry import load_robot
 from cognibot_interfaces.action import ExecuteSkill, FetchObject, PlaceObject, RunAgentTask
-from cognibot_interfaces.msg import AgentEvent, ControlMode, ObjectDetection
+from cognibot_interfaces.msg import AgentEvent, ControlMode, ModelStatus, ObjectDetection
 from cognibot_interfaces.srv import GetObjectCoordinates, SetControlMode
 from control_msgs.action import FollowJointTrajectory, ParallelGripperCommand
 from geometry_msgs.msg import PointStamped
@@ -39,11 +40,13 @@ from rclpy.qos import (
     qos_profile_sensor_data,
 )
 from sensor_msgs.msg import CameraInfo, Image, JointState
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 from trajectory_msgs.msg import JointTrajectoryPoint
 
 from cognibot_vlm.agent_loop import AssistantTurn, Event, ToolCall, run_task
 from cognibot_vlm.grounding import ground_top_face, parse_boxes
+from cognibot_vlm.models import vlm_state
 
 EVENT_TYPES = {
     "thought": AgentEvent.THOUGHT,
@@ -229,6 +232,20 @@ class VlmAgent(Node):
             self._on_get_coordinates,
             callback_group=group,
         )
+        self.models_pub = self.create_publisher(
+            ModelStatus,
+            "/cognibot/models",
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
+        self._unload_rlcd = self.create_client(
+            Trigger, "/cognibot/rlcd/unload", callback_group=group
+        )
+        self._vlm_state: tuple[int, str] | None = None
+        self.create_timer(1.0, self._poll_vlm, callback_group=group)
         ActionServer(
             self,
             RunAgentTask,
@@ -241,6 +258,35 @@ class VlmAgent(Node):
         self.get_logger().info(
             f"vlm_agent ready: {self.client.base_url} models {p('model_gpu')}/{p('model_hybrid')}"
         )
+
+    # ───────────── GPU residency ─────────────
+
+    def _poll_vlm(self) -> None:
+        """Publish what llama-swap has loaded whenever it changes (dashboard GPU gauge)."""
+        url = str(self.client.base_url).rstrip("/").removesuffix("/v1") + "/running"
+        try:
+            with urllib.request.urlopen(url, timeout=0.8) as reply:
+                state = vlm_state(json.loads(reply.read()))
+        except (OSError, ValueError):
+            return
+        if state == self._vlm_state:
+            return
+        self._vlm_state = state
+        msg = ModelStatus()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.name, msg.state = "vlm", state[0]
+        msg.model = state[1] or "Qwen3-VL-4B"
+        msg.detail = "llama-swap"
+        self.models_pub.publish(msg)
+
+    def _free_rlcd(self) -> None:
+        """Ask the RLCD node to drop Laya (~1.8 GB) before the VLM loads; best effort."""
+        if not self._unload_rlcd.wait_for_service(timeout_sec=0.5):
+            return
+        done = threading.Event()
+        future = self._unload_rlcd.call_async(Trigger.Request())
+        future.add_done_callback(lambda _f: done.set())
+        done.wait(10.0)
 
     # ───────────── inputs ─────────────
 
@@ -287,6 +333,7 @@ class VlmAgent(Node):
         result = RunAgentTask.Result()
         self._busy = True
         self._task_id = f"task-{int(time.time())}"
+        self._free_rlcd()
         try:
             try:
                 _rgb, image_b64 = self._frame()

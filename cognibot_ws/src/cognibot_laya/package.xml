@@ -16,6 +16,7 @@
     <exec_depend>mujoco_ros2_control_msgs</exec_depend>
     <exec_depend>cognibot_interfaces</exec_depend>
     <exec_depend>cognibot_common</exec_depend>
+    <exec_depend>std_srvs</exec_depend>
 
     <test_depend>python3-pytest</test_depend>
 

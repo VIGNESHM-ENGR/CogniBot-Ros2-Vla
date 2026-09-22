@@ -117,6 +117,17 @@ export interface RunAgentTaskResult {
   summary: string;
 }
 
+/** One GPU model's residency on /cognibot/models (transient local, one per publisher). */
+export interface ModelStatusMsg {
+  header: Header;
+  /** vlm | vla | rlcd */
+  name: string;
+  model: string;
+  /** 0 unloaded, 1 loading, 2 loaded, 3 unloading */
+  state: number;
+  detail: string;
+}
+
 /** One typed decision from the RLCD layer: the options it scored and what it chose. */
 export interface DecisionMsg {
   header: Header;

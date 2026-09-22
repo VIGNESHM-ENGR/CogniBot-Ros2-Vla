@@ -185,8 +185,15 @@ services:
       VLA_CHECKPOINT: ${VLA_CHECKPOINT:-/hf_cache/cognibot/smolvla_arena_multitask}
       ACTION_DEGREES: ${ACTION_DEGREES:-true}
       STATE_DEGREES: ${STATE_DEGREES:-true}
-      # Keys must be the checkpoint's own image feature names (INTEGRATIONS §6.1).
-      CAMERA_TOPICS: "${CAMERA_TOPICS:-{camera1: /mujoco_camera_plugin/front_rgbd/color, camera2: /mujoco_camera_plugin/wrist_cam/color}}"
+      # Keys are the checkpoint's own image features; camera1 was the dataset's `side` view, which
+      # the scene's side_cam reproduces (pose solved from the dataset frames).
+      CAMERA_TOPICS: "${CAMERA_TOPICS:-{camera1: /mujoco_camera_plugin/side_cam/color, camera2: /mujoco_camera_plugin/wrist_cam/color}}"
+      # The arena dataset records the gripper in its own units: deg = 0.6169 * unit + 15.4.
+      GRIPPER_DEG_PER_UNIT: ${GRIPPER_DEG_PER_UNIT:-0.6169}
+      GRIPPER_DEG_OFFSET: ${GRIPPER_DEG_OFFSET:-15.4}
+      # Where the arena episodes start (dataset median, degrees): the policy begins in-distribution.
+      VLA_START_POSE: ${VLA_START_POSE:-0,-103,36,102,0}
+      VLA_START_GRIPPER_DEG: ${VLA_START_GRIPPER_DEG:-31.4}
       TASK: ${TASK:-Pick and place each of the five cubes inside the black boundary.}
       LLM_BASE_URL: http://127.0.0.1:8082
     mem_limit: 4g
@@ -217,6 +224,8 @@ services:
       # GPU by default: 33 ms per decision against 793 ms on the CPU (measured, same answers),
       # and ~0.85 GB of VRAM for the one checkpoint kept loaded. LAYA_DEVICE=cpu still works.
       OMP_NUM_THREADS: ${LAYA_THREADS:-4}
+      # to free the VLM before an RLCD run (llama-swap POST /api/models/unload)
+      LLM_BASE_URL: http://127.0.0.1:8082
     volumes:
       - ${HF_CACHE_DIR:-${HOME}/.cache/huggingface}:/hf_cache:ro
     mem_limit: 6g

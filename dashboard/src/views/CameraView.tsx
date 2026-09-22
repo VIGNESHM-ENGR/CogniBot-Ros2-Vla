@@ -28,10 +28,13 @@ export function CameraView({
   source,
   onSource,
   overlay = null,
+  notice = null,
 }: {
   source: SourceId;
   onSource: (s: SourceId) => void;
   overlay?: Overlay;
+  /** GPU hand-over in progress (loading / unloading models), shown over the viewport. */
+  notice?: string | null;
 }) {
   const others = (["free", "front", "wrist"] as SourceId[]).filter((s) => s !== source);
   return (
@@ -50,6 +53,11 @@ export function CameraView({
           </button>
         ))}
       </div>
+      {notice && (
+        <p className="toast" role="status" aria-live="polite">
+          {notice}
+        </p>
+      )}
       <span className="source-hint legend">
         {SOURCE_KEY} · {LABELS[source]}
       </span>

@@ -17,6 +17,7 @@ import {
   type CubeColor,
 } from "./config";
 import { type TrackId } from "./lib/decisions";
+import { mergeStatus, swapNotice } from "./lib/models";
 import { toSeconds } from "./lib/duration";
 import { holdGoal, jointGoal, MOVEIT_ERRORS, nudgeInsideLimits, pointGoal } from "./lib/goals";
 import {
@@ -49,6 +50,7 @@ import {
 import type {
   AgentEventMsg,
   DecisionMsg,
+  ModelStatusMsg,
   Clock,
   ControlModeMsg,
   ExecuteSkillFeedback,
@@ -103,6 +105,12 @@ function Pendant() {
   const [rlcdTask, setRlcdTask] = useState(DEFAULT_RLCD_TASK);
   const [track, setTrack] = useState<TrackId>(0);
   const [decisions, setDecisions] = useState<DecisionMsg[]>([]);
+  const [models, setModels] = useState<Record<string, ModelStatusMsg>>({});
+  useTopicCallback<ModelStatusMsg>(
+    TOPICS.models,
+    "cognibot_interfaces/msg/ModelStatus",
+    useCallback((m: ModelStatusMsg) => setModels((current) => mergeStatus(current, m)), []),
+  );
   useTopicCallback<DecisionMsg>(
     TOPICS.rlcdDecisions,
     "cognibot_interfaces/msg/Decision",
@@ -429,7 +437,7 @@ function Pendant() {
           </div>
           <div className="mini-well">
             <h2 className="legend">GPU</h2>
-            <GpuGauge status={gpu} />
+            <GpuGauge status={gpu} models={models} />
           </div>
         </aside>
 
@@ -451,6 +459,7 @@ function Pendant() {
               <CameraView
                 source={source}
                 onSource={setSource}
+                notice={swapNotice(models)}
                 overlay={
                   detection
                     ? {

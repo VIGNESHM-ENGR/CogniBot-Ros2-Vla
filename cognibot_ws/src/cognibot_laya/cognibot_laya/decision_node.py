@@ -11,8 +11,10 @@ answers lives in the pure modules (`state`, `questions`, `decide`), which are te
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
+import urllib.request
 from typing import Any
 
 import rclpy
@@ -24,7 +26,7 @@ from cognibot_interfaces.action import (
     PlaceObject,
     RunDecisionTask,
 )
-from cognibot_interfaces.msg import AgentEvent, ControlMode, Decision, TeleopCommand
+from cognibot_interfaces.msg import AgentEvent, ControlMode, Decision, ModelStatus, TeleopCommand
 from cognibot_interfaces.srv import Decide, SetControlMode
 from control_msgs.action import FollowJointTrajectory, ParallelGripperCommand
 from geometry_msgs.msg import PointStamped
@@ -35,6 +37,7 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
+from std_srvs.srv import Trigger
 from tf2_ros import Buffer, TransformListener
 from trajectory_msgs.msg import JointTrajectoryPoint
 
@@ -133,17 +136,17 @@ class DecisionNode(Node):
         )
         self.declare_parameter("min_jog_m", 0.005, d("a jog moving less than this is blocked"))
         self.declare_parameter(
-            "target_half_extents", [0.080, 0.056], d("target area half size x, y, m")
+            "target_half_extents", [0.050, 0.100], d("target area half size x, y, m")
         )
         self.declare_parameter(
             "ready_pose", [0.0, 0.29, -0.36, 1.64, 0.0], d("tool-down pose before jogging, rad")
         )
         self.declare_parameter("object_topic", "/object_poses/free_joint_states", d("sim poses"))
-        self.declare_parameter("cube_half_height", 0.0125, d("m, for placing on top of a cube"))
+        self.declare_parameter("cube_half_height", 0.015, d("m, for placing on top of a cube"))
         self.declare_parameter("min_object_x", 0.0, d("m, ignore bodies parked behind the base"))
         self.declare_parameter(
             "static_objects",
-            ["target|black rectangle|0.307|0.197|0.002"],
+            ["target|black rectangle|0.2425|0.0|0.002"],
             d("body|label|x|y|z for scene objects without a free joint"),
         )
         p = lambda n: self.get_parameter(n).value  # noqa: E731
@@ -209,6 +212,17 @@ class DecisionNode(Node):
             self, ParallelGripperCommand, "/gripper_controller/gripper_cmd", callback_group=group
         )
         self.create_service(Decide, "/cognibot/rlcd/decide", self._on_decide, callback_group=group)
+        self.models_pub = self.create_publisher(
+            ModelStatus,
+            "/cognibot/models",
+            QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            ),
+        )
+        self.create_service(Trigger, "/cognibot/rlcd/unload", self._on_unload, callback_group=group)
+        self._model_lock = threading.Lock()
         ActionServer(
             self,
             RunDecisionTask,
@@ -226,9 +240,17 @@ class DecisionNode(Node):
 
     # ───────────── model ─────────────
 
+    def _publish_model(self, state: int, detail: str) -> None:
+        msg = ModelStatus()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.name, msg.model = "rlcd", f"Laya ({self.get_parameter('model').value})"
+        msg.state, msg.detail = state, detail
+        self.models_pub.publish(msg)
+
     def _load_model(self) -> None:
         from cognibot_laya.model import LayaModel
 
+        self._publish_model(ModelStatus.LOADING, "starting up")
         started = time.perf_counter()
         try:
             model = LayaModel(
@@ -243,10 +265,47 @@ class DecisionNode(Node):
             self.get_logger().error(f"decision model unavailable: {exc}")
             return
         self.model = model
+        self._publish_model(ModelStatus.LOADED, f"ready in {time.perf_counter() - started:.0f} s")
         self.get_logger().info(
             f"decision model ready in {time.perf_counter() - started:.1f} s "
             f"on {self.get_parameter('device').value}"
         )
+
+    def _on_unload(self, _request, response):
+        """Free the GPU for the VLM or a VLA policy; the next RLCD goal loads Laya again."""
+        with self._model_lock:
+            if self.model is None or not self.model.loaded:
+                response.success, response.message = True, "already unloaded"
+                return response
+            if self._busy:
+                response.success, response.message = False, "a decision run is in progress"
+                return response
+            self._publish_model(ModelStatus.UNLOADING, "freeing the GPU for another model")
+            self.model.unload()
+            self._publish_model(ModelStatus.UNLOADED, "freed for another model")
+        response.success, response.message = True, "unloaded"
+        return response
+
+    def _ensure_loaded(self, handle) -> None:
+        """Before a run: free the VLM (llama-swap); reload Laya if another model evicted it."""
+        base = os.environ.get("LLM_BASE_URL", "")
+        if base:
+            try:
+                url = base.rstrip("/").removesuffix("/v1") + "/api/models/unload"
+                urllib.request.urlopen(urllib.request.Request(url, method="POST"), timeout=5)
+            except OSError as exc:  # llm not running: nothing to free
+                self.get_logger().debug(f"VLM unload skipped: {exc}")
+        with self._model_lock:
+            if self.model is not None and not self.model.loaded:
+                self._event(
+                    handle, AgentEvent.INFO, "loading the decision model onto the GPU", "laya"
+                )
+                self._publish_model(ModelStatus.LOADING, "reloading for an RLCD run")
+                started = time.perf_counter()
+                self.model.reload()
+                self._publish_model(
+                    ModelStatus.LOADED, f"reloaded in {time.perf_counter() - started:.0f} s"
+                )
 
     def _predict(self, state: dict, questions: dict, route_text: str = "") -> dict:
         if self.model is None:
@@ -627,6 +686,8 @@ class DecisionNode(Node):
         g = Geometry(
             grasp_offset=float(self.get_parameter("grasp_offset_m").value),
             hover=float(self.get_parameter("hover_m").value),
+            # release with the cube's centre just above the table: half the cube plus 2 mm
+            drop_clearance=float(self.get_parameter("cube_half_height").value) + 0.002,
         )
         step_m = float(self.get_parameter("step_m").value)
         max_stall = int(self.get_parameter("max_stall_steps").value)
@@ -738,6 +799,7 @@ class DecisionNode(Node):
         track = "primitives" if goal.track == RunDecisionTask.Goal.TRACK_PRIMITIVES else "skills"
         try:
             self._event(handle, AgentEvent.INFO, f"track {track}: {goal.task}", "laya")
+            self._ensure_loaded(handle)
             allowed, reason = self._guard(handle, goal.task)
             if not allowed:
                 self._event(handle, AgentEvent.ERROR, reason, "guard")
