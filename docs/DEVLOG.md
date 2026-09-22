@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | P8-T01, owner request | Laya evaluation and the RLCD decision-control plan | planning |
 | 2026-09-14 | owner request | README showcase: architecture figure, screenshots, decisions | docs |
 | 2026-09-14 | owner test (P4) | Stacking: grounding while holding, tool tilt for reach, label-based fetch/place | fix |
 | 2026-09-14 | P4-T01…T05, P4-T07 | VLM agent: llama-swap service, grounding, tool loop, agent node, dashboard Agent tab | feat |
@@ -88,6 +89,62 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · P8-T01, owner request · Laya evaluation and the RLCD decision-control plan
+
+**Context:** the owner asked for [Laya](https://github.com/NandhaKishorM/laya) ([weights](https://huggingface.co/convaiinnovations/laya)) to become a further way of controlling the robot, including "methods of controlling the robot joints with this model['s] weights".
+**Outcome:** ✅ evaluated, ADR-0008 written (Proposed), phase P8 planned with both tracks shipping behind one `RLCD` screen. No code yet.
+
+### Work log
+- Read the model card, the HF API metadata and the package sources (`laya/agent.py`, `common.py`, `router.py`, `presets.py`, `shortlist.py`) rather than the marketing summary.
+- Established what the artefact is: `pipeline_tag: text-classification`, `AutoModel`, ModernBERT-large encoder + decision head (option-marker scorer, act/escalate head), 421,293,830 parameters fp16; multilingual variant mmBERT-base 322M. `Agent.system_one(state, questions)` takes one string (`serialize_state` flattens str/dict/list), scores `[MASK]` markers per option and softmaxes within a question group.
+- Pins available for P8-T02: `laya==0.3.5` (PyPI; `torch>=2.0.0`, `transformers>=4.48.0`), HF revision `1c5edc17a7acd8701df6fc341c0d179f1c62c982`, Apache-2.0.
+- Wrote `docs/adr/0008-laya-decision-layer.md` and the P8 block in `TASKS.md` (T01…T10).
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | The request assumed Laya can output joint commands | The name, the "decision model" framing and the robotics-adjacent vocabulary; it is a text classifier | Stated the limit before planning: no image encoder, no proprioception input, no action head; planned the integration at the symbolic layer, with IK turning decisions into joint targets | `laya/agent.py` has no image or action path; HF `pipeline_tag: text-classification`; params 421,293,830 |
+| 2 | Upstream README asks for `transformers` 5.x / `torch` 2.14+, PyPI metadata asks for `>=4.48.0` / `>=2.0.0` | The package patches tokenizer configs at load time to span versions (`_fix_tokenizer_config`) | Give Laya its own image stage and venv so nothing negotiates with the LeRobot pins; pin the resolved versions after the first build | `laya/agent.py::_fix_tokenizer_config`; PyPI `requires_dist` |
+
+### Decisions
+#### D1: what role can a 421M text decision model play in an arm-control stack?
+```mermaid
+flowchart TD
+  Q{Laya in the control stack} --> A[System-1 decision layer over symbolic state]
+  Q --> B[Discrete primitive/joint control, zero-shot]
+  Q --> C[Fine-tune into a policy - RLCD]
+  Q --> D[Replace the Qwen agent]
+  A --> A1[✓ chosen: plays to option scoring + calibration; 33-40 ms GPU / 193-464 ms CPU per decision vs 3.0 s per VLM turn]
+  B --> B1[✓ chosen by the owner as a second selectable track, with its measured success rate published]
+  C --> C1[✗ deferred: 4-5 h on 2xT4, must run off this laptop; revisit after P8-T09]
+  D --> D1[✗ rejected: cannot ground objects or see the scene]
+```
+- **Chosen:** Track A (skill decisions) and Track B (primitive decisions) both ship, selectable in one `RLCD` screen after `VLA`. Grounding stays with Qwen3-VL and depth; the mink integrator turns Track B primitives into joint targets on `/cognibot/joint_command`, so the model never emits radians and the safety filter stays the only publisher of controller commands.
+- **Rejected:** Laya as the VLA — reaching joint output means keeping only the ModernBERT trunk, where a small MLP over the same state vector is the honest baseline.
+- **Revisit if:** P8-T09 shows the zero-shot router below the Qwen agent on our action set — then fine-tune `typed-decisions` on scripted-rollout data (~10k pairs are free from `record_scripted_episodes.py`).
+
+#### D2: no new `ControlMode` for decision runs
+- **Chosen:** Track A requests MOTION (via IDLE) for scripted actions and VLA only for `run_vla_skill`; Track B reuses VLA mode and the existing IK plus safety path. `modes.yaml` is untouched.
+- **Rejected:** an `RLCD` control mode — it would need its own controller set for no behavioural difference.
+- **Revisit if:** a decision loop ever needs a controller combination the existing modes do not provide.
+
+### Measurements (upstream figures, to be re-measured in P8-T02/T09)
+| Metric | Value | How measured |
+|---|---|---|
+| Parameters (English / typed-decisions) | 421,293,830 fp16 | HF API `safetensors.parameters` |
+| Parameters (multilingual) | 322M, mmBERT-base | model card |
+| Latency, 1 question | 39.5 ms (English) / 32.8 ms (multilingual) on a T4; 193-464 ms CPU | upstream benchmark notebook |
+| Calibration (ECE) | 0.081 typed-decisions | upstream `eval/results.md` |
+| Zero-shot on unseen typed workflows | 0.36 vs 0.461 majority baseline | upstream limitation note |
+| English checkpoint off English | 0.100 on Hindi 20-option intent, high confidence | `laya/router.py` docstring |
+
+### Open questions / follow-ups
+- [ ] Does a useful scene state fit the 512-token English context once the object list grows? (P8-T03 truncates by distance; verify against the three-cube scene.)
+- [ ] CPU vs CUDA for the decision service on this laptop: 0.85 GB VRAM against ~0.2-0.5 s per decision. Measure both before choosing the default (P8-T02).
+- [ ] Track B step size and watchdog: 2 cm primitives at 3-30 Hz, but the vertical reach limit (≈0.07 m at r ≈ 0.28) still applies — decide whether `done` is model-chosen or geometry-chosen.
+
+---
 
 ## 2026-09-14 · owner request · README showcase: architecture figure, screenshots, decisions
 
