@@ -6,21 +6,30 @@ export const detentAngle = (mode: Mode): number => -60 + MODES.indexOf(mode) * 3
 
 export const MODE_HELP: Record<Mode, string> = {
   IDLE: "Arm idle. Console keys that move the arm stay dead.",
-  TELEOP: "Keyboard jog through mink teleop and the safety filter.",
+  TELEOP:
+    "Keyboard jog through mink teleop and the safety filter: W/S ±X, A/D ±Y, ↑/↓ ±Z, Q/E pan, ←/→ roll, G gripper.",
   MOTION: "Planned moves through MoveIt 2: named poses, gripper, move to point.",
   VLA: "SmolVLA skills stream joint targets through the safety filter.",
   TWIN: "Mirror a real SO-101 into the simulation.",
 };
 
-export type ViewId = "camera" | "motion" | "agent" | "vla" | "rlcd" | "system";
+/** Control panels in the right grip, chosen with F2–F6; the viewport itself is never replaced. */
+export type ViewId = "motion" | "agent" | "vla" | "rlcd" | "system";
 
 export const SOURCES = ["free", "front", "wrist"] as const;
 export type SourceId = (typeof SOURCES)[number];
 export const nextSource = (s: SourceId): SourceId =>
   SOURCES[(SOURCES.indexOf(s) + 1) % SOURCES.length] as SourceId;
+export const SOURCE_LABELS: Record<SourceId, string> = {
+  free: "Free look",
+  front: "Front",
+  wrist: "Wrist",
+};
+
+/** F1 cycles the main viewport between the three sources (V does the same). */
+export const SOURCE_KEY = "F1";
 
 export const VIEWS: { id: ViewId; key: string; label: string }[] = [
-  { id: "camera", key: "F1", label: "Camera" },
   { id: "motion", key: "F2", label: "Motion" },
   { id: "agent", key: "F3", label: "Agent" },
   { id: "vla", key: "F4", label: "VLA" },
@@ -63,7 +72,7 @@ export function commandForKey(code: string, inTextField: boolean): ConsoleComman
   if (inTextField) return null;
   if (code === "KeyR") return { kind: "release" };
   if (code === "KeyC") return { kind: "cancel" };
-  if (code === "KeyV") return { kind: "cycleSource" };
+  if (code === "KeyV" || code === SOURCE_KEY) return { kind: "cycleSource" };
   const digit = /^Digit([1-5])$/.exec(code);
   if (digit) return { kind: "mode", mode: MODES[Number(digit[1]) - 1] as Mode };
   const fkey = VIEWS.find((v) => v.key === code);

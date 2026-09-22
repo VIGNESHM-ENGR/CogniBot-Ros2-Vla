@@ -10,8 +10,9 @@ describe("commandForKey", () => {
     expect(commandForKey("KeyW", true)).toBeNull();
     expect(commandForKey("Digit2", true)).toBeNull();
   });
-  it("maps digits to mode detents and F-keys to views", () => {
+  it("maps digits to mode detents and F2–F6 to side panels", () => {
     expect(commandForKey("Digit2", false)).toEqual({ kind: "mode", mode: "TELEOP" });
+    expect(commandForKey("F2", false)).toEqual({ kind: "view", view: "motion" });
     expect(commandForKey("F5", false)).toEqual({ kind: "view", view: "rlcd" });
     expect(commandForKey("F6", false)).toEqual({ kind: "view", view: "system" });
     expect(commandForKey("Digit9", false)).toBeNull();
@@ -33,7 +34,8 @@ describe("detentAngle", () => {
 });
 
 describe("viewport sources", () => {
-  it("cycles free look, front and wrist with V", () => {
+  it("cycles free look, front and wrist with F1 or V", () => {
+    expect(commandForKey("F1", false)).toEqual({ kind: "cycleSource" });
     expect(commandForKey("KeyV", false)).toEqual({ kind: "cycleSource" });
     expect(nextSource("free")).toBe("front");
     expect(nextSource("wrist")).toBe("free");

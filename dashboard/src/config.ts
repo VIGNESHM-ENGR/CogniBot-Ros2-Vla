@@ -10,7 +10,6 @@ export const TOPICS = {
   clock: "/clock",
   gpu: "/cognibot/gpu",
   teleop: "/cognibot/teleop/cmd",
-  teleopTarget: "/cognibot/teleop/ee_target",
   mode: "/cognibot/mode",
   agentEvents: "/cognibot/agent/events",
   agentDetections: "/cognibot/agent/detections",

@@ -4,6 +4,7 @@ import {
   CUBE_HALF,
   DEFAULT_INSTRUCTION,
   DEFAULT_RLCD_TASK,
+  FRONT_CAMERA_SIZE,
   RLCD_GUARD_THRESHOLD,
   RLCD_MIN_CONFIDENCE,
   DEFAULT_QUERY,
@@ -23,6 +24,7 @@ import {
   jogForKey,
   MODES,
   nextSource,
+  VIEWS,
   type Mode,
   type SourceId,
   type ViewId,
@@ -30,7 +32,6 @@ import {
 import { parseSrdfGroupStates, parseUrdf, type GroupState } from "./lib/robotModel";
 import { EStop } from "./pendant/EStop";
 import { GpuGauge } from "./pendant/GpuGauge";
-import { JogBlock } from "./pendant/JogBlock";
 import { JointReadout } from "./pendant/JointReadout";
 import { ModeKey } from "./pendant/ModeKey";
 import { ProgramLine, type ProgramState } from "./pendant/ProgramLine";
@@ -94,7 +95,7 @@ function Pendant() {
   const { link, url } = useRos();
   const [localMode, setLocalMode] = useState<Mode>("IDLE");
   const [modeNotice, setModeNotice] = useState<string | undefined>();
-  const [view, setView] = useState<ViewId>("camera");
+  const [view, setView] = useState<ViewId>("motion");
   const [source, setSource] = useState<SourceId>("free");
   const [cube, setCube] = useState<CubeColor>("green");
   const [instruction, setInstruction] = useState(DEFAULT_INSTRUCTION);
@@ -251,7 +252,6 @@ function Pendant() {
     return () => clearTimeout(t);
   }, [modeNotice]);
   const pickPlaceOnline = actions.has(ACTIONS.fetch) && actions.has(ACTIONS.place);
-  const teleopOnline = topics.has(TOPICS.teleopTarget);
 
   const describeMoveIt = (r: MoveGroupResult) =>
     MOVEIT_ERRORS[r.error_code.val] ?? `code ${r.error_code.val}`;
@@ -322,7 +322,8 @@ function Pendant() {
       const typing = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
       const command = commandForKey(event.code, typing);
       if (!command) return;
-      if (command.kind === "view" || command.kind === "jog") event.preventDefault();
+      // F1 would open browser help; the other keys would scroll or type.
+      if (command.kind !== "stop" && command.kind !== "release") event.preventDefault();
       switch (command.kind) {
         case "stop":
           stop();
@@ -394,6 +395,7 @@ function Pendant() {
         ? `policy · ${modeMsg?.requester ?? "vla"}`
         : "no commander";
   const programActive = run?.phase === "active";
+  const activeView = VIEWS.find((v) => v.id === view) ?? { id: view, key: "", label: view };
   const motionEnabled = mode === "MOTION" && !stopped && !programActive;
   const motionBlocked = stopped
     ? "Stopped: press Release (R) first."
@@ -410,7 +412,7 @@ function Pendant() {
         <span className="legend">{stopped ? "Stopped · R" : "Esc"}</span>
       </div>
       <main className="housing">
-        <aside className="grip">
+        <aside className="grip grip--telemetry">
           <div className="plate">
             <div className="plate__name">COGNIBOT</div>
             <div className="plate__sub">Operator pendant · {urdf?.robotName ?? "no robot"}</div>
@@ -421,14 +423,14 @@ function Pendant() {
             managerOnline={managerOnline}
             notice={modeNotice}
           />
-          <JogBlock
-            mode={mode}
-            pressed={jog.held}
-            backendOnline={teleopOnline}
-            stopped={stopped}
-            onDown={jog.down}
-            onUp={jog.up}
-          />
+          <div className="mini-well">
+            <h2 className="legend">Joints</h2>
+            <JointReadout limits={urdf?.joints ?? []} state={joints} />
+          </div>
+          <div className="mini-well">
+            <h2 className="legend">GPU</h2>
+            <GpuGauge status={gpu} />
+          </div>
         </aside>
 
         <div className="center">
@@ -446,7 +448,33 @@ function Pendant() {
               }
             />
             <div className="view">
-              {view === "camera" && <CameraView source={source} onSource={setSource} />}
+              <CameraView
+                source={source}
+                onSource={setSource}
+                overlay={
+                  detection
+                    ? {
+                        bbox: detection.bbox_xyxy,
+                        label: `${detection.label} · ${detection.position.point.x.toFixed(2)}, ${detection.position.point.y.toFixed(2)}, ${detection.position.point.z.toFixed(2)} m`,
+                        ...FRONT_CAMERA_SIZE,
+                      }
+                    : null
+                }
+              />
+            </div>
+            <ProgramLine program={program} onCancel={cancelAll} />
+          </div>
+          <SoftKeys view={view} onView={setView} source={source} onSource={setSource} />
+        </div>
+
+        <aside className="grip grip--controls">
+          <EStop latched={stopped} onStop={stop} onRelease={() => setStopped(false)} />
+          <section className="sidepanel" aria-label={`${activeView.label} controls`}>
+            <h2 className="sidepanel__title legend">
+              {activeView.label}
+              <span className="key__cap">{activeView.key}</span>
+            </h2>
+            <div className="sidepanel__body">
               {view === "motion" && (
                 <MotionView
                   moveitOnline={moveitOnline}
@@ -462,7 +490,6 @@ function Pendant() {
                         ]
                       : null
                   }
-                  source={source}
                   onPickPlace={pickAndPlace}
                   onReset={() => resetObjects({}).catch(() => undefined)}
                   cube={cube}
@@ -500,7 +527,6 @@ function Pendant() {
                   onRun={() => agent.send("Agent task", { query }, (r) => r.summary)}
                   onCancel={agent.cancel}
                   events={agentEvents}
-                  detection={detection}
                 />
               )}
               {view === "vla" && (
@@ -550,21 +576,7 @@ function Pendant() {
               )}
               {view === "system" && <SystemView services={services} topics={topics} gpu={gpu} />}
             </div>
-            <ProgramLine program={program} onCancel={cancelAll} />
-          </div>
-          <SoftKeys view={view} onView={setView} />
-        </div>
-
-        <aside className="grip">
-          <EStop latched={stopped} onStop={stop} onRelease={() => setStopped(false)} />
-          <div className="mini-well">
-            <h2 className="legend">Joints</h2>
-            <JointReadout limits={urdf?.joints ?? []} state={joints} />
-          </div>
-          <div className="mini-well">
-            <h2 className="legend">GPU</h2>
-            <GpuGauge status={gpu} />
-          </div>
+          </section>
         </aside>
       </main>
     </div>

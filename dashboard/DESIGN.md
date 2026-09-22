@@ -1,6 +1,6 @@
 ---
 name: CogniBot Operator Pendant
-description: The robot operator console as a handheld teach pendant — key switch, jog keys, mushroom stop, live screen.
+description: The robot operator console as a handheld teach pendant — key switch, mushroom stop, a live screen that never leaves, and a control panel beside the stop.
 colors:
   room: "#070808"
   housing: "#1d2022"
@@ -106,13 +106,13 @@ components:
 
 **Creative North Star: "The Operator's Pendant"**
 
-The console is the handheld instrument every industrial robot operator already trusts: a matte graphite housing with a key switch and jog keys in the left grip, a recessed screen in the middle, and a red mushroom stop on a yellow plate in the right grip. Everything the robot reports lives inside the screen well; everything the operator does is a physical-looking key with a silkscreen legend and an LED. It is dense but calm: dark graphite, one safety yellow, one stop red, and flat LEDs, with no glow and no decoration that does not carry state.
+The console is the handheld instrument every industrial robot operator already trusts: a matte graphite housing with a key switch and the robot's joint and GPU readouts in the left grip, a recessed screen in the middle that always shows the robot, and a red mushroom stop on a yellow plate in the right grip with the controls for the current job beneath it. Everything the robot reports lives inside the screen well; everything the operator does is a physical-looking key with a silkscreen legend and an LED. It is dense but calm: dark graphite, one safety yellow, one stop red, and flat LEDs, with no glow and no decoration that does not carry state.
 
 The pendant is honest hardware. A key that cannot act is visibly dead, a subsystem that is not running says so in the screen, and a number only appears when a topic sent it. It reads on a screen recording from across the room: the mode, the stop state and the running program are large, labelled and never color-only.
 
 **Key Characteristics:**
 
-- Three-part housing: left grip (mode key, jog), centre screen well (status, view, program) with soft keys beneath, right grip (stop, joints, GPU).
+- Three-part housing: left grip (mode key, joints, GPU), centre screen well (status, viewport, program) with soft keys beneath, right grip (stop, then the control panel F2–F6 chose).
 - Condensed uppercase silkscreen legends on raised membrane keys, each with a key-cap hint and an LED pip.
 - Safety yellow and stop red are reserved signals, never decoration.
 - Mechanical motion: short detent snaps and 2 px key depress; no fades or glow.
@@ -168,7 +168,7 @@ A graphite instrument palette with two reserved safety signals and a flat LED gr
 
 ## Layout
 
-The housing fills the viewport inside a 12 px room gutter as a three-column grid: left grip 224 px, screen column flexible, right grip 304 px, with 18 px gaps and padding (196 / 264 px and 14 px below 1280 px wide). The screen well stacks a wrapping status strip, the active view and the program line; the soft-key row sits on the housing below it in five equal columns. Grips are vertical stacks with 16 px gaps and scroll when the window is short; below 860 px tall the mode dial shrinks to 100 px and jog keys to 36 px. The housing keeps a 1024 × 640 px minimum; below 1024 px the page scrolls and a compact stop is pinned to the top-right corner so stop stays reachable at any width.
+The housing fills the viewport inside a 12 px room gutter as a three-column grid: left grip 264 px, screen column flexible, right grip 432 px, with 18 px gaps and padding (216 / 344 px and 14 px below 1440 px wide). The screen well stacks a wrapping status strip, the viewport and the program line; the viewport is never replaced, so the operator watches the robot while operating it. The soft-key row sits on the housing below it: the viewport key F1 takes a 1.3× column because it names a source, F2–F6 share the rest, and below 1440 px the key icons drop so legends and caps keep one line. The left grip is a grid — plate and mode key at their height, joints taking what is left (scrolling inside their well if the window is short), GPU always visible at the bottom. The right grip is a grid whose first row is the stop and whose second row is the control panel; only the panel scrolls, so the stop never moves. Below 960 px tall the mode dial shrinks to 100 px. Jogging is keyboard-only (W/S, A/D, ↑/↓, Q/E, ←/→, G); the TELEOP help under the mode key names the keys. The housing keeps a 1024 × 640 px minimum; below 1024 px the page scrolls and a compact stop is pinned to the top-right corner so stop stays reachable at any width.
 
 ## Elevation & Depth
 
@@ -191,17 +191,17 @@ Moulded, softly rounded forms: the housing at 28 px, wells at 12 px (mini-wells 
 
 ## Components
 
-### Jog block
-
-Five axis rows (X, Y, Z, base pan, wrist roll) of paired membrane keys with a caption per row, then a wide gripper key; caps W/S, A/D, ↑/↓, Q/E, ←/→ and G. The dead-man note under it names why the keys are dead or that release stops within 300 ms.
-
 ### Membrane key
 
 Tactile and plain. Legend left, key-cap hint right, optional LED pip first. Hover lightens the key; active and keyboard-pressed states move it down 2 px in 80 ms; dead keys drop to `key-dead` with `ink-dead` legends and a not-allowed cursor.
 
 ### Soft keys (F1–F6)
 
-Six equal keys under the screen with a 16 px line icon, legend and F-key cap. The current view gets a lighter key and a 3 px safety-yellow lower edge. The row grew from five to six when the RLCD view was added after VLA; System moved from `F5` to `F6`.
+Six keys under the screen with a 16 px line icon, legend and F-key cap. **F1 is the viewport key**: momentary, never "current", its legend is the source now on screen (Free look → Front → Wrist → Free look; V does the same). **F2–F6 choose the control panel** — Motion, Agent, VLA, RLCD, System — and the current one gets a lighter key and a 3 px safety-yellow lower edge.
+
+### Control panel
+
+A screen well under the stop: a title row (panel name in legend type, its F-key cap at the right, a hairline beneath) and a scrolling body. Every view renders here as a single column — two-column view layouts collapse, inner panel borders and padding drop — so one panel works at 344 or 432 px. Motion and Agent no longer carry their own camera: the viewport is the camera, and the agent's grounded detection is drawn on the front feed there.
 
 ### Mode key switch
 
@@ -237,7 +237,7 @@ Five colour swatches as a radio group (18 px chip with an inset hairline, name b
 
 ### Agent view
 
-Split like Motion: the Task section (Instruction field, Run task with a flashing LED while active, Cancel with cap C, a status note) above a Trace list of the model's steps — step number, kind or tool name (safety yellow for tool calls, fault for errors), compact `key=value` arguments and results, and the model or tool time — with the front camera on the right. Grounded detections draw a safety-yellow rectangle and label on the frame through an SVG that shares the image's contain box.
+The Task section (Instruction field, Run task with a flashing LED while active, Cancel with cap C, a status note) above a Trace list of the model's steps — step number, kind or tool name (safety yellow for tool calls, fault for errors), compact `key=value` arguments and results, and the model or tool time. Grounded detections draw a safety-yellow rectangle and label on the viewport's front feed through an SVG that shares the image's contain box.
 
 ### RLCD view
 

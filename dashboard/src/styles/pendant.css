@@ -98,7 +98,7 @@ input {
 .housing {
   height: 100%;
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr) 304px;
+  grid-template-columns: 264px minmax(0, 1fr) 432px;
   gap: 18px;
   padding: 18px;
   border-radius: var(--r-housing);
@@ -109,9 +109,9 @@ input {
     0 18px 40px rgba(0, 0, 0, 0.55);
 }
 
-@media (max-width: 1279px) {
+@media (max-width: 1439px) {
   .housing {
-    grid-template-columns: 196px minmax(0, 1fr) 264px;
+    grid-template-columns: 216px minmax(0, 1fr) 344px;
     gap: 14px;
     padding: 14px;
   }
@@ -355,37 +355,6 @@ input {
 
 .modekey__note[data-tone="yellow"] {
   color: var(--yellow);
-}
-
-/* ───────────── jog block ───────────── */
-
-.jog {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.jog .key {
-  justify-content: flex-start;
-}
-
-.jog__axis {
-  grid-column: span 2;
-  margin: 4px 0 -2px;
-  color: var(--ink-3);
-  font-size: 11px;
-}
-
-.jog__wide {
-  grid-column: span 2;
-}
-
-.deadman {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--ink-3);
-  font-size: 12px;
 }
 
 /* ───────────── screen well ───────────── */
@@ -681,8 +650,28 @@ input {
 
 .softkeys {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.3fr) repeat(5, minmax(0, 1fr));
   gap: 10px;
+}
+
+.softkeys .key__legend {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Under ~1440 px the centre column is too narrow for icon + legend + cap on six keys. */
+@media (max-width: 1439px) {
+  .softkeys {
+    gap: 6px;
+  }
+  .softkeys .key {
+    gap: 6px;
+    padding-inline: 8px;
+  }
+  .softkeys .key svg {
+    display: none;
+  }
 }
 
 .softkeys .key {
@@ -699,7 +688,74 @@ input {
     0 3px 6px rgba(0, 0, 0, 0.45);
 }
 
+.grip--telemetry {
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+}
+
 /* ───────────── right grip ───────────── */
+
+/* The stop never scrolls away: only the control panel under it scrolls. */
+.grip--controls {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.sidepanel {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+  border-radius: 10px;
+  background: var(--screen);
+  box-shadow:
+    inset 0 0 0 1px var(--seam),
+    inset 0 2px 8px rgba(0, 0, 0, 0.7);
+}
+
+.sidepanel__title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  padding: 11px 14px 10px;
+  border-bottom: 1px solid var(--screen-rule);
+  color: var(--ink);
+  font-size: 13px;
+}
+
+.sidepanel__body {
+  min-height: 0;
+  overflow: auto;
+  padding: 14px;
+  scrollbar-color: var(--screen-rule-strong) transparent;
+  scrollbar-width: thin;
+}
+
+/* Views were drawn for the wide screen; in the panel every one of them is a single column. */
+.sidepanel .panel,
+.sidepanel .system,
+.sidepanel .split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 20px;
+  height: auto;
+  min-height: 0;
+  overflow: visible;
+  padding: 0;
+  border: 0;
+}
+
+.sidepanel .vla__side {
+  grid-column: auto;
+  grid-row: auto;
+}
+
+.sidepanel .rlcd__side {
+  padding-top: 18px;
+  border-top: 1px solid var(--screen-rule);
+}
 
 .estop {
   display: grid;
@@ -1090,7 +1146,7 @@ input {
   text-transform: uppercase;
 }
 
-@media (max-height: 860px) {
+@media (max-height: 959px) {
   .grip {
     gap: 10px;
   }
@@ -1107,13 +1163,6 @@ input {
   }
   .modekey__item {
     padding: 3px 8px;
-  }
-  .jog .key {
-    min-height: 36px;
-    padding: 5px 9px;
-  }
-  .jog__axis {
-    margin-top: 0;
   }
 }
 
