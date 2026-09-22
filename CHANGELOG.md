@@ -6,6 +6,9 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ## [Unreleased]
 
+### Changed
+- README architecture: the system figure is redrawn with the RLCD decision layer, the `laya` and `dashboard` services and the GPU hand-over; a table compares the three ways to command the arm, and a new sequence diagram shows an RLCD Primitives run.
+
 ## [0.3.0] - 2026-09-22
 
 ### Added

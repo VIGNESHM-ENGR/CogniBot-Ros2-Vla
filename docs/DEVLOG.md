@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request | README architecture: RLCD layer, GPU hand-over, three command paths | docs |
 | 2026-09-22 | owner request (P5), release | VLA root cause by replay, camera merge, layout restored, model-status heartbeat; v0.3.0 | fix · release |
 | 2026-09-22 | owner request (P5) | VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over | feat (in progress) |
 | 2026-09-22 | owner request | Full-stack control-path test: VLM, VLA, RLCD primitives and skills | test |
@@ -96,6 +97,24 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request · README architecture: RLCD layer, GPU hand-over, three command paths
+
+**Context:** the owner noted the README architecture no longer reflected the stack. The system figure (`docs/media/architecture.svg`) dated from 2026-09-14: eight containers, no `laya` service, no RLCD node or interfaces, and a single "unload VLM first" edge standing in for the GPU hand-over.
+**Outcome:** ✅ figure redrawn from the running code; README text brought in line.
+
+### Work log
+- Wiring read from source, not memory: `docker-compose.yml` (ten services, `rlcd` profile), `decision_node.py` (publishers, clients, action server, `/cognibot/rlcd/unload`), `skill_executor_node.py` and `vlm_agent_node.py` (who unloads whom), `pickplace.py` (Track B stages from physics).
+- Figure: the intelligence layer is three columns (VLM reasons · RLCD decides · VLA imitates), ordered so each column's edges drop straight to the node it drives: the agent to `mode_manager` and `pick_place_server`, RLCD Skills to `pick_place_server` and Primitives to `mink_teleop` over `/cognibot/teleop/cmd`, and the robot client to `safety_filter`. A GPU hand-over strip names both unload paths and `/cognibot/models`. The dashboard container, `laya` and 18 nodes / 9 actions from the live listing are shown; the `twin` profile is noted as not drawn.
+- README: intro and "Why this project" name the decision model; a table compares the three command paths (model, input, output, rate, route to the motors); the control-mode diagram shows RLCD entering TELEOP (Primitives) and MOTION (Skills); a new sequence diagram shows an RLCD Primitives run as a closed loop; an engineering-decision row links ADR-0008; hard problem 6 covers the Laya unload.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Architecture figure missing a whole layer | figure is a hand-authored SVG, not generated from the graph, so it was not touched when RLCD landed | redrawn; the numbers in its footer match the live `ros2 node list` / `action list` in the README | rendered with headless Chromium at 1600×1220 and checked for edge/label overlaps |
+
+### Open questions
+- `docs/ARCHITECTURE.md` has no RLCD section yet (services, packages, data flow).
 
 ## 2026-09-22 · owner request (P5), release · VLA root cause by replay, camera merge, layout restored, model-status heartbeat; v0.3.0
 

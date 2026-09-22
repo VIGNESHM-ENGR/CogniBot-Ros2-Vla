@@ -4,7 +4,7 @@
 
 ### Tell a robot arm what to do in plain language. It looks, reasons, grounds and acts, entirely on a 6 GB laptop GPU.
 
-A containerized **ROS 2 Jazzy** manipulation stack that connects a local **vision-language model** (Qwen3-VL-4B on llama.cpp), **LeRobot visuomotor policies** (SmolVLA / ACT), **MoveIt 2** and a **MuJoCo**-simulated SO-101 arm. Control-mode arbitration and a streaming safety filter sit between every commander and the motors, and a teach-pendant web console drives all of it.
+A containerized **ROS 2 Jazzy** manipulation stack that connects a local **vision-language model** (Qwen3-VL-4B on llama.cpp), **LeRobot visuomotor policies** (SmolVLA / ACT), a **calibrated decision model** (Laya, RLCD), **MoveIt 2** and a **MuJoCo**-simulated SO-101 arm. Control-mode arbitration and a streaming safety filter sit between every commander and the motors, and a teach-pendant web console drives all of it.
 
 [![CI](https://github.com/VIGNESHM-ENGR/CogniBot-Ros2-Vla/actions/workflows/ci.yml/badge.svg)](https://github.com/VIGNESHM-ENGR/CogniBot-Ros2-Vla/actions/workflows/ci.yml)
 ![ROS 2 Jazzy](https://img.shields.io/badge/ROS%202-Jazzy-22314E?logo=ros)
@@ -57,20 +57,32 @@ A containerized **ROS 2 Jazzy** manipulation stack that connects a local **visio
 Small VLMs and VLAs now fit on a consumer GPU. Putting them on a robot is still a systems problem, not a modelling problem:
 
 - **Dependency conflicts.** ROS 2 Humble ships Python 3.10; LeRobot needs 3.12+. MoveIt's Python bindings segfault against NumPy 2, which LeRobot requires.
-- **One GPU, three tenants.** A physics simulator with cameras, a 4B VLM and a 450M VLA all want the same 6 GB.
-- **Many commanders, one arm.** Teleop, a motion planner, a learned policy and an LLM agent will fight for the motors unless something arbitrates.
+- **One GPU, four tenants.** A physics simulator with cameras, a 4B VLM, a 450M VLA and a 421M decision model all want the same 6 GB.
+- **Many commanders, one arm.** Teleop, a motion planner, a learned policy, an LLM agent and a decision model will fight for the motors unless something arbitrates.
 - **Learned policies have no safety model.** They emit raw joint targets at 30 Hz.
 - **Small models make unreliable agents.** A 4B model mis-formats tool calls, reuses stale numbers and hallucinates success.
 
-CogniBot is my answer to *"what does the software around a robot foundation model actually need to be?"* It is deliberately an **integration project**: mature open-source components (MuJoCo Menagerie, mujoco_ros2_control, MoveIt 2, mink, LeRobot, llama.cpp, rosbridge) pinned and composed, with custom code only where nothing upstream exists: arbitration, safety, the agent's tool layer and grounding, and the operator console.
+CogniBot is my answer to *"what does the software around a robot foundation model actually need to be?"* It is deliberately an **integration project**: mature open-source components (MuJoCo Menagerie, mujoco_ros2_control, MoveIt 2, mink, LeRobot, llama.cpp, Laya, rosbridge) pinned and composed, with custom code only where nothing upstream exists: arbitration, safety, the agent's tool layer and grounding, the decision layer's scene questions, the GPU hand-over, and the operator console.
 
 ## Architecture
 
 ### System: containers, ROS nodes and interfaces
 
-<p align="center"><img src="docs/media/architecture.svg" alt="CogniBot ROS 2 architecture: operator, intelligence, motion and safety, and simulation layers with every node, action, service and topic between them" width="100%"></p>
+<p align="center"><img src="docs/media/architecture.svg" alt="CogniBot ROS 2 architecture: operator, intelligence (VLM agent, RLCD decision layer, VLA policy, GPU hand-over), motion and safety, and simulation layers with every node, action, service and topic between them" width="100%"></p>
 
 Every container shares the host network with **CycloneDDS pinned to localhost** (no multicast, no bridge-network discovery issues), and every port binds to `127.0.0.1`. Red nodes are the safety layer. The thick arrow is the only way a streamed command reaches the motors: `mink_teleop` and the LeRobot client publish `/cognibot/joint_command`, and **only `safety_filter` publishes to the position controller**.
+
+The intelligence layer has three independent ways to command the arm, and none of them bypasses arbitration or safety:
+
+| | VLM agent | RLCD decision layer | VLA policy |
+|---|---|---|---|
+| Model | Qwen3-VL-4B (llama.cpp, `llm`) | Laya 421M text classifier (`laya`) | SmolVLA / ACT (`policy-server`) |
+| Sees | front camera frame + tool results | the scene as JSON (poses, gripper, stage), never an image | front + wrist cameras + joint state |
+| Outputs | tool calls with object labels | one typed choice with a calibrated probability | joint targets, 50-step chunks |
+| Rate | ≈ 3 s per step | 33 ms per decision | 22–30 Hz |
+| Drives the arm through | `FetchObject` / `PlaceObject` (MOTION) | Skills: the same actions (MOTION) · Primitives: `/cognibot/teleop/cmd` → mink → safety filter (TELEOP) | `/cognibot/joint_command` → safety filter (VLA) |
+
+All three share one GPU, so starting any of them frees the others first: a policy or an RLCD run unloads the VLM through llama-swap, and a policy or an agent task unloads Laya through `/cognibot/rlcd/unload`. Each model reports on `/cognibot/models`, which drives the console's GPU gauge.
 
 <details>
 <summary><b>Live ROS graph</b> (<code>ros2 node list</code> / <code>action list</code> / <code>service list</code> on the running stack)</summary>
@@ -129,8 +141,8 @@ The full contract, including message definitions, is in [docs/ROS_INTERFACES.md]
 stateDiagram-v2
   direction LR
   [*] --> IDLE
-  IDLE --> TELEOP: jog key / mode 2
-  IDLE --> MOTION: planner · pick-place · agent tool
+  IDLE --> TELEOP: jog key / mode 2 · RLCD Primitives
+  IDLE --> MOTION: planner · pick-place · agent tool · RLCD Skills
   IDLE --> VLA: ExecuteSkill / policy client connects
   IDLE --> TWIN: mirror real arm
   TELEOP --> MOTION
@@ -185,6 +197,44 @@ sequenceDiagram
   A-->>UI: DONE + summary
 ```
 
+### An RLCD Primitives run: a closed decision loop
+
+The model picks every motion; the node reads what text cannot show (is the cube held, did it fall, where the grasp point is) from the simulator's poses at every step. Moving or dropping the cube mid-run changes the stage on the next step, so the arm goes back for it without a replan.
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor Op as Operator
+  participant UI as Console (RLCD panel)
+  participant D as laya_decision
+  participant Y as Laya 421M (GPU)
+  participant T as mink_teleop
+  participant F as safety_filter
+  participant S as MuJoCo + ros2_control
+
+  Op->>UI: "put the green cube on the black rectangle"
+  UI->>D: RunDecisionTask (track = Primitives)
+  D->>D: unload the VLM (llama-swap) · mode → TELEOP
+  D->>Y: which object does the task name?
+  Y-->>D: "green cube" (p = calibrated)
+  loop every step until placed, escalated or stalled
+    S-->>D: cube, gripper and target poses
+    D->>D: stage from physics: above → lower → lift → carry → lower → retreat
+    D->>Y: stage + worded gap + legal motions (JSON)
+    Y-->>D: one of six motions + confidence (33 ms)
+    alt confidence below the gate
+      D-->>UI: escalate to the operator
+    else act
+      D->>T: /cognibot/teleop/cmd (one jog of up to 2 cm, or grasp/release at the stage point)
+      T->>F: /cognibot/joint_command
+      F->>S: /arm_position_controller/commands
+    end
+    D-->>UI: Decision (every option scored, acted or not)
+  end
+  Note over D,S: cube moved or dropped → next step's stage is "move above the cube" again
+  D-->>UI: placed · decisions · time
+```
+
 ## Engineering decisions
 
 Each decision has an ADR or DEVLOG entry with the rejected options and a *revisit if* condition.
@@ -196,11 +246,12 @@ Each decision has an ADR or DEVLOG entry with the rejected options and a *revisi
 | **Two-tier motion**: mink for teleop, MoveIt 2 + pick_ik for planning | A 5-DOF arm cannot track 6-D Servo twists; mink's task weighting degrades orientation gracefully at 100 Hz | MoveIt Servo for everything | [ADR-0003](docs/adr/0003-mink-plus-moveit.md) |
 | **Arbitration by controller switching** | Ownership is enforced by ros2_control itself (STRICT switch), not by convention between nodes | A software mux: a crashed node can leave a stale publisher driving the arm | [ARCHITECTURE §6](docs/ARCHITECTURE.md) |
 | **Single-publisher safety filter** on the streaming path | Policies and teleop never touch the controller directly; limits, velocity and dead-man live in one place | Per-producer clamping: N places to get safety wrong | [DEVLOG](docs/DEVLOG.md) |
-| **CycloneDDS, host network, localhost only** | Eight containers discover each other deterministically, with no multicast storms on Wi-Fi and nothing exposed off-box | Docker bridge networks with DDS discovery servers | [ADR-0004](docs/adr/0004-cyclonedds-host-network.md) |
+| **CycloneDDS, host network, localhost only** | Ten containers discover each other deterministically, with no multicast storms on Wi-Fi and nothing exposed off-box | Docker bridge networks with DDS discovery servers | [ADR-0004](docs/adr/0004-cyclonedds-host-network.md) |
 | **Qwen3-VL-4B on llama.cpp behind llama-swap** | Native 2D grounding plus tool-call templates in ≈ 4 GB; GPU, hybrid and CPU offload profiles and an unload API to hand the GPU to the VLA | vLLM (pre-allocates VRAM), Ollama (less control), SmolVLM2 (weak grounding) | [ADR-0005](docs/adr/0005-llamacpp-llamaswap-qwen3vl.md) |
 | **Thin `openai` tool loop**, not an agent framework | The job is 7 tools, 12 steps, 1 repair retry; 16 dependencies vs 123 for RAI (LangChain, LangGraph, two OpenCV builds) | RAI, LangGraph | [ADR-0007](docs/adr/0007-agent-runtime.md) |
 | **Tools take object labels, not coordinates** | The 4B model reused pre-move coordinates even when told they were stale; now grounding happens inside the tool, right before acting | Prompt rules; tool results restating new positions (both measured to fail) | [DEVLOG · stacking](docs/DEVLOG.md) |
 | **Stock LeRobot async inference** + a thin robot plugin | Upstream gRPC server and client with action chunking; our code is only a `Robot` subclass over rclpy (~200 lines) | lerobot-ros (pins lerobot < 0.5, hard-coded topics), a custom inference node | [INTEGRATIONS](docs/INTEGRATIONS.md) |
+| **Laya as a decision layer, not a policy** | A 421M text classifier has no image encoder or action head; given the scene as JSON it picks one typed option in 33 ms with a calibrated probability, and the existing IK and safety filter turn that into motion | Laya as a VLA (it cannot emit joint angles); replacing the Qwen agent (it cannot ground objects) | [ADR-0008](docs/adr/0008-laya-decision-layer.md) |
 | **Integrate, don't invent; pin everything** | Image digests, HF revisions, exact pip/npm versions: a clean clone reproduces the stack | Floating tags: silent breakage | [ADR-0006](docs/adr/0006-integrate-dont-invent.md) |
 
 ## Hard problems solved
@@ -240,7 +291,7 @@ The jog key rotated the target about the end-effector site's local z. In the IK 
 <details>
 <summary><b>6. Two GPUs' worth of models on one 6 GB card</b></summary>
 
-The simulator with cameras (≈ 0.6 GB), Qwen3-VL-4B (≈ 4 GB) and a SmolVLA server (≈ 2 GB) don't fit together comfortably. **Fix:** llama-swap profiles plus an idle TTL, and the skill executor calls `POST /api/models/unload` before starting a policy, so each model has the GPU when it needs it. While a policy holds the arm, the agent automatically switches to the hybrid (RAM offload) profile.
+The simulator with cameras (≈ 0.6 GB), Qwen3-VL-4B (≈ 4 GB), a SmolVLA server (≈ 2 GB) and Laya (≈ 0.85 GB) don't fit together comfortably. **Fix:** llama-swap profiles plus an idle TTL, and every commander frees the others before it starts: the skill executor and the RLCD node call llama-swap's `POST /api/models/unload`, and the skill executor and the agent call `/cognibot/rlcd/unload`, so each model has the GPU when it needs it. While a policy holds the arm, the agent automatically switches to the hybrid (RAM offload) profile.
 </details>
 
 <details>
