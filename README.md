@@ -35,17 +35,20 @@ A containerized **ROS 2 Jazzy** manipulation stack that connects a local **visio
 | 🧠 **Learned policies** | LeRobot SmolVLA / ACT checkpoints run in LeRobot's async policy server and stream joint targets at up to 30 Hz, started and stopped from the browser, with the VLM unloaded from the GPU first. |
 | 🦾 **Classical motion** | MoveIt 2 with pick_ik for planning, mink differential IK for Cartesian jogging, and scripted top-down pick-and-place with a reach-aware tool lean. |
 | 🛡️ **One commander at a time** | A mode manager switches ros2_control controllers so exactly one source (teleop, planner, policy, twin) owns the arm. Streamed commands pass a safety filter enforcing joint range, velocity and a 300 ms dead-man. |
-| 🖥️ **Teach-pendant console** | A React operator console over rosbridge: mode key, jog block, STOP on Esc, live cameras, a 3D mirror of the simulation, agent trace with detection overlays, policy stream telemetry, controller states. |
-| 📦 **Reproducible** | Eight Docker services in four Compose profiles. Every image digest, model revision, pip and npm version is pinned, and a GPU-free CI pipeline runs on every push. `./start.sh` brings it up; Ctrl-C takes everything down. |
+| 🧮 **Decision layer (RLCD)** | Laya, a 421M calibrated text classifier, decides over the scene as JSON: **Skills** (which skill and object, run by the scripted actions) or **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter). It never sees an image and never emits a joint angle. Measured honestly: Primitives choose a gap-closing motion 23/24 times; Skills still fail the empty-gripper decision zero-shot ([ADR-0008](docs/adr/0008-laya-decision-layer.md)). |
+| 🖥️ **Teach-pendant console** | A React operator console over rosbridge: the camera viewport never leaves the screen (F1 cycles free look / front / wrist), and F2–F6 load Motion, Agent, VLA, RLCD or System controls beside the STOP button, so the robot is watched while it is operated. Mode key, joints and GPU on the left, STOP on Esc, agent detections drawn on the live feed. |
+| 📦 **Reproducible** | Nine Docker services in five Compose profiles. Every image digest, model revision, pip and npm version is pinned, and a GPU-free CI pipeline runs on every push. `./start.sh` brings it up; Ctrl-C takes everything down. |
+
+<p><img src="docs/media/dashboard-rlcd.png" alt="Operator pendant with the viewport in the centre and the RLCD panel under the stop button"><br><sub><b>The pendant.</b> The viewport never leaves the centre (F1 cycles free look, front and wrist); F2–F6 load a control panel under STOP. Here the RLCD panel runs a <b>Primitives</b> task in TELEOP: the guard questions clear, then each 2 cm motion is shown with every option the decision model scored.</sub></p>
 
 <table>
 <tr>
-<td width="50%"><img src="docs/media/dashboard-agent-done.png" alt="Agent tab with the tool-call trace for a double stack"><br><sub><b>Agent tab.</b> The model's plan as it ran: <code>fetch_object("blue cube")</code> → <code>place_object("green cube")</code> → <code>fetch_object("red cube")</code> → <code>place_object("blue cube")</code>, with per-step model and tool latency. The grounded box is drawn on the front camera.</sub></td>
-<td width="50%"><img src="docs/media/dashboard-vla.png" alt="VLA tab streaming a SmolVLA policy"><br><sub><b>VLA tab.</b> A SmolVLA checkpoint streaming through the safety filter: mode holder, command rate, target vs. actual joint angles, and Start/Stop wired to a ROS 2 action.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-agent-done.png" alt="Agent panel with the tool-call trace for a double stack"><br><sub><b>Agent panel.</b> The model's plan as it ran: <code>fetch_object("blue cube")</code> → <code>place_object("green cube")</code> → <code>fetch_object("red cube")</code> → <code>place_object("blue cube")</code>, with per-step model and tool latency. The grounded box is drawn on the front camera.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-vla.png" alt="VLA panel streaming a SmolVLA policy"><br><sub><b>VLA panel.</b> A SmolVLA checkpoint streaming through the safety filter: mode holder, command rate, target vs. actual joint angles, and Start/Stop wired to a ROS 2 action.</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/media/dashboard-motion.png" alt="Motion tab with the cube spawner and free look"><br><sub><b>Motion tab.</b> MoveIt named poses, gripper and move-to-point, scripted pick-and-place, and a cube spawner (colour plus x, y) for building test scenes live.</sub></td>
-<td width="50%"><img src="docs/media/dashboard-system.png" alt="System tab with ros2_control controller states"><br><sub><b>System tab.</b> ros2_control controller states as the mode manager switches them, ROS graph size, and per-process GPU memory.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-motion.png" alt="Motion panel with the cube spawner and free look"><br><sub><b>Motion panel.</b> MoveIt named poses, gripper and move-to-point, scripted pick-and-place, and a cube spawner (colour plus x, y) for building test scenes live.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-system.png" alt="System panel with ros2_control controller states"><br><sub><b>System panel.</b> ros2_control controller states as the mode manager switches them, ROS graph size, and per-process GPU memory.</sub></td>
 </tr>
 </table>
 
@@ -280,23 +283,27 @@ cognibot_ws/src/cognibot_vla/scripts/download_checkpoints.sh smolvla_arena_multi
 | Command | Brings up |
 |---|---|
 | `./start.sh core` | Simulation, MoveIt, safety, bridge, console (no GPU models) |
-| `./start.sh vlm` | + llama-swap and the language agent (Agent tab, F3) |
-| `./start.sh vla` | + LeRobot policy server and skill executor (VLA tab, F4) |
-| `./start.sh` / `full` | All eight services |
+| `./start.sh vlm` | + llama-swap and the language agent (Agent panel, F3) |
+| `./start.sh vla` | + LeRobot policy server and skill executor (VLA panel, F4) |
+| `make rlcd` | + the Laya decision layer (RLCD panel, F5); checkpoints from `cognibot_ws/docker/laya/download_checkpoints.sh` |
+| `./start.sh` / `full` | All nine services |
 | `make demo` · `make moveit` | Native MuJoCo viewer with a scripted pick-and-place · RViz MotionPlanning |
 | `make test` | Every ROS 2 test in the core image (run with the stack down) |
 | `make down` | Stop every profile |
 
 ### Driving the console
 
-| Tab | Keys | What happens |
+The centre screen always shows the robot; the soft keys only change what is beside it.
+
+| Key | Where | What happens |
 |---|---|---|
-| Camera (F1) | V cycles sources | Free-look 3D mirror, front RGB-D and wrist cameras |
-| Motion (F2) | mode 3 | MoveIt named poses, gripper, move-to-point, **Pick and place**, **Spawn cube** (colour + x, y), reset |
-| Agent (F3) | — | Type a task, then watch every tool call and the grounded boxes |
-| VLA (F4) | — | Start/Stop a LeRobot policy; live rate and target-vs-actual joints |
-| System (F5) | — | Controllers, ROS graph, GPU processes |
-| Jog (left grip) | mode 2 · W/S A/D ↑/↓ Q/E ←/→ G | Cartesian X/Y/Z, base pan, wrist roll, gripper through mink IK and the safety filter |
+| **F1** (or V) | centre viewport | Cycle free-look 3D mirror → front RGB-D → wrist camera; the other two stay as insets |
+| **F2** Motion | panel under STOP | MoveIt named poses, gripper, move-to-point, **Pick and place**, **Spawn cube** (colour + x, y), reset |
+| **F3** Agent | panel under STOP | Type a task, then watch every tool call; grounded boxes appear on the front feed |
+| **F4** VLA | panel under STOP | Start/Stop a LeRobot policy; live rate and target-vs-actual joints |
+| **F5** RLCD | panel under STOP | Pick **Skills** or **Primitives**, run a task, and see every option the decision model scored with its probability and whether it acted or escalated |
+| **F6** System | panel under STOP | Controllers, ROS graph, GPU processes |
+| Jog | keyboard, mode 2 | W/S ±X, A/D ±Y, ↑/↓ ±Z, Q/E base pan, ←/→ wrist roll, G gripper — through mink IK and the safety filter |
 
 **Esc** is STOP: it cancels every goal and holds the pose, and **R** releases it. The mode key (1–5) decides who owns the arm.
 
