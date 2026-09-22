@@ -136,17 +136,17 @@ class DecisionNode(Node):
         )
         self.declare_parameter("min_jog_m", 0.005, d("a jog moving less than this is blocked"))
         self.declare_parameter(
-            "target_half_extents", [0.050, 0.100], d("target area half size x, y, m")
+            "target_half_extents", [0.080, 0.056], d("target area half size x, y, m")
         )
         self.declare_parameter(
             "ready_pose", [0.0, 0.29, -0.36, 1.64, 0.0], d("tool-down pose before jogging, rad")
         )
         self.declare_parameter("object_topic", "/object_poses/free_joint_states", d("sim poses"))
-        self.declare_parameter("cube_half_height", 0.015, d("m, for placing on top of a cube"))
+        self.declare_parameter("cube_half_height", 0.0125, d("m, for placing on top of a cube"))
         self.declare_parameter("min_object_x", 0.0, d("m, ignore bodies parked behind the base"))
         self.declare_parameter(
             "static_objects",
-            ["target|black rectangle|0.2425|0.0|0.002"],
+            ["target|black rectangle|0.307|0.197|0.002"],
             d("body|label|x|y|z for scene objects without a free joint"),
         )
         p = lambda n: self.get_parameter(n).value  # noqa: E731
@@ -221,6 +221,10 @@ class DecisionNode(Node):
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
             ),
         )
+        # Three nodes latch on this topic; a depth-1 late subscriber (rosbridge) keeps only one of
+        # their samples, so each also repeats its status to reach every new dashboard.
+        self._model_msg: ModelStatus | None = None
+        self.create_timer(2.0, self._repeat_model)
         self.create_service(Trigger, "/cognibot/rlcd/unload", self._on_unload, callback_group=group)
         self._model_lock = threading.Lock()
         ActionServer(
@@ -245,7 +249,12 @@ class DecisionNode(Node):
         msg.header.stamp = self.get_clock().now().to_msg()
         msg.name, msg.model = "rlcd", f"Laya ({self.get_parameter('model').value})"
         msg.state, msg.detail = state, detail
+        self._model_msg = msg
         self.models_pub.publish(msg)
+
+    def _repeat_model(self) -> None:
+        if self._model_msg is not None:
+            self.models_pub.publish(self._model_msg)
 
     def _load_model(self) -> None:
         from cognibot_laya.model import LayaModel

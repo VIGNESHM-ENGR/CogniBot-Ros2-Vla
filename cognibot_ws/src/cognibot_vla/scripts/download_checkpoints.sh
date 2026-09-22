@@ -39,10 +39,17 @@ for entry in "${CHECKPOINTS[@]}"; do
     rel="$(realpath --relative-to="${variant}" "${snapshot}")"
     for f in "${snapshot}"/*; do ln -sfn "${rel}/$(basename "${f}")" "${variant}/$(basename "${f}")"; done
     rm -f "${variant}/config.json"
-    python3 - "${snapshot}/config.json" "${variant}/config.json" <<'PY'
+    python3 - "${snapshot}/config.json" "${variant}/config.json" "${name}" <<'PY'
 import json, sys
 cfg = json.load(open(sys.argv[1]))
 cfg["compile_model"] = False
+# The async policy server resizes every frame to the declared feature shape before SmolVLA's own
+# aspect-preserving resize-with-padding. The arena fine-tune kept smolvla_base's 3x256x256 camera
+# shapes although it trained on 640x480 frames, so inference squashed 4:3 frames into squares the
+# policy never saw. Declare the shape it was trained on.
+TRAINED_SHAPES = {"smolvla_arena_multitask": {"camera1": [3, 480, 640], "camera2": [3, 480, 640]}}
+for key, shape in TRAINED_SHAPES.get(sys.argv[3], {}).items():
+    cfg["input_features"][f"observation.images.{key}"]["shape"] = shape
 json.dump(cfg, open(sys.argv[2], "w"), indent=2)
 PY
     echo "    uncompiled variant: ${variant}"

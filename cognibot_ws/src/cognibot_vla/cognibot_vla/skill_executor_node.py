@@ -154,6 +154,10 @@ class SkillExecutor(Node):
                 durability=DurabilityPolicy.TRANSIENT_LOCAL,
             ),
         )
+        # Three nodes latch on this topic; a depth-1 late subscriber (rosbridge) keeps only one of
+        # their samples, so each also repeats its status to reach every new dashboard.
+        self._model_msg: ModelStatus | None = None
+        self.create_timer(2.0, self._repeat_model)
         self._policy_resident = False
         self._publish_model(ModelStatus.UNLOADED, "no policy loaded yet")
         ActionServer(
@@ -173,7 +177,12 @@ class SkillExecutor(Node):
         msg.name = "vla"
         msg.model = model or os.environ.get("VLA_CHECKPOINT", "").rstrip("/").split("/")[-1]
         msg.state, msg.detail = state, detail
+        self._model_msg = msg
         self.models_pub.publish(msg)
+
+    def _repeat_model(self) -> None:
+        if self._model_msg is not None:
+            self.models_pub.publish(self._model_msg)
 
     def _free_rlcd(self) -> None:
         """Ask the RLCD node to drop Laya (~1.8 GB) so the policy has the GPU; best effort."""

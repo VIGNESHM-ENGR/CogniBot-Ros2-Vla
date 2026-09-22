@@ -12,24 +12,12 @@ from typing import Any, Protocol
 
 
 class DecisionModel(Protocol):
-    def unload(self) -> None:
-        """Free every checkpoint (and the CUDA cache) so another model can use the GPU."""
-        self._router.unload()
-        try:
-            import torch
+    def unload(self) -> None: ...
 
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-        except ImportError:  # pragma: no cover - torch is always present in the laya image
-            pass
-
-    def reload(self) -> None:
-        """Load the English checkpoint again after `unload` (~13 s on the GPU)."""
-        self._router.preload(["english"])
+    def reload(self) -> None: ...
 
     @property
-    def loaded(self) -> bool:
-        return bool(getattr(self._router, "loaded", []))
+    def loaded(self) -> bool: ...
 
     def predict(self, state: dict, questions: dict, route_text: str = "") -> dict[str, Any]: ...
 

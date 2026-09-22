@@ -14,6 +14,9 @@ from pathlib import Path
 ROBOT_COLORS: dict[str, tuple[float, float, float, float] | None] = {
     "stock": None,
     "red": (0.72, 0.07, 0.07, 1.0),
+    # The SmolVLA arena dataset's robot (Chaenn/so101_cube_sim_place_0824) renders about
+    # (91, 45, 120) after its camera processing.
+    "purple": (0.39, 0.19, 0.52, 1.0),
 }
 
 _ASSET_DIR_ATTRS = ("meshdir", "texturedir", "assetdir")

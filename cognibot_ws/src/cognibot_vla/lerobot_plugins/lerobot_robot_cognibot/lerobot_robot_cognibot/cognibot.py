@@ -11,6 +11,7 @@ from lerobot.robots import Robot
 from lerobot.utils.errors import DeviceAlreadyConnectedError, DeviceNotConnectedError
 
 from .config_cognibot import CognibotConfig, CognibotPandaConfig, CognibotSO101Config
+from .look import blur
 from .ros_bridge import RosBridge
 
 logger = logging.getLogger(__name__)
@@ -72,6 +73,10 @@ class CognibotRobot(Robot):
             self.config.command_topic,
             self.config.camera_topics,
         )
+        unknown = set(self.config.camera_blur) - set(self.config.camera_topics)
+        if unknown:
+            bridge.close()
+            raise ValueError(f"camera_blur for unknown cameras: {sorted(unknown)}")
         if not bridge.wait_ready(
             list(self.config.camera_topics), self.joints, self.config.connect_timeout_s
         ):
@@ -121,7 +126,7 @@ class CognibotRobot(Robot):
         gripper = f"{self.config.gripper_joint}.pos"
         obs[gripper] = gripper_to_policy(obs[gripper], self.config)
         for key in self.config.camera_topics:
-            obs[key] = self._bridge.image(key)
+            obs[key] = blur(self._bridge.image(key), self.config.camera_blur.get(key, 0.0))
         return obs
 
     def send_action(self, action: dict[str, float]) -> dict[str, float]:

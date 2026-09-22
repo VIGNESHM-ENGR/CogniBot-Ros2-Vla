@@ -186,13 +186,15 @@ services:
       ACTION_DEGREES: ${ACTION_DEGREES:-true}
       STATE_DEGREES: ${STATE_DEGREES:-true}
       # Keys are the checkpoint's own image features; camera1 was the dataset's `side` view, which
-      # the scene's side_cam reproduces (pose solved from the dataset frames).
-      CAMERA_TOPICS: "${CAMERA_TOPICS:-{camera1: /mujoco_camera_plugin/side_cam/color, camera2: /mujoco_camera_plugin/wrist_cam/color}}"
+      # the scene's front_rgbd now sits at (pose solved from the dataset frames).
+      CAMERA_TOPICS: "${CAMERA_TOPICS:-{camera1: /mujoco_camera_plugin/front_rgbd/color, camera2: /mujoco_camera_plugin/wrist_cam/color}}"
+      # The arena dataset's frames were never sharper than 0.5 px blur (median side 0.99, wrist 0.42).
+      CAMERA_BLUR: "${CAMERA_BLUR:-{camera1: 1.0, camera2: 0.4}}"
       # The arena dataset records the gripper in its own units: deg = 0.6169 * unit + 15.4.
       GRIPPER_DEG_PER_UNIT: ${GRIPPER_DEG_PER_UNIT:-0.6169}
       GRIPPER_DEG_OFFSET: ${GRIPPER_DEG_OFFSET:-15.4}
-      # Where the arena episodes start (dataset median, degrees): the policy begins in-distribution.
-      VLA_START_POSE: ${VLA_START_POSE:-0,-103,36,102,0}
+      # Where the arena episodes start (dataset median, degrees), clipped to our joint ranges.
+      VLA_START_POSE: ${VLA_START_POSE:-0,-99,36,94,0}
       VLA_START_GRIPPER_DEG: ${VLA_START_GRIPPER_DEG:-31.4}
       TASK: ${TASK:-Pick and place each of the five cubes inside the black boundary.}
       LLM_BASE_URL: http://127.0.0.1:8082

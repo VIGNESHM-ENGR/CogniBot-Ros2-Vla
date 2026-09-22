@@ -18,6 +18,9 @@ class CognibotConfig(RobotConfig):
     # observation.images.<key> features. (`cameras` is reserved by RobotConfig for LeRobot
     # camera drivers.)
     camera_topics: dict[str, str] = field(default_factory=dict)
+    # policy camera key -> Gaussian blur sigma in pixels (look.py), to match a checkpoint trained
+    # on blurred frames. Cameras not listed pass as rendered.
+    camera_blur: dict[str, float] = field(default_factory=dict)
     image_height: int = 480
     image_width: int = 640
     joint_states_topic: str = "/joint_states"

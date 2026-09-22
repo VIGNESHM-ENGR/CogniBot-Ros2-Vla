@@ -244,6 +244,10 @@ class VlmAgent(Node):
         self._unload_rlcd = self.create_client(
             Trigger, "/cognibot/rlcd/unload", callback_group=group
         )
+        # Three nodes latch on this topic; a depth-1 late subscriber (rosbridge) keeps only one of
+        # their samples, so each also repeats its status to reach every new dashboard.
+        self._model_msg: ModelStatus | None = None
+        self.create_timer(2.0, self._repeat_model)
         self._vlm_state: tuple[int, str] | None = None
         self.create_timer(1.0, self._poll_vlm, callback_group=group)
         ActionServer(
@@ -277,7 +281,12 @@ class VlmAgent(Node):
         msg.name, msg.state = "vlm", state[0]
         msg.model = state[1] or "Qwen3-VL-4B"
         msg.detail = "llama-swap"
+        self._model_msg = msg
         self.models_pub.publish(msg)
+
+    def _repeat_model(self) -> None:
+        if self._model_msg is not None:
+            self.models_pub.publish(self._model_msg)
 
     def _free_rlcd(self) -> None:
         """Ask the RLCD node to drop Laya (~1.8 GB) before the VLM loads; best effort."""

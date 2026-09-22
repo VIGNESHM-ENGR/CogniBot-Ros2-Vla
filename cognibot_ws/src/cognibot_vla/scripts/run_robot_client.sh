@@ -8,6 +8,7 @@
 #   CAMERA_TOPICS    {policy_key: topic, ...}            (default front/wrist simulator cameras)
 #   ACTION_DEGREES   true if the checkpoint outputs degrees (default false)
 #   STATE_DEGREES    true if it expects state in degrees (default false)
+#   CAMERA_BLUR      {policy_key: sigma_px, ...} Gaussian blur per camera (default {})
 #   GRIPPER_DEG_PER_UNIT, GRIPPER_DEG_OFFSET   gripper in dataset units: deg = a * unit + b (0 = off)
 #   ROBOT_TYPE       cognibot_so101 | cognibot_panda     (default cognibot_so101)
 #   FPS, ACTIONS_PER_CHUNK, CHUNK_SIZE_THRESHOLD, POLICY_SERVER_ADDRESS
@@ -18,6 +19,7 @@ exec python3 -m lerobot.async_inference.robot_client \
   --server_address="${POLICY_SERVER_ADDRESS:-127.0.0.1:8090}" \
   --robot.type="${ROBOT_TYPE:-cognibot_so101}" \
   --robot.camera_topics="${CAMERA_TOPICS:-$DEFAULT_CAMERAS}" \
+  --robot.camera_blur="${CAMERA_BLUR:-{\}}" \
   --robot.action_degrees="${ACTION_DEGREES:-false}" \
   --robot.state_degrees="${STATE_DEGREES:-false}" \
   --robot.gripper_deg_per_unit="${GRIPPER_DEG_PER_UNIT:-0}" \

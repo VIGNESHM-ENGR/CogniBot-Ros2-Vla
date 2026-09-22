@@ -43,8 +43,8 @@ CAMERAS = {
     "wrist": "/mujoco_camera_plugin/wrist_cam/color",
 }
 CUBE, TARGET = "green_cube", "target"
-CUBE_SPAWN = np.array([0.0974, -0.1839, 0.01495])
-TARGET_POS = np.array([0.2425, 0.0, 0.001])
+CUBE_SPAWN = np.array([0.2741, -0.019501, 0.012445])
+TARGET_POS = np.array([0.307045, 0.197373, 0.001])
 TASK = "pick up the green cube and place it on the blue target"
 
 

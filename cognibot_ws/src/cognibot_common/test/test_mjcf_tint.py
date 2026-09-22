@@ -48,14 +48,15 @@ def test_unknown_material_raises(scene: Path, tmp_path: Path) -> None:
         tint_scene(scene, ["arm", "missing"], ROBOT_COLORS["red"], tmp_path / "out")
 
 
+@pytest.mark.parametrize("color", ["red", "purple"])
 @pytest.mark.parametrize("robot", ["so101", "panda"])
-def test_real_scenes_compile_tinted(robot: str, tmp_path: Path) -> None:
+def test_real_scenes_compile_tinted(robot: str, color: str, tmp_path: Path) -> None:
     mujoco = pytest.importorskip("mujoco")
     from cognibot_common.robot_registry import load_robot
 
     cfg = load_robot(robot)
-    out = tint_scene(cfg.mjcf.scene, cfg.mjcf.tint_materials, ROBOT_COLORS["red"], tmp_path)
+    out = tint_scene(cfg.mjcf.scene, cfg.mjcf.tint_materials, ROBOT_COLORS[color], tmp_path)
     model = mujoco.MjModel.from_xml_path(str(out))
     for name in cfg.mjcf.tint_materials:
         rgba = model.mat_rgba[mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_MATERIAL, name)]
-        assert rgba == pytest.approx(ROBOT_COLORS["red"], abs=1e-6)
+        assert rgba == pytest.approx(ROBOT_COLORS[color], abs=1e-6)

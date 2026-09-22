@@ -61,7 +61,7 @@ Conventions:
 | `/cognibot/vla/status` | `diagnostic_msgs/DiagnosticArray` | `skill_executor_node` (planned; the dashboard currently derives stream status from `/cognibot/mode` and `/cognibot/joint_command`) | dashboard |
 | `/cognibot/gpu` | `cognibot_interfaces/GpuStatus` | `gpu_monitor` | dashboard |
 | `/cognibot/rlcd/decisions` | `cognibot_interfaces/Decision` | `laya_decision` | dashboard (RLCD view) |
-| `/cognibot/models` | `cognibot_interfaces/ModelStatus` (transient local; one latched message per publisher) | `vlm_agent` (Qwen3-VL, from llama-swap `/running`), `skill_executor` (LeRobot policy), `laya_decision` (Laya) | dashboard (GPU gauge, loading banner) |
+| `/cognibot/models` | `cognibot_interfaces/ModelStatus` (transient local; each publisher also repeats its latest status every 2 s, because a depth-1 late subscriber such as rosbridge keeps only one of the three latched samples) | `vlm_agent` (Qwen3-VL, from llama-swap `/running`), `skill_executor` (LeRobot policy), `laya_decision` (Laya) | dashboard (GPU gauge, loading banner) |
 
 > `laya_decision` (ADR-0008) is the RLCD decision layer: it serialises the scene as JSON and asks a
 > 421M text model typed questions. **Track A (skills)** decides a skill plus an object and runs the
