@@ -77,6 +77,6 @@ export const CUBES = ["green", "red", "blue", "yellow", "white"] as const;
 export type CubeColor = (typeof CUBES)[number];
 export const cubeBody = (color: CubeColor) => `${color}_cube`;
 /** Half-size of a cube: spawning rests it on the floor. */
-export const CUBE_HALF = 0.015;
+export const CUBE_HALF = 0.0125;
 /** Where the IK pick-and-place demo drops the cube (static MuJoCo body). */
 export const DEMO = { target: "target" };

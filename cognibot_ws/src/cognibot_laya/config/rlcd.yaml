@@ -36,10 +36,10 @@ laya_decision:
     # Tool pointing down, gripper frame at (0.255, 0, 0.072): teleop keeps this orientation.
     # Solved with pick_place_ik.solve_from_seeds for a point 6 cm above a grasp at r = 0.25 m.
     ready_pose: [0.0, 0.29, -0.36, 1.64, 0.0]
-    # Black rectangle inner half size (arena zone: inner x 0.1925-0.2925, y -0.10..0.10).
-    target_half_extents: [0.050, 0.100]
+    # Black rectangle inner half size (frame x 0.227-0.387, y 0.141-0.253).
+    target_half_extents: [0.080, 0.056]
     object_topic: /object_poses/free_joint_states
-    cube_half_height: 0.015
+    cube_half_height: 0.0125
     # The cube spawner parks unused bodies at x = -0.55; they are not part of the scene.
     min_object_x: 0.0
-    static_objects: ["target|black rectangle|0.2425|0.0|0.002"]
+    static_objects: ["target|black rectangle|0.307|0.197|0.002"]

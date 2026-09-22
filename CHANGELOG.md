@@ -6,19 +6,10 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 
 ## [Unreleased]
 
-### Changed
-- Simulation scene now reproduces the SmolVLA arena the VLA checkpoint was trained in: a `side_cam` at the training camera's pose (solved from its frames), the black boundary centred in front of the robot at the dataset's size, five 3 cm cubes in a training layout, wider wrist/shoulder ranges; the VLA client sends `side_cam` as camera1, converts the gripper to the dataset's units, starts from the dataset's start pose, and its time budget counts acting time only. (The policy does not complete the task yet — see DEVLOG.)
-- GPU gauge lists which model (VLM, VLA policy, RLCD/Laya) is loaded; a banner shows while models load or unload, and each path frees the others' models before it starts.
-- Dashboard layout: the camera viewport stays on screen at all times and **F1** cycles it (Free look → Front → Wrist; V still works). **F2–F6** load the Motion, Agent, VLA, RLCD and System controls into a panel under the stop button, so the robot is watched while it is operated. Joints and GPU moved to the left grip; the on-screen jog keys were removed (keyboard jog is unchanged, and the TELEOP help lists the keys). The agent's detection box is drawn on the viewport's front feed.
-
-### Changed
-- RLCD **Track B is now a full pick-and-place**: the arm parks with the tool pointing down, then the model picks one motion per step through the stages (above the cube, onto it, lift, carry, lower, retreat) while the node reads the cube's state from physics — a missed grasp or a dropped cube is detected and retried. The model sees the cube, gripper and target-area positions. Placed the cube in the black rectangle 8/8 times in simulation.
-- The `laya` service runs on the GPU by default: 33 ms per decision instead of ~0.8 s on the CPU (`LAYA_DEVICE=cpu` still available).
-
-### Fixed
-- RLCD decisions: each track offers only the options that can run in the current state, Track B reads the target's direction as words ("15 cm left, 2 cm up"), objects named in the task are bound directly, Track B runs without a confidence gate behind a stall watchdog, and Track A stops after a repeated action that changed nothing. Measured: Track B motion choices 0/6 → 5/6, Track A steps 5.3 s → 1.1 s.
+## [0.3.0] - 2026-09-22
 
 ### Added
+- `robot_color:=purple` (`ROBOT_COLOR=purple`), the colour of the SmolVLA arena dataset's robot.
 - RLCD decision layer (P8, ADR-0008): `laya` service running Laya, a 421M text decision model, with a pinned checkpoint download; `cognibot_laya` serialises the scene as JSON and answers typed questions with calibrated confidence. Two selectable tracks — **Skills** (a skill and an object per step, run by the existing fetch/place/home actions) and **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter) — plus a guard that refuses unsafe tasks before the arm moves (its out-of-scope and needs-a-person flags are shown as advisory). Non-English tasks are routed to the multilingual checkpoint.
 - Dashboard RLCD screen (`F5`, System moves to `F6`): track selector, task field, run/stop, and a decision trace showing every option the model scored with its probability, the calibrated confidence and whether the answer acted or escalated.
 - `make rlcd` and the `rlcd` compose profile; `/cognibot/rlcd/run_task`, `/cognibot/rlcd/decisions` and `/cognibot/rlcd/decide`.
@@ -53,6 +44,12 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - Dashboard Motion view *Spawn cube*: pick a colour (green, red, blue, yellow, white) and a floor position; Pick and place acts on the selected cube. The SO-101 scene carries the four extra cubes parked behind the robot.
 
 ### Changed
+- VLA client: per-checkpoint gripper units (`GRIPPER_DEG_PER_UNIT`, `GRIPPER_DEG_OFFSET`), a start pose the arm parks at before a run (`VLA_START_POSE`, default the arena dataset's start clipped to our joint ranges), an optional per-camera blur (`CAMERA_BLUR`), and a time budget that counts acting time only. The SO-101 scene keeps its layout (green cube in front, the other four parked behind the robot, black rectangle at (0.307, 0.197)) and its joint ranges.
+- One camera across the table: the separate `side_cam` is gone and the VLA client sends `front_rgbd` as camera1, which drops a 640×480 colour + depth stream (~43 MB/s).
+- GPU gauge lists which model (VLM, VLA policy, RLCD/Laya) is loaded; a banner shows while models load or unload, and each path frees the others' models before it starts.
+- Dashboard layout: the camera viewport stays on screen at all times and **F1** cycles it (Free look → Front → Wrist; V still works). **F2–F6** load the Motion, Agent, VLA, RLCD and System controls into a panel under the stop button, so the robot is watched while it is operated. Joints and GPU moved to the left grip; the on-screen jog keys were removed (keyboard jog is unchanged, and the TELEOP help lists the keys). The agent's detection box is drawn on the viewport's front feed.
+- RLCD **Track B is now a full pick-and-place**: the arm parks with the tool pointing down, then the model picks one motion per step through the stages (above the cube, onto it, lift, carry, lower, retreat) while the node reads the cube's state from physics — a missed grasp or a dropped cube is detected and retried. The model sees the cube, gripper and target-area positions. Placed the cube in the black rectangle 8/8 times in simulation.
+- The `laya` service runs on the GPU by default: 33 ms per decision instead of ~0.8 s on the CPU (`LAYA_DEVICE=cpu` still available).
 - The scene manipuland is now `green_cube` (was `red_cube`) in both SO-101 and Panda scenes, so red is reserved for the robot.
 - The core image fetches third-party ROS sources from `third_party.repos` instead of the build context; `.dockerignore` added.
 - `make sim-dev` starts only the `sim` service with the viewer; `ROBOT_COLOR` is passed through compose.
@@ -64,6 +61,9 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 - SO-101 scene: the blue target disc is now a black rectangle frame named `target` on a light floor, matching the white-table/black-boundary look of community SO-101 datasets.
 
 ### Fixed
+- SmolVLA frames reached the policy squashed to 256×256: LeRobot's async server resizes each frame to the checkpoint's declared image shape, which the arena fine-tune inherited from `smolvla_base` although it trained on 640×480 frames. `download_checkpoints.sh` now declares the trained shape in the local variant; on the dataset's own frames the policy's 50-step chunk error drops from 4.66° to 2.87°.
+- GPU gauge listed only one model after the page loaded: three latched publishers share `/cognibot/models` and rosbridge's depth-1 reader kept one sample. Each publisher now repeats its status every 2 s.
+- RLCD decisions: each track offers only the options that can run in the current state, Track B reads the target's direction as words ("15 cm left, 2 cm up"), objects named in the task are bound directly, Track B runs without a confidence gate behind a stall watchdog, and Track A stops after a repeated action that changed nothing. Measured: Track B motion choices 0/6 → 5/6, Track A steps 5.3 s → 1.1 s.
 - CI `ros` job now installs MuJoCo and third-party sources and runs the GPU-free tests.
 - Core venv pins numpy 1.26.4 so apt ROS extensions (moveit_py) no longer segfault against numpy 2.
 - GUI containers render through NVIDIA PRIME offload instead of software GL on hybrid-graphics laptops.

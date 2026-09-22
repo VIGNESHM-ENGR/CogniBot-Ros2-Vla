@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request (P5), release | VLA root cause by replay, camera merge, layout restored, model-status heartbeat; v0.3.0 | fix · release |
 | 2026-09-22 | owner request (P5) | VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over | feat (in progress) |
 | 2026-09-22 | owner request | Full-stack control-path test: VLM, VLA, RLCD primitives and skills | test |
 | 2026-09-22 | owner request (P8) | Track B as a full pick-and-place; decisions on the GPU | feat |
@@ -95,6 +96,58 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request (P5), release · VLA root cause by replay, camera merge, layout restored, model-status heartbeat; v0.3.0
+
+**Context:** continue "make the VLA policy work"; the owner asked to stop trial and error and use the official specs and proven checks, to drop a redundant camera stream, then to put the scene back to its original layout, refresh the README and cut a release.
+**Outcome:** ✅ root cause found and documented, the pipeline bug fixed; the arena checkpoint still cannot solve our scene (it needs a fine-tune on this robot model). Scene restored to the original layout. v0.3.0.
+
+### Work log
+- **Official sources checked first.** The checkpoint's model card and the dataset card are the auto-generated templates; the generator (`capstone_arena`) is not public on GitHub or the Hub. The authoritative spec is therefore the checkpoint's own files (`config.json`, `train_config.json`, processors) and the dataset's `meta/info.json` + `meta/generation.json`. LeRobot's SmolVLA docs name `lerobot-rollout --policy.path` (synchronous, the policy's own processors, native frames) as the evaluation path.
+- **Open-loop check (the standard LeRobot sanity test).** Episode-0 frames and states through `make_pre_post_processors` of the checkpoint; compare the predicted 50-step chunk with the recorded next 50 actions (frames 0–120, before the first grasp).
+- **Teacher-action replay.** Episode 0's recorded actions played at 30 Hz into our sim (through the safety filter, and again in plain MuJoCo on the MJCF actuators), cubes at the episode's layout.
+- **Kinematic fit.** 2,820 grasp moments from all 295 episodes: FK of the recorded state must put a tool point on the nearest layout cube; trimmed least squares.
+- **Wrist camera** mount fitted to 32 dataset wrist frames (chamfer on tape/jaw masks, 160×120, multi-start incl. roll about the view axis; held-out frames 5.1 vs fit 6.7). Kept out of the final scene with the layout restore.
+- **Camera merge (owner: cut the redundant stream).** `front_rgbd` and `side_cam` looked at the table from nearly the same place; `side_cam` is removed and the VLA client sends `front_rgbd` as camera1. Every camera publishes colour and depth, so this drops ≈ 43 MB/s.
+- **Plugin:** `camera_blur` per camera (the arena frames always had ≥ 0.5 px blur; exposure/contrast/colour were randomised per episode in `generation.json` `visual`, so no colour transfer). `robot_color:=purple`.
+- **Layout restored (owner).** Black rectangle at (0.307, 0.197), 2.5 cm green cube in front, the other four parked at x = −0.55, original front and wrist cameras and joint ranges; RLCD target/half extents/cube size, `DROP_CLEARANCE`, dashboard spawn default and cube size, camera test and the scripted recorder follow. `VLA_START_POSE` is the arena start clipped to our ranges (0, −99, 36, 94, 0).
+- **Model-status heartbeat** (see #4) and README screenshots retaken on the live stack.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | Policy frames looked squashed | LeRobot's async server resizes each frame to the checkpoint's declared image shape before SmolVLA's own resize-with-padding; the arena fine-tune kept `smolvla_base`'s 3×256×256 although it trained on 640×480 | `download_checkpoints.sh` writes the trained shape into the local variant | open-loop chunk error 4.66° (squashed) → 2.87° (native) |
+| 2 | Policy never lifted a cube in 0/5 live runs | Not vision: our renders at the recorded states give 2.96° vs 2.87° on the training frames. The teacher's own actions replayed in our sim track every joint within ≈ 1° (mean 0.1–0.8°) yet touch no cube; in plain MuJoCo the jaws close fully (16.3°, even 5.7°) on nothing | Documented; needs a fine-tune on this robot model | At the recorded grasps the cube sits 1.85 cm from our jaw centre (`gripperframe`); joint zero offsets alone leave 22.3 mm, a −88.7° wrist_roll offset brings it to 14.4 mm, yet ±90° replays still lift nothing. Our MJCF matches TheRobotStudio `so101_new_calib.xml` exactly; the generator's model is unpublished |
+| 3 | Wider wrist/shoulder ranges (arena commit) broke 3 of 51 tests | pick_place IK found a different solution: the approach above the rectangle missed by 3.1 cm; the lean and safety-clamp tests encode the original limits | Ranges restored with the layout | `make test` 51 tests, 3 failures → see Measurements |
+| 4 | GPU gauge listed one model of three after a page load | three latched publishers share `/cognibot/models`; a depth-1 reader (rosbridge) keeps one sample of a keyless topic | each publisher repeats its status every 2 s | gauge shows VLM/VLA/RLCD after reload; hand-over seen live (VLM loaded ↔ VLA/RLCD unloaded) |
+| 5 | Whole-frame colour transfer turned our frames grey | the dataset's colour statistics come from its randomised camera model and a different floor; matching them is meaningless | dropped; blur only | `generation.json` `visual`: exposure 0.88–1.15, contrast 0.8–1.2, blur 0.5–1.4 px per episode |
+
+### Decisions
+#### D1: Keep the arena layout or restore the original?
+```mermaid
+flowchart TD
+  Q{Scene layout} --> A[Arena layout, purple robot]
+  Q --> B[Original layout]
+  A --> A1[✗ the arena checkpoint still cannot grasp here: recorded grasps miss our jaws by 1.85 cm]
+  B --> B1[✓ owner request; VLM, RLCD and scripted paths verified on it; tests green]
+```
+- **Chosen:** original layout, keeping the camera merge, the resize fix, the model heartbeat and the plugin options.
+- **Revisit if:** a checkpoint is fine-tuned on this robot model, or the arena generator is published.
+
+### Measurements
+| Run | Result |
+|---|---|
+| Open loop, arena SmolVLA, 13 approach frames, chunk MAE | training frames 2.87° · squashed 256² 4.66° · our renders purple + blur 2.96° · red 3.80° · our side + their wrist 2.30° · their side + our wrist 2.88° |
+| Teacher replay, episode 0, our sim | tracking mean 0.1–0.8° per joint, p95 ≤ 3.8°; 0 cubes lifted |
+| Agent three-cube stack (original layout) | 1/2: 52 s, heights 0.012 / 0.037 / 0.062 m; the other run stacked the wrong cubes (trace not captured) |
+| RLCD Primitives pick-and-place | 1/1, 19 s, cube at (0.295, 0.188) inside the frame |
+| VLA stream from the dashboard | 28.5 Hz; gauge: VLM unloaded, VLA loaded |
+
+### Open questions / follow-ups
+- [ ] Fine-tune SmolVLA on this robot model with the scripted episode recorder (the only path to a policy that solves the scene).
+- [ ] Capture the trace of the failed agent stack run when it recurs.
+
+---
 
 ## 2026-09-22 · owner request (P5) · VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over
 

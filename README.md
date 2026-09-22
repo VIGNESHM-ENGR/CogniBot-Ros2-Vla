@@ -12,12 +12,12 @@ A containerized **ROS 2 Jazzy** manipulation stack that connects a local **visio
 ![MoveIt 2](https://img.shields.io/badge/MoveIt%202-pick__ik-4B8BBE)
 ![LeRobot](https://img.shields.io/badge/LeRobot-0.6%20SmolVLA%20%7C%20ACT-FFD21E)
 ![Qwen3-VL](https://img.shields.io/badge/VLM-Qwen3--VL--4B%20%C2%B7%20llama.cpp-6E56CF)
-![Docker](https://img.shields.io/badge/Docker-8%20services%20%C2%B7%204%20profiles-2496ED?logo=docker&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-10%20services%20%C2%B7%205%20profiles-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-<img src="docs/media/dashboard-camera.png" alt="CogniBot operator console: free-look 3D mirror of the simulation after the agent stacked three cubes, with the front and wrist camera insets" width="100%">
+<img src="docs/media/dashboard-camera.png" alt="CogniBot operator console: free-look 3D mirror of the simulation after the agent stacked three cubes, with the front and wrist camera insets and the agent's tool trace beside the stop button" width="100%">
 
-<sub>The operator console right after the agent executed <i>"Stack the cubes: put the blue cube on the green cube, then the red cube on top of the blue cube."</i> Free-look 3D mirror (MuJoCo WASM), front RGB-D and wrist cameras, live joints, VRAM gauge, and the latching STOP.</sub>
+<sub>The operator console right after the agent executed <i>"Stack the cubes: put the blue cube on the green cube, then the red cube on top of the blue cube."</i> Free-look 3D mirror (MuJoCo WASM) with the front RGB-D and wrist cameras, the agent's tool trace beside the latching STOP, live joints, and the GPU gauge showing which model holds the GPU.</sub>
 
 </div>
 
@@ -32,19 +32,19 @@ A containerized **ROS 2 Jazzy** manipulation stack that connects a local **visio
 | | |
 |---|---|
 | 🗣️ **Language → action** | Type *"put the blue cube on the green cube, then the red cube on top"*. Qwen3-VL-4B looks at the camera, plans with seven robot tools, grounds each object to a 3D point from depth (≈ 1 mm error), and the arm executes through the same servers the operator uses. Every thought, tool call and result streams live to the console. |
-| 🧠 **Learned policies** | LeRobot SmolVLA / ACT checkpoints run in LeRobot's async policy server and stream joint targets at up to 30 Hz, started and stopped from the browser, with the VLM unloaded from the GPU first. |
+| 🧠 **Learned policies** | LeRobot SmolVLA / ACT checkpoints run in LeRobot's async policy server and stream joint targets at up to 30 Hz, started and stopped from the browser. Starting a policy, an agent task or an RLCD run frees the other models from the GPU first, and the gauge shows which one is resident. |
 | 🦾 **Classical motion** | MoveIt 2 with pick_ik for planning, mink differential IK for Cartesian jogging, and scripted top-down pick-and-place with a reach-aware tool lean. |
 | 🛡️ **One commander at a time** | A mode manager switches ros2_control controllers so exactly one source (teleop, planner, policy, twin) owns the arm. Streamed commands pass a safety filter enforcing joint range, velocity and a 300 ms dead-man. |
-| 🧮 **Decision layer (RLCD)** | Laya, a 421M calibrated text classifier, decides over the scene as JSON: **Skills** (which skill and object, run by the scripted actions) or **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter). It never sees an image and never emits a joint angle. Primitives run a full pick-and-place — the model picks every motion (33 ms each on the GPU) while the node reads grasp, drop and placement from physics — and put the cube in the target 8/8 times in simulation, recovering from a missed grasp and a dropped cube. Skills still fail the empty-gripper decision zero-shot ([ADR-0008](docs/adr/0008-laya-decision-layer.md)). |
+| 🧮 **Decision layer (RLCD)** | Laya, a 421M calibrated text classifier, decides over the scene as JSON: **Skills** (which skill and object, run by the scripted actions) or **Primitives** (one 2 cm motion per step, jogged through the teleop IK and the safety filter). It never sees an image and never emits a joint angle. Primitives run a full pick-and-place — the model picks every motion (33 ms each on the GPU) while the node reads grasp, drop and placement from physics — and put the cube in the target 9/9 times in simulation, recovering from a missed grasp and a dropped cube. Skills still fail the empty-gripper decision zero-shot ([ADR-0008](docs/adr/0008-laya-decision-layer.md)). |
 | 🖥️ **Teach-pendant console** | A React operator console over rosbridge: the camera viewport never leaves the screen (F1 cycles free look / front / wrist), and F2–F6 load Motion, Agent, VLA, RLCD or System controls beside the STOP button, so the robot is watched while it is operated. Mode key, joints and GPU on the left, STOP on Esc, agent detections drawn on the live feed. |
-| 📦 **Reproducible** | Nine Docker services in five Compose profiles. Every image digest, model revision, pip and npm version is pinned, and a GPU-free CI pipeline runs on every push. `./start.sh` brings it up; Ctrl-C takes everything down. |
+| 📦 **Reproducible** | Ten Docker services (nine in `full`) in five Compose profiles. Every image digest, model revision, pip and npm version is pinned, and a GPU-free CI pipeline runs on every push. `./start.sh` brings it up; Ctrl-C takes everything down. |
 
-<p><img src="docs/media/dashboard-rlcd.png" alt="Operator pendant with the viewport in the centre and the RLCD panel under the stop button"><br><sub><b>The pendant.</b> The viewport never leaves the centre (F1 cycles free look, front and wrist); F2–F6 load a control panel under STOP. Here the RLCD panel runs a <b>Primitives</b> pick-and-place in TELEOP: the cube is in the gripper (wrist camera) on its way to the black rectangle, and each decision is shown with every option the model scored.</sub></p>
+<p><img src="docs/media/dashboard-rlcd.png" alt="Operator pendant with the viewport in the centre and the RLCD panel under the stop button"><br><sub><b>The pendant.</b> The viewport never leaves the centre (F1 cycles free look, front and wrist); F2–F6 load a control panel under STOP. Here the RLCD panel runs a <b>Primitives</b> pick-and-place in TELEOP: the gripper is closing on the green cube (wrist camera), and each decision is listed with every option the model scored and whether it acted.</sub></p>
 
 <table>
 <tr>
-<td width="50%"><img src="docs/media/dashboard-agent-done.png" alt="Agent panel with the tool-call trace for a double stack"><br><sub><b>Agent panel.</b> The model's plan as it ran: <code>fetch_object("blue cube")</code> → <code>place_object("green cube")</code> → <code>fetch_object("red cube")</code> → <code>place_object("blue cube")</code>, with per-step model and tool latency. The grounded box is drawn on the front camera.</sub></td>
-<td width="50%"><img src="docs/media/dashboard-vla.png" alt="VLA panel streaming a SmolVLA policy"><br><sub><b>VLA panel.</b> A SmolVLA checkpoint streaming through the safety filter: mode holder, command rate, target vs. actual joint angles, and Start/Stop wired to a ROS 2 action.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-agent-done.png" alt="Agent panel with the tool-call trace for a double stack"><br><sub><b>Agent panel.</b> The finished stack and the model's plan as it ran: <code>fetch_object("blue cube")</code> → <code>place_object("green cube")</code> → <code>fetch_object("red cube")</code> → <code>place_object("blue cube")</code>, with per-step model and tool latency. The grounded box is drawn on the front camera.</sub></td>
+<td width="50%"><img src="docs/media/dashboard-vla.png" alt="VLA panel streaming a SmolVLA policy"><br><sub><b>VLA panel.</b> A SmolVLA checkpoint streaming at 28.5 Hz through the safety filter: mode holder, command rate, target vs. actual joint angles, and Start/Stop wired to a ROS 2 action. The GPU gauge shows the VLM unloaded to make room for the policy.</sub></td>
 </tr>
 <tr>
 <td width="50%"><img src="docs/media/dashboard-motion.png" alt="Motion panel with the cube spawner and free look"><br><sub><b>Motion panel.</b> MoveIt named poses, gripper and move-to-point, scripted pick-and-place, and a cube spawner (colour plus x, y) for building test scenes live.</sub></td>
@@ -82,13 +82,14 @@ Every container shares the host network with **CycloneDDS pinned to localhost** 
 /robot_state_publisher         /gpu_monitor                 /move_group
 /mode_manager                  /safety_filter               /mink_teleop
 /pick_place_server             /vlm_agent                   /skill_executor
-/rosbridge_websocket           /web_video_server
+/laya_decision                 /rosbridge_websocket         /web_video_server
 
 ## actions
 /cognibot/agent/run_task                              cognibot_interfaces/action/RunAgentTask
 /cognibot/fetch_object                                cognibot_interfaces/action/FetchObject
 /cognibot/place_object                                cognibot_interfaces/action/PlaceObject
 /cognibot/vla/execute_skill                           cognibot_interfaces/action/ExecuteSkill
+/cognibot/rlcd/run_task                               cognibot_interfaces/action/RunDecisionTask
 /move_action                                          moveit_msgs/action/MoveGroup
 /execute_trajectory                                   moveit_msgs/action/ExecuteTrajectory
 /joint_trajectory_controller/follow_joint_trajectory  control_msgs/action/FollowJointTrajectory
@@ -98,6 +99,8 @@ Every container shares the host network with **CycloneDDS pinned to localhost** 
 /cognibot/set_mode                                    cognibot_interfaces/srv/SetControlMode
 /cognibot/vlm/get_object_coordinates                  cognibot_interfaces/srv/GetObjectCoordinates
 /cognibot/sim/reset_objects                           std_srvs/srv/Trigger
+/cognibot/rlcd/decide                                 cognibot_interfaces/srv/Decide
+/cognibot/rlcd/unload                                 std_srvs/srv/Trigger
 /controller_manager/switch_controller                 controller_manager_msgs/srv/SwitchController
 /mujoco_ros2_control_node/set_free_joint_state        mujoco_ros2_control_msgs/srv/SetFreeJointState
 
@@ -110,9 +113,11 @@ Every container shares the host network with **CycloneDDS pinned to localhost** 
 /cognibot/agent/detections     cognibot_interfaces/ObjectDetection
 /cognibot/teleop/cmd           cognibot_interfaces/TeleopCommand
 /cognibot/gpu                  cognibot_interfaces/GpuStatus
+/cognibot/models               cognibot_interfaces/ModelStatus         (transient local + 2 s repeat)
+/cognibot/rlcd/decisions       cognibot_interfaces/Decision
 /joint_states                  sensor_msgs/JointState                  average rate: 99.96 Hz
 /object_poses/free_joint_states mujoco_ros2_control_msgs/FreeJointStateArray
-/mujoco_camera_plugin/front_rgbd/{color,depth,camera_info}
+/mujoco_camera_plugin/{front_rgbd,wrist_cam}/{color,depth,camera_info}
 ```
 
 The full contract, including message definitions, is in [docs/ROS_INTERFACES.md](docs/ROS_INTERFACES.md). Interfaces change doc-first, in the same commit as the `.msg`/`.srv`/`.action` file.
@@ -239,13 +244,20 @@ The simulator with cameras (≈ 0.6 GB), Qwen3-VL-4B (≈ 4 GB) and a SmolVLA se
 </details>
 
 <details>
-<summary><b>7. More, briefly</b></summary>
+<summary><b>7. A VLA that could not have succeeded, found by replay instead of trial and error</b></summary>
+
+The arena-trained SmolVLA checkpoint moved the arm but never lifted a cube. Rather than keep tuning the scene, each link was measured offline. **(a)** Fed its own training frames through its own processors, the policy reproduces the recorded actions (2.87° mean error over a 50-step chunk), so the checkpoint and units are right. **(b)** LeRobot's async server first resizes every frame to the checkpoint's declared image shape, 256×256 inherited from `smolvla_base`, although it trained on 640×480. The squashed frames raised the error to 4.66°. **Fix:** the local checkpoint variant declares the trained shape. **(c)** Our renders at the same joint states give 2.96°, so what the policy sees is no longer the gap. **(d)** Replaying the dataset's *own teacher actions* in our sim tracked every joint within about 1° yet touched no cube: at each recorded grasp the cube sits 1.85 cm from our jaw centre. A fit over 2,820 grasps points to a ~90° wrist-roll convention difference in the (unpublished) generator. That is why the checkpoint cannot solve our scene, and it would have taken a guess to find by trial and error.
+</details>
+
+<details>
+<summary><b>8. More, briefly</b></summary>
 
 - **MoveItPy segfaults** after installing ML packages: apt-built extensions link NumPy 1.26's ABI, so the core venv pins 1.26.4 and LeRobot (NumPy 2) lives in a separate image.
 - **Model download killed mid-flight:** llama-swap's 5-minute health check terminated `llama-server -hf` during a 2.5 GB download. Models are now pre-fetched at a pinned revision.
 - **Cube jitter in the browser:** arm and object poses arrive on separate rosbridge queues. Both are buffered and interpolated at a common simulation timestamp.
 - **Console locked in VLA:** direct VLA → MOTION is not allowed by the mode table. Clients retry through IDLE instead of loosening the safety contract.
 - **Launch tests flaking:** a running simulation on the same DDS domain made controller tests fail; tests run with the stack down.
+- **GPU gauge showing one model of three:** three latched publishers share `/cognibot/models`, and rosbridge's depth-1 reader keeps a single sample. Each publisher now repeats its status every 2 s.
 </details>
 
 ## Measured results
@@ -255,14 +267,16 @@ ASUS TUF F15: RTX 3060 Laptop (6 GB), Intel i5-11400H (6 cores), 40 GB RAM, with
 | What | Result |
 |---|---|
 | Agent: *"pick up the green cube and place it inside the black rectangle"* | **4/4** succeeded (including a reworded prompt and a different cube colour), ≈ 25 s per task |
-| Agent: three-cube stack (blue on green, red on blue) | **3/3** succeeded, ≈ 48 s; final heights 0.012 / 0.037 / 0.062 m |
+| Agent: three-cube stack (blue on green, red on blue) | **4/5** succeeded, ≈ 48–52 s; final heights 0.012 / 0.037 / 0.062 m (one run stacked the wrong cubes) |
+| RLCD Primitives: *"put the green cube on the black rectangle"* | **9/9** placed, ≈ 19 s per run, 33 ms per decision on the GPU; recovers from a missed grasp and a dropped cube |
 | Grounding error, 25 mm cube, oblique RGB-D | **≈ 1 mm** (top-face slab) vs 9 mm (box centre + median depth) |
 | Qwen3-VL-4B Q4_K_M, turn with image + tool schema | GPU **3.0 s**, 1212 tok/s prompt, **66.6 tok/s** generation · hybrid 6.2 s / 7.9 tok/s · CPU 15.2 s / 4.0 tok/s |
 | Policy streaming through the safety filter | 22–30 Hz commands; ACT inference 11 ms per 50-action chunk; SmolVLA (uncompiled) 331 ms per chunk, ≈ 2 GB VRAM |
+| SmolVLA arena checkpoint, open loop on its training frames | 50-step chunk error 2.87° (native 640×480) vs 4.66° (the server's old 256×256 squash); 2.96° on our renders at the same states |
 | Simulation | `/joint_states` 99.96 Hz, cameras 640×480 at ≥ 15 Hz, headless on EGL |
-| Tests | 49 ROS 2 tests (unit + launch_testing, GPU) · 29 dashboard unit tests · 19 agent/VLA tests in-image · GPU-free CI on every push |
+| Tests | 51 ROS 2 tests (unit + launch_testing, GPU) · 40 dashboard unit tests · 69 agent/VLA/RLCD tests in-image (vlm 17, vla 6 + LeRobot plugin 8, laya 38) · GPU-free CI on every push |
 
-**Honest limits.** None of the ~140 community SmolVLA/ACT SO-101 checkpoints I surveyed completes *this* scene's task, because they were trained with the camera on the opposite side of the table. The policy pipeline is verified end to end, but a policy that solves the scene needs a matching camera or a fine-tune (a scripted episode recorder is included). The safety filter enforces joint limits, velocity and a dead-man today; sphere-based collision checking is the next milestone.
+**Honest limits.** No community SmolVLA/ACT SO-101 checkpoint completes *this* scene's task. Most of the ~140 surveyed were trained with the camera on the opposite side of the table. The one trained in a matching MuJoCo arena sees our frames correctly, but its recorded grasps put the cube 1.85 cm from our jaws (a wrist-roll convention difference in its unpublished generator). The policy pipeline is verified end to end; a policy that solves the scene needs a fine-tune on this robot model (a scripted episode recorder is included). The safety filter enforces joint limits, velocity and a dead-man today; sphere-based collision checking is the next milestone.
 
 ## Quick start (Docker)
 
@@ -311,7 +325,7 @@ The centre screen always shows the robot; the soft keys only change what is besi
 
 ```text
 cognibot_ws/
-  docker/                 Dockerfile (interfaces · core · vlm · vla · tools), compose, CycloneDDS, llama-swap config
+  docker/                 Dockerfile (interfaces · core · vlm · vla · laya · tools), compose, CycloneDDS, llama-swap and Laya downloads
   src/
     cognibot_interfaces/  msgs · srvs · actions (AgentEvent, ControlMode, RunAgentTask, ExecuteSkill, FetchObject …)
     cognibot_common/      robot registry, QoS presets, MJCF tinting, GPU monitor
@@ -320,6 +334,7 @@ cognibot_ws/
     cognibot_teleop/      mink_teleop and pure teleop math
     cognibot_vlm/         grounding, tool schemas, agent loop, vlm_agent node, prompts
     cognibot_vla/         skill_executor, LeRobot robot plugin, checkpoint + episode scripts
+    cognibot_laya/        RLCD decision layer: scene → JSON, typed questions, pick-and-place stages, laya_decision node
     cognibot_bringup/     launch composition per service
   third_party.repos       vcstool pins for upstream ROS sources
 dashboard/                Vite + React + TypeScript operator console (roslibjs, three.js, MuJoCo WASM)
@@ -336,9 +351,10 @@ start.sh · Makefile       one-command start/stop and developer targets
 | P2 | MoveIt 2 + pick_ik, mink teleop, mode manager, safety filter, pick-and-place | ✅ working · collision spheres and REACH study next |
 | P3 | Teach-pendant web console | ✅ working · accessibility polish open |
 | P4 | Qwen3-VL tool-calling agent with 3D grounding | ✅ working in simulation · 30-scene evaluation open |
-| P5 | LeRobot SmolVLA/ACT inference with a VRAM handoff | 🟡 pipeline verified · no checkpoint yet solves this scene |
+| P5 | LeRobot SmolVLA/ACT inference with a VRAM handoff | 🟡 pipeline verified · no checkpoint yet solves this scene (needs a fine-tune) |
 | P6 | Digital twin with a real SO-101 (feetech_ros2_driver) | ⏳ planned |
 | P7 | Benchmarks, demo video, v1.0 | ⏳ planned |
+| P8 | RLCD decision layer (Laya): Skills and Primitives tracks | ✅ Primitives pick-and-place working · Skills weak zero-shot |
 
 Details: [PROJECT_PLAN](docs/PROJECT_PLAN.md) · [PROJECT_SCOPE](docs/PROJECT_SCOPE.md) · [CHANGELOG](CHANGELOG.md)
 
@@ -349,13 +365,13 @@ Details: [PROJECT_PLAN](docs/PROJECT_PLAN.md) · [PROJECT_SCOPE](docs/PROJECT_SC
 | [ARCHITECTURE](docs/ARCHITECTURE.md) | Services, packages, robot registry, control modes, data flows, safety geometry, frames |
 | [ROS_INTERFACES](docs/ROS_INTERFACES.md) | Every topic, service and action, with the custom message definitions |
 | [DEVLOG](docs/DEVLOG.md) | Engineering log: problems with root causes, decision trees, measurements |
-| [ADRs](docs/adr/README.md) | Seven architecture decision records |
+| [ADRs](docs/adr/README.md) | Eight architecture decision records |
 | [INTEGRATIONS](docs/INTEGRATIONS.md) | Every upstream component with its pin and the alternatives considered |
 | [VRAM_BUDGET](docs/VRAM_BUDGET.md) · [NETWORKING](docs/NETWORKING.md) · [SETUP](docs/SETUP.md) | GPU budget, DDS/ports/QoS, host preparation |
 
 ## Built on
 
-[MuJoCo](https://github.com/google-deepmind/mujoco) & [Menagerie](https://github.com/google-deepmind/mujoco_menagerie) · [mujoco_ros2_control](https://github.com/ros-controls/mujoco_ros2_control) · [so101-nexus](https://github.com/johnsutor/so101-nexus) · [MoveIt 2](https://moveit.ai) · [pick_ik](https://github.com/PickNikRobotics/pick_ik) · [mink](https://github.com/kevinzakka/mink) · [LeRobot](https://github.com/huggingface/lerobot) · [llama.cpp](https://github.com/ggml-org/llama.cpp) · [llama-swap](https://github.com/mostlygeek/llama-swap) · [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) · [rosbridge_suite](https://github.com/RobotWebTools/rosbridge_suite) · [roslibjs](https://github.com/RobotWebTools/roslibjs) · [three.js](https://threejs.org). Licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[MuJoCo](https://github.com/google-deepmind/mujoco) & [Menagerie](https://github.com/google-deepmind/mujoco_menagerie) · [mujoco_ros2_control](https://github.com/ros-controls/mujoco_ros2_control) · [so101-nexus](https://github.com/johnsutor/so101-nexus) · [MoveIt 2](https://moveit.ai) · [pick_ik](https://github.com/PickNikRobotics/pick_ik) · [mink](https://github.com/kevinzakka/mink) · [LeRobot](https://github.com/huggingface/lerobot) · [llama.cpp](https://github.com/ggml-org/llama.cpp) · [llama-swap](https://github.com/mostlygeek/llama-swap) · [Qwen3-VL](https://github.com/QwenLM/Qwen3-VL) · [Laya](https://github.com/NandhaKishorM/laya) · [rosbridge_suite](https://github.com/RobotWebTools/rosbridge_suite) · [roslibjs](https://github.com/RobotWebTools/roslibjs) · [three.js](https://threejs.org). Licenses: [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## License
 

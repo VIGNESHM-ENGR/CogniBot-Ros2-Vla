@@ -2,7 +2,7 @@
 
 Verifies:
 1. /mujoco_camera_plugin/front_rgbd/color and depth are published at >= 15 Hz.
-2. The known green cube in so101_pick_and_place.xml (pos: 0.0974, -0.1839, 0.01495)
+2. The known green cube in so101_pick_and_place.xml (pos: 0.274100, -0.019501, 0.012445)
    reprojects into front_rgbd camera frame within 10 px of the visual green-pixel centroid.
 """
 
@@ -143,21 +143,19 @@ class TestCameraReprojection(unittest.TestCase):
         img = np.frombuffer(last_color_msg.data, dtype=np.uint8).reshape((h, w, 3))
 
         # Find green cube centroid
-        # the arena-toned green (rgba 0.1 0.45 0.15) is dark: find it by hue, not brightness
-        g, r, b = img[:, :, 1].astype(int), img[:, :, 0].astype(int), img[:, :, 2].astype(int)
-        green_mask = (g > r + 40) & (g > b + 30)
+        green_mask = (img[:, :, 1] > 150) & (img[:, :, 0] < 80) & (img[:, :, 2] < 80)
         self.assertTrue(np.any(green_mask), "No green pixels found in camera image for green_cube")
 
         y_idx, x_idx = np.where(green_mask)
         u_centroid = float(np.mean(x_idx))
         v_centroid = float(np.mean(y_idx))
 
-        # Known spawn of green cube in world frame: (0.0974, -0.1839, 0.01495)
+        # Known spawn of green cube in world frame: (0.274100, -0.019501, 0.012445)
         # Camera in world frame: pos=(0.56, 0.08, 0.36),
         # quat=[0.651157, 0.651157, -0.275672, -0.275672]
         from scipy.spatial.transform import Rotation as R
 
-        p_world = np.array([0.0974, -0.1839, 0.01495])
+        p_world = np.array([0.274100, -0.019501, 0.012445])
         t_cam = np.array([0.56, 0.08, 0.36])
         cam_quat = [0.651157, 0.651157, -0.275672, -0.275672]
 
