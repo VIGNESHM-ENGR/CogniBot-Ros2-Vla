@@ -148,6 +148,29 @@ Live after the changes:
 
 ---
 
+## 2026-09-22 · owner request · Pendant layout: fixed viewport, controls beside the stop
+
+**Context:** the owner wanted to watch the robot while operating it rather than switch the whole screen between tabs: F1 should cycle the viewport, F2–F6 should fill a control panel under the stop, joints and GPU should move to the left, and the on-screen jog keys were redundant with keyboard jog.
+**Outcome:** ✅ `3307a28`. Checked in a browser at 1600×900 and 1280×800.
+
+### Work log
+- `lib/modes.ts`: `ViewId` is now the five panels; F1 (and V) cycle the source; the TELEOP help names the jog keys. `SoftKeys`: F1 is a momentary viewport key whose legend is the current source.
+- `App.tsx`: the centre well always renders `CameraView` (with the agent's detection on the front feed); the right grip is `EStop` + a `.sidepanel` that renders the chosen view; the left grip holds plate, mode key, joints and GPU. `JogBlock.tsx` and its styles removed.
+- `MotionView` and `AgentView` lost their own camera column; every view collapses to one column inside the panel through `.sidepanel` overrides.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | At 1280 px the soft-key caps overlapped the next key's icon and "Free look" wrapped | Six icon + legend + cap keys in a ~490 px column | F1 gets a 1.3× column, legends never wrap, icons drop below 1440 px | Playwright: no soft key overflows at either size |
+| 2 | The last joint and the GPU well were clipped at 900 px tall | The left grip was a flex stack and the mode dial only compacted below 860 px | Left grip as a grid (joints take the remaining height, GPU pinned), compact dial below 960 px | screenshot: six joints + GPU visible at 1600×900 |
+| 3 | A 1280 laptop still got the wide-screen grips (camera 488 px wide) | The compact grid started below 1280 px | Compact grips (216 / 344 px) below 1440 px | — |
+
+### Decisions
+- **Stop never scrolls:** the right grip is a two-row grid (stop, panel) and only the panel scrolls, so the stop sits at the same place on every panel (Playwright: `stopTop = 30` on all five).
+- **Keyboard-only jog:** the on-screen keys duplicated W/S, A/D, ↑/↓, Q/E, ←/→, G; the mode key's TELEOP help lists them. Revisit if the console is used on a touch screen.
+
+---
+
 ## 2026-09-22 · P8-T02…T06, P8-T08 · RLCD decision layer: `laya` service, both tracks, RLCD screen
 
 **Context:** the owner asked for both tracks of ADR-0008 to ship behind one `RLCD` screen after `VLA`, with the track selectable, and for the stack to come up so it can be tried.
