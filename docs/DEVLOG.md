@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-22 | owner request | Full-stack control-path test: VLM, VLA, RLCD primitives and skills | test |
 | 2026-09-22 | owner request (P8) | Track B as a full pick-and-place; decisions on the GPU | feat |
 | 2026-09-22 | owner request | Pendant layout: fixed viewport, controls beside the stop | feat |
 | 2026-09-22 | owner request (P8) | RLCD model performance: legal-action masks, worded gaps, task binding, per-track gates | fix |
@@ -93,6 +94,26 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-22 · owner request · Full-stack control-path test: VLM, VLA, RLCD primitives and skills
+
+**Context:** a clean `make full` start and every control path driven through its ROS 2 action, scene reset between tests, verdicts from the cube's pose.
+**Outcome:** 🟡 1/4 as started, 2/4 with the memory conflict removed. Full report with logs, GPU timeline and fixes: [reports/2026-09-22-full-stack-test.md](reports/2026-09-22-full-stack-test.md).
+
+| Path | Verdict | Cause |
+|---|---|---|
+| VLM agent | ❌ 502 → ✅ with `laya` stopped (placed, 27 s) | llama-server out of GPU memory: Laya on the GPU (today) + Qwen3-VL + sim ≈ 6 GB; VRAM peak 5779 MiB |
+| VLA policy | pipeline ✅ (30 Hz, modes clean), task ❌ (cube moved 0.2 cm) | checkpoint/viewpoint mismatch (known) and 17.4 s of the 60 s budget spent loading the policy |
+| RLCD primitives | ✅ placed, 15 s, 16 decisions | — (first jog after entering TELEOP is lost; minor) |
+| RLCD skills | ❌ escalated at step 0 (confidence 0.08) | Track A's empty-gripper decision (known) |
+
+### Open questions / follow-ups
+- [ ] F1: Laya on the CPU in the full profile (or unload while the VLM/VLA run) — blocks the VLM in `make full`.
+- [ ] F2: start the VLA time budget at the first action; a checkpoint for this viewpoint.
+- [ ] F3: Track A needs a fine-tune or the stage treatment Track B got.
+- [ ] F4: wait for `/cognibot/teleop/ee_target` before the first primitive.
+
+---
 
 ## 2026-09-22 · owner request (P8) · Track B as a full pick-and-place; decisions on the GPU
 
