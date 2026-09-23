@@ -117,7 +117,7 @@ def skill_state(
     return fit_budget(build, objects, gripper, max_objects)
 
 
-def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.005) -> str:
+def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.002) -> str:
     """Where the target is from the gripper, in words, largest distance first.
 
     Measured on the shipped checkpoints: given only signed centimetres (`"left": 17.0`) the model
@@ -130,11 +130,18 @@ def worded_gap(gripper: Pose, target: SceneObject | Pose, min_m: float = 0.005) 
         ("left", "right", target.y - gripper.y),
         ("up", "down", target.z - gripper.z),
     ):
-        cm = round(abs(delta) * 100)
-        # A part that rounds to "0 cm back" reads as an instruction to move back: drop it.
-        if abs(delta) >= min_m and cm > 0:
-            direction = positive if delta > 0 else negative
-            parts.append((abs(delta), f"{cm} cm {direction}"))
+        if abs(delta) < min_m:
+            continue
+        direction = positive if delta > 0 else negative
+        # Millimetres under a centimetre: rounding the last centimetre to "1 cm" (or to "0 cm",
+        # which reads as an instruction to move) leaves the model steering blind exactly where
+        # the grasp and release windows are.
+        text = (
+            f"{round(abs(delta) * 1000)} mm {direction}"
+            if abs(delta) < 0.01
+            else f"{round(abs(delta) * 100)} cm {direction}"
+        )
+        parts.append((abs(delta), text))
     parts.sort(reverse=True)
     if not parts:
         return "at the gripper"

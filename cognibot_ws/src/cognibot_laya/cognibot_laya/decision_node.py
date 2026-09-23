@@ -64,6 +64,7 @@ from cognibot_laya.pickplace import (
 from cognibot_laya.questions import (
     guard_questions,
     legal_motions,
+    motions_toward,
     primitive_questions,
     skill_questions,
 )
@@ -615,15 +616,30 @@ class DecisionNode(Node):
         self._event(handle, AgentEvent.INFO, f"target: {found.label} ({source})", "laya")
         return found
 
-    def _target_area(self, task: str) -> Area:
-        """The area the task names (or the first fixed feature), with its half extents."""
+    def _target_area(self, task: str, moving: str = "") -> Area:
+        """Where the cube goes: the last thing the task names that isn't the cube being moved.
+
+        A fixed feature (the black rectangle) is a flat area; another cube is a stack, and its
+        top face is the surface to release onto. With nothing named, the first fixed feature.
+        """
+        objects = self.scene()
+        for label in reversed(labels_in_task(task, [o.label for o in objects])):
+            if label == moving:
+                continue
+            found = next(o for o in objects if o.label == label)
+            return self._area_of(found)
         statics = list(self.statics.values())
         if not statics:
             raise RuntimeError("no target area configured (static_objects)")
-        named = labels_in_task(task, [o.label for o in statics])
-        area = next((o for o in statics if named and o.label == named[-1]), statics[0])
+        return self._area_of(statics[0])
+
+    def _area_of(self, obj: SceneObject) -> Area:
+        """A destination's surface and half extents: a cube's top face, or the marked area."""
+        if obj.movable:
+            half = float(self.get_parameter("cube_half_height").value)
+            return Area(obj.label, obj.x, obj.y, obj.top, half, half)
         hx, hy = (float(v) for v in self.get_parameter("target_half_extents").value)
-        return Area(area.label, area.x, area.y, area.z, hx, hy)
+        return Area(obj.label, obj.x, obj.y, obj.z, hx, hy)
 
     def _jog(self, primitive: str, distance: float = 0.0) -> None:
         """Publish one primitive as teleop commands; mink integrates them into joint targets."""
@@ -686,8 +702,10 @@ class DecisionNode(Node):
         self, handle, task: str, min_confidence: float, deadline: float
     ) -> tuple[bool, str, int]:
         target = self._pick_target(handle, task, min_confidence)
-        area = self._target_area(task)
-        self._event(handle, AgentEvent.INFO, f"target area: {area.label}", "laya")
+        area = self._target_area(task, moving=target.label)
+        stacking = area.label not in self.statics
+        where = f"on top of the {area.label}" if stacking else f"the {area.label}"
+        self._event(handle, AgentEvent.INFO, f"destination: {where}", "laya")
         self._go_ready(handle)
         # mink_teleop requests TELEOP on its first command, but modes.yaml refuses MOTION → TELEOP,
         # and a refused request drops every jog silently. Enter TELEOP here, through IDLE.
@@ -711,10 +729,18 @@ class DecisionNode(Node):
                 raise Canceled
             if time.monotonic() > deadline:
                 return False, "out of time", decisions
+            objects = self.scene()
             gripper = self.gripper_pose()
-            cube = next((o for o in self.scene() if o.label == target.label), None)
+            cube = next((o for o in objects if o.label == target.label), None)
             if gripper is None or cube is None:
                 return False, "lost the gripper transform or the cube pose", decisions
+            if stacking:
+                # A cube destination can itself be moved (or knocked over) mid-run: read its top
+                # face again every step, the same way the stage is read from the poses.
+                destination = next((o for o in objects if o.label == area.label), None)
+                if destination is None:
+                    return False, f"lost the {area.label}", decisions
+                area = self._area_of(destination)
             stage = plan_stage(cube, gripper, self._gripper_open, was_held, area, previous, g)
             if stage.cube_state == IN_GRIPPER:
                 was_held = True
@@ -763,9 +789,17 @@ class DecisionNode(Node):
                     f"{why}",
                     decisions,
                 )
+            # Only motions that shorten this gap are offered: one away from the aim travels a
+            # full step and undoes the last one, which the model then repeats (DEVLOG 2026-09-23).
+            toward = motions_toward(
+                (stage.aim.x - gripper.x, stage.aim.y - gripper.y, stage.aim.z - gripper.z)
+            )
             state = stage_state(task, stage, cube, gripper, self._gripper_open, area)
             payload, latency = self._decide(
-                handle, state, primitive_questions(legal_motions(frozenset(blocked))), task
+                handle,
+                state,
+                primitive_questions(legal_motions(frozenset(blocked), toward)),
+                task,
             )
             decisions += 1
             action, _answers = primitive_action(payload, min_confidence)

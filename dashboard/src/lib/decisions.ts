@@ -12,7 +12,7 @@ export const TRACKS = [
     id: 1,
     label: "Primitives",
     legend: "Primitive per step",
-    help: "Pick and place by motions: the model picks one move per step toward the current stage (above the cube, onto it, lift, carry, lower). Grasp, release and drop checks come from the cube's pose.",
+    help: "Pick and place by motions: the model picks one move per step toward the current stage (above the cube, onto it, lift, carry, lower). Name where it goes — the black rectangle or another cube — and it releases above that surface. Grasp, release and drop checks come from the cube's pose.",
   },
 ] as const;
 

@@ -1,5 +1,6 @@
 import math
 
+import pytest
 from cognibot_laya.pickplace import (
     IN_GRIPPER,
     MISSED,
@@ -10,6 +11,7 @@ from cognibot_laya.pickplace import (
     Geometry,
     jaw_centre,
     jog_distance,
+    place_tolerances,
     plan_stage,
     stage_state,
     toward_base,
@@ -98,8 +100,51 @@ def test_the_model_state_carries_positions_and_the_worded_direction():
     assert "position_cm" not in stage_state("t", s, CUBE, Pose(0, 0, 0), True, AREA, False)["cube"]
 
 
-def test_a_jog_stops_at_the_aim_along_its_axis_but_a_wrong_way_jog_is_a_full_step():
+def test_a_jog_stops_at_the_aim_along_its_axis_and_a_wrong_way_jog_is_small():
+    """A full step away from the aim undoes the step before it; the pair then repeats."""
     here, aim = Pose(0.30, 0.0, 0.10), Pose(0.30, 0.0, 0.09)
     assert math.isclose(jog_distance("down", here, aim, 0.025), 0.01)
-    assert math.isclose(jog_distance("up", here, aim, 0.025), 0.025)
+    assert math.isclose(jog_distance("up", here, aim, 0.025), 0.005)
     assert math.isclose(jog_distance("down", here, Pose(0.3, 0.0, 0.0999), 0.025), 0.003)
+
+
+CUBE_AREA = Area("green cube", 0.274, -0.020, 0.025, 0.0125, 0.0125)
+
+
+def test_place_tolerances_leave_the_marked_area_as_measured():
+    assert place_tolerances(AREA, G) == (G.align, G.realign, G.fine_reach)
+
+
+def test_place_tolerances_tighten_on_a_cube():
+    align, realign, release = place_tolerances(CUBE_AREA, G)
+    assert align == pytest.approx(0.005)
+    assert realign > align
+    assert release == pytest.approx(0.00625)
+
+
+def test_a_cube_destination_is_carried_until_it_is_aligned():
+    """1 cm off the cube is close enough for the rectangle but must not start a descent here."""
+    dx, dy = toward_base(CUBE_AREA.x, CUBE_AREA.y, G.grasp_offset)
+    gripper = Pose(dx + 0.01, dy, CUBE_AREA.z + G.lifted + 0.02)  # already lifted clear
+    jaw = jaw_centre(gripper, G)
+    cube = SceneObject("red cube", jaw.x, jaw.y, jaw.z, jaw.z + 0.0125)
+    stage = plan_stage(cube, gripper, False, True, CUBE_AREA, "", G)
+    assert stage.name == "carry the red cube above the green cube"
+
+
+def test_a_cube_released_on_top_counts_as_placed():
+    stacked = SceneObject("red cube", CUBE_AREA.x, CUBE_AREA.y, 0.0375, 0.05)
+    assert CUBE_AREA.contains(stacked)
+    beside = SceneObject("red cube", CUBE_AREA.x + 0.025, CUBE_AREA.y, 0.0125, 0.025)
+    assert not CUBE_AREA.contains(beside)
+
+
+def test_the_drop_is_aimed_so_the_held_cube_lands_centred():
+    """A cube gripped 8 mm off centre must be released 8 mm the other side of the target."""
+    gripper = Pose(0.24, 0.0, CUBE_AREA.z + G.lifted + 0.02)
+    jaw = jaw_centre(gripper, G)
+    cube = SceneObject("red cube", jaw.x, jaw.y + 0.008, jaw.z, jaw.z + 0.0125)
+    stage = plan_stage(cube, gripper, False, True, CUBE_AREA, "", G)
+    assert stage.name == "carry the red cube above the green cube"
+    dx, dy = toward_base(CUBE_AREA.x, CUBE_AREA.y, G.grasp_offset)
+    assert stage.aim.y == pytest.approx(dy - 0.008)

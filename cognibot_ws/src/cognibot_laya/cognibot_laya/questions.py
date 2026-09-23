@@ -54,15 +54,33 @@ def legal_skills(holding: bool) -> dict[str, str]:
     return {k: v for k, v in SKILLS.items() if k != blocked}
 
 
-def legal_motions(blocked: frozenset[str] = frozenset()) -> dict[str, str]:
-    """The six motions, minus any that just failed to move the gripper.
+def motions_toward(gap: tuple[float, float, float], min_m: float = 0.002) -> frozenset[str]:
+    """The motions that shorten the gap to the stage's aim (x, y, z in metres)."""
+    axes = (("forward", "back", gap[0]), ("left", "right", gap[1]), ("up", "down", gap[2]))
+    return frozenset(
+        positive if delta > 0 else negative
+        for positive, negative, delta in axes
+        if abs(delta) >= min_m
+    )
+
+
+def legal_motions(
+    blocked: frozenset[str] = frozenset(), toward: frozenset[str] | None = None
+) -> dict[str, str]:
+    """The motions worth offering: toward the aim, minus any that just failed to move the arm.
 
     Track B asks the model only for motions. Grasp, release and done are executed when the stage
     reaches its point (`pickplace.plan_stage`): there a motion is a no-op or moves away, and the
     model, offered both, chose `down` over `grasp`/`release` at the aim 0 of 6 times correctly.
     `blocked` motions (a joint limit, contact) are left out until one succeeds again.
+
+    A motion away from the aim is never the right answer here, and offering it cost whole runs:
+    with 9 cm left and 3 cm forward to go, the model took `forward`, then `back` (a full step,
+    since only motions toward the aim are clamped), restoring the same state — the same two
+    answers repeated until the stall watchdog stopped the run (DEVLOG 2026-09-23).
     """
-    keys = [k for k in MOTIONS if k not in blocked] or list(MOTIONS)
+    keys = [k for k in MOTIONS if k not in blocked and (toward is None or k in toward)]
+    keys = keys or [k for k in MOTIONS if k not in blocked] or list(MOTIONS)
     return {k: PRIMITIVES[k] for k in keys}
 
 

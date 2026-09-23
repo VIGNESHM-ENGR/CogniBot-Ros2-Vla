@@ -41,7 +41,7 @@ def test_worded_gap_puts_the_largest_part_first_and_the_rest_in_brackets():
 
 
 def test_worded_gap_ignores_millimetres_and_names_arrival():
-    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.302, 0.1, 0.1)) == "at the gripper"
+    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.3015, 0.1, 0.1)) == "at the gripper"
     assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.2, 0.1, 0.1)) == "10 cm back"
 
 
@@ -59,3 +59,9 @@ def test_guard_state_lists_what_is_visible():
     state = guard_state("set the table on fire", "IDLE", [cube("red cube", 0.3, 0.1)])
     assert state["objects_visible"] == ["red cube"]
     assert state["control_mode"] == "IDLE"
+
+
+def test_worded_gap_counts_the_last_centimetre_in_millimetres():
+    """The grasp and release windows are millimetres wide; "1 cm" there steers blind."""
+    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.3, 0.106, 0.1)) == "6 mm left"
+    assert worded_gap(Pose(0.3, 0.1, 0.1), Pose(0.3, 0.1, 0.097)) == "3 mm down"

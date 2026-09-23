@@ -6,6 +6,7 @@ from cognibot_laya.questions import (
     guard_questions,
     legal_motions,
     legal_skills,
+    motions_toward,
     primitive_questions,
     questions_fit,
     skill_questions,
@@ -52,3 +53,15 @@ def test_every_question_set_fits_the_marker_budget():
 def test_an_overlong_option_set_is_rejected():
     bad = {"q": {"type": "choice", "criteria": {f"o{i}": "x" * 200 for i in range(12)}}}
     assert not questions_fit(bad)
+
+
+def test_only_motions_toward_the_aim_are_offered():
+    """The limit cycle: 9 cm left and 3 cm forward offered `back`, which undid every `forward`."""
+    toward = motions_toward((0.03, 0.09, 0.0))
+    assert toward == {"forward", "left"}
+    assert set(legal_motions(toward=toward)) == {"forward", "left"}
+
+
+def test_a_blocked_motion_falls_back_to_the_rest():
+    toward = motions_toward((0.0, 0.09, 0.0))
+    assert set(legal_motions(frozenset({"left"}), toward)) == set(MOTIONS) - {"left"}

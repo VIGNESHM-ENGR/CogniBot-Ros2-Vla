@@ -41,7 +41,11 @@ class Geometry:
 
 @dataclass(frozen=True)
 class Area:
-    """A marked area on the table: centre and half extents in metres (base frame)."""
+    """Where a cube is released: a marked area, or another cube's top face.
+
+    `z` is the surface height the cube is laid on, so a stack passes the destination cube's
+    top and half its width; the release point is `drop_clearance` above it either way.
+    """
 
     label: str
     x: float
@@ -51,10 +55,11 @@ class Area:
     half_y: float
 
     def contains(self, p: SceneObject | Pose, height: float = 0.03) -> bool:
+        """On this surface: inside its extents and resting on it, not beside or under it."""
         return (
             abs(p.x - self.x) <= self.half_x
             and abs(p.y - self.y) <= self.half_y
-            and p.z <= self.z + height
+            and self.z - 0.01 <= p.z <= self.z + height
         )
 
 
@@ -106,6 +111,17 @@ def horizontal(a: Pose, b: Pose) -> float:
     return math.hypot(a.x - b.x, a.y - b.y)
 
 
+def place_tolerances(area: Area, g: Geometry) -> tuple[float, float, float]:
+    """Start-descent, abort-descent and release windows for one destination, in metres.
+
+    A cube released more than half its width off centre topples; the marked area keeps the
+    measured 9/9 windows because its half extents are far larger than they are.
+    """
+    half = min(area.half_x, area.half_y)
+    scale = min(1.0, 0.4 * half / g.align)
+    return g.align * scale, g.realign * scale, min(g.fine_reach, 0.5 * half)
+
+
 def plan_stage(
     cube: SceneObject,
     gripper: Pose,
@@ -121,6 +137,11 @@ def plan_stage(
     gx, gy = toward_base(cube.x, cube.y, g.grasp_offset)
     grasp = Pose(gx, gy, cube.z)
     dx, dy = toward_base(area.x, area.y, g.grasp_offset)
+    if state == IN_GRIPPER:
+        # The cube is rarely centred in the jaws: the grasp window is wider than the cube is
+        # allowed to be off a stack. Aim the drop so the *cube* lands on the destination centre.
+        jaw = jaw_centre(gripper, g)
+        dx, dy = dx - (cube.x - jaw.x), dy - (cube.y - jaw.y)
     drop = Pose(dx, dy, area.z + g.drop_clearance)
 
     if state == PLACED:
@@ -129,17 +150,21 @@ def plan_stage(
     if state in (MISSED, SLIPPED) and not gripper_open:
         return Stage("open the gripper to try again", gripper, math.inf, "release", state)
     if state == IN_GRIPPER:
-        if cube.z < area.z + g.lifted and horizontal(gripper, drop) > g.realign:
+        # Tolerances scale with the destination: the rectangle forgives 1.5 cm, the top of a
+        # 2.5 cm cube does not — descending misaligned there pushes the cube away instead of
+        # landing on it.
+        align, realign, release_reach = place_tolerances(area, g)
+        if cube.z < area.z + g.lifted and horizontal(gripper, drop) > realign:
             lift = Pose(gripper.x, gripper.y, grasp.z + g.hover)
             return Stage(f"lift the {label}", lift, g.coarse_reach, "", state)
         lowering = previous.startswith("lower the")
-        if horizontal(gripper, drop) > (g.realign if lowering else g.align):
+        if horizontal(gripper, drop) > (realign if lowering else align):
             above = Pose(drop.x, drop.y, drop.z + g.hover)
             return Stage(
                 f"carry the {label} above the {area.label}", above, g.coarse_reach, "", state
             )
         return Stage(
-            f"lower the {label} onto the {area.label}", drop, g.fine_reach, "release", state
+            f"lower the {label} onto the {area.label}", drop, release_reach, "release", state
         )
     # On the table (or just released a missed grasp): approach from above, then descend.
     descending = previous.startswith("lower onto")
@@ -191,7 +216,8 @@ def jog_distance(primitive: str, gripper: Pose, aim: Pose, step: float) -> float
     """How far a chosen motion travels: one step, but not past the aim along that axis.
 
     The model picks the direction; this is the servo. Without it a fixed 2.5 cm step cannot
-    settle inside a 1.2 cm grasp window. A motion away from the aim still travels a full step.
+    settle inside a 1.2 cm grasp window. A motion away from the aim (only reachable when every
+    motion toward it is blocked) travels one `min_jog`, not a full step that undoes the last one.
     """
     axis = {"forward": (0, 1), "back": (0, -1), "left": (1, 1), "right": (1, -1)}.get(primitive)
     if primitive in ("up", "down"):
@@ -201,5 +227,5 @@ def jog_distance(primitive: str, gripper: Pose, aim: Pose, step: float) -> float
     index, sign = axis
     gap = (aim.x - gripper.x, aim.y - gripper.y, aim.z - gripper.z)[index] * sign
     if gap <= 0:
-        return step
+        return 0.005
     return max(min(step, gap), 0.003)
