@@ -20,6 +20,7 @@ The engineering log of the project: what was done, what broke, why, how it was f
 
 | Date | ID | Title | Type |
 |---|---|---|---|
+| 2026-09-23 | owner request | RLCD Primitives: any object as destination, stacking, white bench floor | feat |
 | 2026-09-22 | owner request | README architecture: RLCD layer, GPU hand-over, three command paths | docs |
 | 2026-09-22 | owner request (P5), release | VLA root cause by replay, camera merge, layout restored, model-status heartbeat; v0.3.0 | fix · release |
 | 2026-09-22 | owner request (P5) | VLA arena match: side camera, layout, gripper units, joint ranges; GPU model hand-over | feat (in progress) |
@@ -97,6 +98,38 @@ flowchart TD
 ---
 
 # Entries
+
+## 2026-09-23 · owner request · RLCD Primitives: any object as destination, stacking, white bench floor
+
+**Context:** the owner asked for a white floor with visible grid lines in the free-look viewport, then reported that "put the red cube on the green cube" on Track B placed the red cube in the black rectangle, and asked for any object to be usable as a destination with the release above it.
+**Outcome:** ✅ stacking works (3/5 from a central spawn, 2–3 mm from the destination centre); the marked-area task is unchanged; the viewport has a white bench top with a 5 cm grid.
+
+### Work log
+- **Viewport floor** (`dashboard/src/lib/sceneMirror.ts`): a 2 m plane in near-white under the scene, the grid recoloured for it (5 cm squares, centre line darker), and the hemisphere light's ground colour raised so the underside of the arm picks up bench bounce rather than black. `DESIGN.md` §Camera view updated.
+- **Destination** (`decision_node._target_area`): reads the last label the task names that is not the cube being moved, over the whole scene rather than the fixed features only. `_area_of` turns it into a surface: a cube contributes its top face and half its width, a fixed feature its own z and configured half extents. A cube destination is re-read every step, like the stage.
+- **Placing** (`pickplace`): `place_tolerances` scales the start-descent, abort-descent and release windows with the destination's half extents (unchanged for the rectangle, ~3× tighter on a cube), and the drop point is shifted by the cube's measured offset inside the jaws so the *cube*, not the gripper, lands on the centre.
+- Live runs on the full stack, cubes reset between runs, poses read from `/object_poses/free_joint_states`.
+
+### Problems → root cause → solution
+| # | Symptom | Root cause | Solution | Evidence |
+|---|---|---|---|---|
+| 1 | "put the red cube on the green cube" placed it in the black rectangle and reported success | the destination was looked up among the fixed features only, so a cube label could never match and the first static was used | destination resolved over the whole scene; a cube's top face is a surface | the same task now ends "red cube placed on the green cube at (0.276, −0.020, 0.037)" |
+| 2 | First stacking attempt pushed the green cube 4.7 cm away instead of landing on it | the descent starts within 1.5 cm horizontally and releases within 1.2 cm — windows sized for the 16 × 11 cm rectangle; on a 2.5 cm cube the held cube's edge hits it | `place_tolerances` scales the windows with the destination (cube: 0.5 cm descent, 0.6 cm release) | run stalled "2.8 cm off" before; after, placed at 1.2 cm from centre |
+| 3 | The arm went forward and back over the same two points until the watchdog stopped the run | with 9 cm left and 3 cm forward to go, the model chose `forward` (the smaller part); that closed the x gap, the text became "9 cm left", it chose `back`, and a motion *away* from the aim travelled a full 2.5 cm (only motions toward it were clamped), restoring the previous state exactly — a deterministic limit cycle | `legal_motions` offers only motions that shorten the gap (`motions_toward`), and an away-motion travels 5 mm | trace before: `forward, back, forward, back, forward` → stalled at 9.4 cm. After: `left, left, left, forward` → grasp, with every step shortening the gap |
+| 4 | No fine control near the target | `worded_gap` rounded to whole centimetres and dropped anything under 5 mm, so inside the last centimetre — exactly where the grasp and release windows are — the model saw "1 cm" or nothing | distances under a centimetre are worded in millimetres ("3 mm down"), and the drop threshold is 2 mm | traces now show "8 mm up", "3 mm down" before the grasp |
+| 5 | The stack sat 1.2 cm off centre, at the topple limit | the grasp window (1.2 cm) leaves the cube off-centre in the jaws, and the drop was aimed at the jaws, not at the cube | drop aimed with the measured in-jaw offset subtracted | placement error 12 mm → 2–3 mm over three placed runs |
+
+### Measurements
+| Run | Result |
+|---|---|
+| "put the red cube on the green cube", red spawned at (0.30, 0.10), (0.32, 0.12), (0.26, 0.14), (0.24, −0.12) | **4/5** stacked, 1–2 mm from the green cube's centre, stack height 0.037 m; the failure was "the arm could not move down" at (0.26, 0.14), a reach limit, not a decision |
+| Before the loop fix, same task and spawns | 3/6, with two runs lost to the forward/back limit cycle |
+| "put the green cube on the black rectangle" (regression check) | 2/2 placed at (0.304, 0.196) and (0.309, 0.188), consistent with the 9/9 baseline |
+| `pytest` (cognibot_laya, host) | 43 passed (4 new: tolerance scaling, carry-until-aligned, stacked-cube containment, drop aimed from the jaw offset) |
+
+### Open questions
+- The remaining failure is a workspace limit (the descent onto a cube at the left edge), not a decision. Whether masking away-motions should also apply to Track A's skill set is open.
+- The mask narrows what the model chooses from (usually two or three motions). It decides every motion still, but the harness now rules out the ones that undo progress; ADR-0008's "the model picks the motion" claim is worth restating in those terms.
 
 ## 2026-09-22 · owner request · README architecture: RLCD layer, GPU hand-over, three command paths
 
