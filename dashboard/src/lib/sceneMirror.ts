@@ -21,6 +21,7 @@ export interface ObjectPose {
 }
 
 const ROBOT_RED = new THREE.Color(0.72, 0.07, 0.07);
+const FLOOR_SPAN = 2; // metres of bench top drawn under the arm, 5 cm grid squares
 const MAX_VISUAL_GROUP = 2;
 
 export class SceneMirror {
@@ -52,11 +53,19 @@ export class SceneMirror {
     this.controls.addEventListener("change", () => this.requestRender());
     this.controls.update();
 
-    this.scene.add(new THREE.HemisphereLight(0xdfe6ea, 0x1a1d1f, 1.6));
+    // A white bench top under the arm: the robot, the green cube and the black target all read
+    // against it on a screen recording, and the 5 cm grid gives the scale the scene has no ruler for.
+    this.scene.add(new THREE.HemisphereLight(0xdfe6ea, 0x9aa1a0, 1.6));
     const key = new THREE.DirectionalLight(0xffffff, 2.2);
     key.position.set(1, -1, 2);
     this.scene.add(key);
-    const grid = new THREE.GridHelper(2, 40, 0x2f3a3f, 0x1f272b);
+    const floor = new THREE.Mesh(
+      new THREE.PlaneGeometry(FLOOR_SPAN, FLOOR_SPAN),
+      new THREE.MeshStandardMaterial({ color: 0xf1f2ee, roughness: 0.95, metalness: 0 }),
+    );
+    floor.position.z = -0.002;
+    this.scene.add(floor);
+    const grid = new THREE.GridHelper(FLOOR_SPAN, FLOOR_SPAN / 0.05, 0x4c565b, 0x9aa4a8);
     grid.rotation.x = Math.PI / 2;
     this.scene.add(grid);
 
@@ -203,7 +212,7 @@ export class SceneMirror {
         geometry = new THREE.CylinderGeometry(sx, sx, 2 * sy, 32).rotateX(Math.PI / 2);
       else if (type === G.mjGEOM_CAPSULE.value)
         geometry = new THREE.CapsuleGeometry(sx, 2 * sy, 8, 16).rotateX(Math.PI / 2);
-      else continue; // planes: the grid stands in for the floor
+      else continue; // planes: the bench top and its grid stand in for the floor
 
       const mat = matId[g] as number;
       const rgba =

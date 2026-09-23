@@ -221,7 +221,7 @@ Deep `well` background, 1 px strong screen rule, safety-yellow border and caret 
 
 ### Viewport sources
 
-The Camera view shows one source full size — Free look (default), Front RGB-D or Wrist — and the other two as clickable insets stacked at the lower right (24% wide, 4:3, 8 px radius, strong screen-rule ring). `V` cycles the main source; a small label at the lower left names it. Free look is a three.js mirror of the simulator's own MJCF on the screen-black ground with a hairline grid, robot shell in the recolored red; it renders only when state or the orbit changes, and its View key resets the camera.
+The Camera view shows one source full size — Free look (default), Front RGB-D or Wrist — and the other two as clickable insets stacked at the lower right (24% wide, 4:3, 8 px radius, strong screen-rule ring). `V` cycles the main source; a small label at the lower left names it. Free look is a three.js mirror of the simulator's own MJCF on a white bench top with a 5 cm grid in screen-rule grey, robot shell in the recolored red; it renders only when state or the orbit changes, and its View key resets the camera.
 
 ### VLA view
 
