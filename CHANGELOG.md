@@ -9,12 +9,12 @@ The engineering narrative (problems, root causes, decision trees) lives in [docs
 ## [0.3.1] - 2026-09-23
 
 ### Added
-- RLCD Primitives can stack: the destination is whatever the task names last — the black rectangle or another cube — and the cube is released above that surface (a cube's top face). Naming a cube used to be ignored silently and everything went into the rectangle.
+- RLCD Primitives take any object in the scene as the destination: the task names where the cube goes — the marked rectangle or another cube — and the release point is the clearance above that surface (a cube's top face), so cubes can be stacked.
 
 ### Changed
-- RLCD Primitives no longer stall in a two-move loop: only motions that shorten the gap to the current aim are offered, and a motion away from it travels 5 mm instead of a full step. Distances under a centimetre are given to the model in millimetres, so it can steer inside the grasp and release windows.
-- RLCD Primitives place accuracy: the release point is aimed from the cube's measured offset inside the jaws, and the descent and release windows scale with the destination (12 mm → 1–2 mm from the centre when stacking; the marked area keeps its measured windows).
-- Free-look 3D viewport: the robot now stands on a white bench top with a visible 5 cm grid instead of a dark ground, so the arm, cube and target read on a screen recording.
+- RLCD Primitives motion selection: the model is offered the motions that shorten the gap to the current aim, and distances under a centimetre are given to it in millimetres, which keeps long approaches converging and allows steering inside the grasp and release windows.
+- RLCD Primitives placement accuracy: the release point accounts for how the cube sits in the jaws, and the descent and release windows scale with the size of the destination (1–2 mm from the centre when stacking; the marked area keeps its measured windows).
+- Free-look 3D viewport: the scene is drawn on a white bench top with a visible 5 cm grid, which reads better on screen recordings and gives the scene a scale reference.
 - README architecture: the system figure is redrawn with the RLCD decision layer, the `laya` and `dashboard` services and the GPU hand-over; a table compares the three ways to command the arm, and a new sequence diagram shows an RLCD Primitives run.
 
 ## [0.3.0] - 2026-09-22
